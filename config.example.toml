@@ -1,0 +1,21 @@
+# Copy to config.toml and fill in.
+
+# The node only acts on direct messages; channel messages are ignored.
+
+# Admins may run admin commands (advert). Pubkey prefixes, 12 hex chars.
+[admin]
+keys = ["a1b2c3d4e5f6"]
+
+# One section per approved user, keyed by their pubkey prefix (12 hex chars,
+# shown in the console for direct messages). Having a section is what allows
+# the user to run restricted commands (notify_*). Each notify_* key lists
+# where that user's messages are emailed; notify_email needs no addresses here.
+
+[users.a1b2c3d4e5f6]
+name = "Alice"  # for reference only
+notify_default = "someone@example.com"
+notify_group = ["someone@example.com", "someone.else@example.com"]
+
+[users.f6e5d4c3b2a1]
+name = "Bob"
+notify_default = "bobs.partner@example.com"

@@ -1,0 +1,15 @@
+# Runtime configuration: holds real email addresses and node keys.
+# Copy config.example.toml to config.toml instead.
+config.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
