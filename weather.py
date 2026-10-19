@@ -5,7 +5,7 @@ import urllib.error
 import urllib.request
 
 # api.weather.gov rejects requests without a User-Agent identifying the app.
-USER_AGENT = "meshcore-listener (weather lookup)"
+USER_AGENT = "mesh-contingency (weather lookup)"
 NWS_API = "https://api.weather.gov"
 # api.weather.gov has no zipcode lookup, so resolve the zip to lat/lon first.
 ZIP_API = "https://api.zippopotam.us/us"

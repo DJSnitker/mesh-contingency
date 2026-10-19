@@ -15,6 +15,7 @@ from meshcore import EventType, MeshCore
 
 from commands import ADMIN, PUBLIC, USER, CommandError, Sender, build_commands, load_admins, load_users
 from commands.base import MAX_REPLY_LEN
+from contacts import load_auto_add, setup_auto_add
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.toml")
 
@@ -77,6 +78,7 @@ async def main():
     config = load_config(args.config)
     users = load_users(config)
     admins = load_admins(config)
+    auto_add = load_auto_add(config)
 
     port = args.port or find_serial_port()
     if not port:
@@ -92,6 +94,8 @@ async def main():
     await mc.ensure_contacts()
     mc.auto_update_contacts = True
     print(f"Connected to {mc.self_info.get('name')}. {len(mc.contacts)} contacts.")
+    if auto_add is not None:
+        await setup_auto_add(mc, auto_add)
 
     commands = build_commands(config, mc)
     for level, who in [(PUBLIC, "anyone"), (USER, f"{len(users)} user(s)"), (ADMIN, f"{len(admins)} admin(s)")]:

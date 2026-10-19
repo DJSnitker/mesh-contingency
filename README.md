@@ -49,7 +49,8 @@ or a command the sender isn't allowed to run — gets the reply
 the bot can't be pulled into a reply loop with another automated node.
 
 Senders must be in the radio's contacts, since direct messages from unknown
-nodes can't be decrypted or replied to.
+nodes can't be decrypted or replied to. See [Contacts](#contacts) for adding
+them automatically.
 
 ## Requirements
 
@@ -86,6 +87,25 @@ notify_group = ["someone@example.com", "someone.else@example.com"]
 Each user's `notify_default` / `notify_group` may be a single address or a
 list. A user with no addresses can still use `notify_email`.
 
+### Contacts
+
+By default a MeshCore radio stores every node whose advert it hears, so
+repeaters, room servers and sensors can fill its contact table and block new
+people from messaging the bot. With a `[contacts]` section the bot takes
+over instead:
+
+```toml
+[contacts]
+auto_add = ["chat"]   # any of: chat, repeater, room, sensor; [] adds none
+```
+
+At startup it puts the radio in manual-add mode (`manual_add_contacts`, a
+setting stored on the radio that also affects the phone app), then adds each
+newly heard node whose type is listed, logging e.g.
+`+ contact a1b2c3d4e5f6 Alice (chat)`. Nodes heard while the bot isn't
+running are picked up when they advert again. Without a `[contacts]` section
+the radio's setting is left as it is.
+
 ### Email
 
 Mail is sent by running `mail -s <subject> <addresses...>`, so `mail` must be
@@ -104,22 +124,34 @@ Test with `echo test | mail -s test you@example.com` before relying on it.
 ## Running
 
 ```sh
-.venv/bin/python listener.py              # auto-detects the serial port
-.venv/bin/python listener.py -p /dev/ttyUSB0 -c /path/to/config.toml
+.venv/bin/python mesh_contingency.py              # auto-detects the serial port
+.venv/bin/python mesh_contingency.py -p /dev/ttyUSB0 -c /path/to/config.toml
 ```
 
 Options: `-p/--port`, `-b/--baud` (default 115200), `-c/--config`
-(default `config.toml` next to `listener.py`), `--debug` for library logging.
+(default `config.toml` next to `mesh_contingency.py`), `--debug` for library logging.
 
 At startup it prints which commands are available at each permission level and
 warns about any that are disabled for lack of configuration. Each reply is
 retried until the radio reports an ack, and the console notes whether it was
 delivered.
 
+## Testing
+
+```sh
+.venv/bin/python -m unittest
+```
+
+The tests use only the standard library. Network calls, the `mail` command
+and the radio are all faked (see `tests/fakes.py`), so they run offline and
+without a device. `tests/test_mesh_contingency.py` drives the real `mesh_contingency.main()`
+with simulated direct messages.
+
 ## Project layout
 
 ```
-listener.py           radio connection, permission checks, dispatch, replies
+mesh_contingency.py   entry point: radio connection, permissions, dispatch, replies
+contacts.py           auto-adding new contacts by node type
 weather.py            api.weather.gov / zipcode lookups (data only)
 commands/
   __init__.py         command registry and config loading
@@ -130,6 +162,7 @@ commands/
   notify_email.py     notify_email (validates the address from the mesh)
   advert.py           advert
 config.example.toml   example configuration
+tests/                unit tests (python -m unittest)
 ```
 
 ### Adding a command
