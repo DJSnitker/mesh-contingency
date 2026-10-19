@@ -67,6 +67,25 @@ class IsAuthorizedTest(unittest.TestCase):
         self.assertFalse(self.check("unknown-level", DANA))
 
 
+class RunTest(unittest.TestCase):
+    def test_runs_main(self):
+        with mock.patch("mesh_contingency.main", mock.AsyncMock()) as main:
+            mesh_contingency.run()
+        main.assert_awaited_once()
+
+    def test_ctrl_c_stops_cleanly(self):
+        out = io.StringIO()
+        with mock.patch("mesh_contingency.main", mock.AsyncMock(side_effect=KeyboardInterrupt)), \
+                contextlib.redirect_stdout(out):
+            mesh_contingency.run()
+        self.assertIn("Stopped.", out.getvalue())
+
+    def test_startup_errors_still_exit(self):
+        with mock.patch("mesh_contingency.main", mock.AsyncMock(side_effect=SystemExit("No serial device"))):
+            with self.assertRaisesRegex(SystemExit, "No serial device"):
+                mesh_contingency.run()
+
+
 class ParseCommandTest(unittest.TestCase):
     COMMANDS = {"wx": "WX", "notify_email": "NE"}
 

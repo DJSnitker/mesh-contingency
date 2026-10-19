@@ -65,9 +65,12 @@ them automatically.
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -e .           # installs meshcore and the mesh-contingency command
 cp config.example.toml config.toml   # then edit it
 ```
+
+The editable install (`-e`) runs the code straight from this folder, so edits
+take effect on restart and `config.toml` here is found by default.
 
 ### Configuration
 
@@ -124,9 +127,13 @@ Test with `echo test | mail -s test you@example.com` before relying on it.
 ## Running
 
 ```sh
-.venv/bin/python mesh_contingency.py              # auto-detects the serial port
-.venv/bin/python mesh_contingency.py -p /dev/ttyUSB0 -c /path/to/config.toml
+.venv/bin/mesh-contingency              # auto-detects the serial port
+.venv/bin/mesh-contingency -p /dev/ttyUSB0 -c /path/to/config.toml
 ```
+
+With the venv activated (`source .venv/bin/activate`), plain
+`mesh-contingency` works. `python mesh_contingency.py` still works without
+installing.
 
 Options: `-p/--port`, `-b/--baud` (default 115200), `-c/--config`
 (default `config.toml` next to `mesh_contingency.py`), `--debug` for library logging.
@@ -161,6 +168,7 @@ commands/
   notify_group.py     notify_group
   notify_email.py     notify_email (validates the address from the mesh)
   advert.py           advert
+pyproject.toml        package metadata and the mesh-contingency command
 config.example.toml   example configuration
 tests/                unit tests (python -m unittest)
 ```

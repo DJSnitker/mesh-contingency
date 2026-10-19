@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mesh-contingency"
+version = "0.1.0"
+description = "MeshCore direct-message bot: weather lookups, email notifications and radio admin commands"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Doug Snitker" }]
+requires-python = ">=3.11"
+dependencies = ["meshcore>=2.3"]
+
+[project.urls]
+Repository = "https://github.com/DJSnitker/mesh-contingency"
+
+[project.scripts]
+mesh-contingency = "mesh_contingency:run"
+
+[tool.setuptools]
+py-modules = ["mesh_contingency", "weather", "contacts"]
+packages = ["commands"]

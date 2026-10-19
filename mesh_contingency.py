@@ -186,8 +186,13 @@ async def main():
         await mc.disconnect()
 
 
-if __name__ == "__main__":
+def run():
+    """Entry point for the mesh-contingency command."""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nStopped.")
+
+
+if __name__ == "__main__":
+    run()
