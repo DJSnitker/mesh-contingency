@@ -8,6 +8,7 @@ from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email
 from mesh_contingency.commands.quickim import QuickImCommand
+from mesh_contingency.directory import Directory
 from mesh_contingency.testing import make_context
 
 DANA = Sender("Dana", "d0" * 32)
@@ -84,6 +85,18 @@ class QuickImTest(MailCommandTestCase):
         })
         self.assertTrue(cmd.enabled)
         self.assertFalse(QuickImCommand(make_context("quickim")).enabled)
+
+    async def test_addresses_read_when_sending(self):
+        # The users file can change while the bot runs.
+        directory = Directory(USERS)
+        cmd = QuickImCommand(make_context("quickim", directory=directory))
+        directory._users = {DANA.public_key: {"quickim": "new@example.com"}}
+        await cmd.execute("hi", DANA)
+        self.assert_sent(["new@example.com"], "hi")
+        directory._users = {}
+        self.assertFalse(cmd.enabled)
+        with self.assertRaisesRegex(CommandError, "quickim: not configured for you"):
+            await cmd.execute("hi", DANA)
 
     async def test_sends_to_senders_own_addresses(self):
         result = await QuickImCommand(make_context("quickim", users=USERS)).execute("Running late", DANA)

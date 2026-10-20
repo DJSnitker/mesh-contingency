@@ -20,15 +20,17 @@ from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.help import HelpCommand
 from mesh_contingency.commands.quickim import QuickImCommand
+from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.verse import VerseCommand
 from mesh_contingency.commands.wx import WxCommand
-from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, load_admins, load_users, resolve
+from mesh_contingency.directory import Directory
+from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, resolve
 
 FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "quickim": QuickImCommand, "emailall": EmailAllCommand,
-            "email": EmailCommand, "advert": AdvertCommand}
+            "email": EmailCommand, "advert": AdvertCommand, "reload": ReloadCommand}
 EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"
 
 
@@ -62,38 +64,6 @@ NOT_CALLABLE = 42
 
 def commands_config(**sections):
     return {"commands": sections}
-
-
-class LoadUsersTest(unittest.TestCase):
-    def test_full_keys_normalized_to_lowercase(self):
-        users = load_users({"users": {FULL_KEY: {"quickim": "a@example.com"},
-                                      f" {'B0' * 32} ": {}}})
-        self.assertEqual(users, {FULL_KEY.lower(): {"quickim": "a@example.com"}, "b0" * 32: {}})
-
-    def test_prefix_or_other_key_rejected(self):
-        for key in ("d0d0d0d0d0d0", FULL_KEY + "00", "zz" * 32, ""):
-            with (self.subTest(key=key),
-                  self.assertRaisesRegex(SystemExit, r"\[users\]: .* is not a full public key")):
-                load_users({"users": {key: {}}})
-
-    def test_missing_section(self):
-        self.assertEqual(load_users({}), {})
-
-
-class LoadAdminsTest(unittest.TestCase):
-    def test_keys_normalized(self):
-        self.assertEqual(load_admins({"admin": {"keys": [FULL_KEY, "ad" * 32]}}),
-                         {FULL_KEY.lower(), "ad" * 32})
-
-    def test_prefix_or_other_key_rejected(self):
-        for key in ("adadadadadad", 42, "ad" * 31):
-            with (self.subTest(key=key),
-                  self.assertRaisesRegex(SystemExit, r"\[admin\] keys: .* is not a full public key")):
-                load_admins({"admin": {"keys": [key]}})
-
-    def test_missing_section(self):
-        self.assertEqual(load_admins({}), set())
-        self.assertEqual(load_admins({"admin": {}}), set())
 
 
 class DiscoverTest(unittest.TestCase):
@@ -225,9 +195,9 @@ class RegistryBuildTest(unittest.TestCase):
         radio = object()
         sections = {name: {"permission": level} for name, level in [
             ("help", "public"), ("wx", "public"), ("verse", "public"), ("quickim", "user"),
-            ("emailall", "user"), ("email", "user"), ("advert", "admin")]}
-        users = load_users({"users": {FULL_KEY: {"quickim": "a@example.com"}}})
-        commands = Registry(commands_config(**sections)).build(users, set(), radio)
+            ("emailall", "user"), ("email", "user"), ("advert", "admin"), ("reload", "admin")]}
+        directory = Directory({FULL_KEY.lower(): {"quickim": "a@example.com"}})
+        commands = Registry(commands_config(**sections)).build(directory, radio)
         self.assertEqual(list(commands), list(sections))
         for name, cmd in commands.items():
             self.assertIs(type(cmd), BUILT_IN[name])
@@ -241,18 +211,18 @@ class RegistryBuildTest(unittest.TestCase):
         r = Registry(commands_config(
             echo={"permission": "admin", "handler": "tests.test_registry:EchoCommand", "timeout": 5, "prefix": ">"}),
             available={})
-        users, admins, radio = {"d0" * 32: {}}, {"ad" * 32}, object()
-        cmd = r.build(users, admins, radio)["echo"]
+        directory, radio = Directory({"d0" * 32: {}}, {"ad" * 32}), object()
+        cmd = r.build(directory, radio)["echo"]
         self.assertEqual((cmd.name, cmd.permission, cmd.timeout, cmd.usage), ("echo", ADMIN, 5, "echo <text>"))
         ctx = cmd.ctx
         self.assertEqual((ctx.name, ctx.options), ("echo", {"prefix": ">"}))
-        self.assertIs(ctx.users, users)
-        self.assertIs(ctx.admins, admins)
+        self.assertIs(ctx.directory, directory)
+        self.assertEqual((ctx.users, ctx.admins), ({"d0" * 32: {}}, {"ad" * 32}))
         self.assertIs(ctx.radio, radio)
         self.assertFalse(ctx.allowed(cmd, DANA))
 
     def test_permission_and_timeout_are_per_instance(self):
-        Registry(commands_config(wx={"permission": "public", "timeout": 3})).build({}, set(), None)
+        Registry(commands_config(wx={"permission": "public", "timeout": 3})).build(Directory(), None)
         self.assertEqual(WxCommand.permission, DISABLED)
         self.assertEqual(WxCommand.timeout, DEFAULT_TIMEOUT)
 
@@ -262,14 +232,14 @@ class RegistryBuildTest(unittest.TestCase):
             quickim={"permission": "user"},
             quickim_mom={"permission": "user", "handler": "mesh_contingency.commands.quickim:QuickImCommand"}))
         users = {"d0" * 32: {"quickim": "a@example.com", "quickim_mom": "mom@example.com"}}
-        commands = r.build(users, set(), None)
+        commands = r.build(Directory(users), None)
         self.assertEqual(commands["quickim_mom"].recipients, {"d0" * 32: ["mom@example.com"]})
         self.assertEqual(commands["quickim_mom"].usage, "quickim_mom <message>")
 
     def test_function_command_wrapped(self):
         r = Registry(commands_config(shout={"permission": "public", "handler": "tests.test_registry:shout"}),
                      available={})
-        cmd = r.build({}, set(), None)["shout"]
+        cmd = r.build(Directory(), None)["shout"]
         self.assertIsInstance(cmd, FunctionCommand)
         self.assertEqual(cmd.summary, "Repeat the text in capitals.")
 
@@ -277,7 +247,7 @@ class RegistryBuildTest(unittest.TestCase):
         r = Registry(commands_config(
             broken={"permission": "public", "handler": "tests.test_registry:Broken"},
             shout={"permission": "public", "handler": "tests.test_registry:shout"}), available={})
-        self.assertEqual(list(r.build({}, set(), None)), ["shout"])
+        self.assertEqual(list(r.build(Directory(), None)), ["shout"])
         self.assertEqual(r.warnings, ["Could not start broken: no radio; skipped."])
 
 
@@ -290,7 +260,7 @@ class ExamplePluginTest(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(sys.modules.pop, "mesh_dice", None)
         config = commands_config(roll={"permission": "public", "handler": "mesh_dice:roll", "max_dice": 3},
                                  flip={"permission": "public", "handler": "mesh_dice:FlipCommand"})
-        self.commands = Registry(config, available={}).build({}, set(), None)
+        self.commands = Registry(config, available={}).build(Directory(), None)
 
     async def test_roll(self):
         roll = self.commands["roll"]

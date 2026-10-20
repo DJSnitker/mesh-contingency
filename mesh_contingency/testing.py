@@ -12,11 +12,13 @@ from types import SimpleNamespace
 from meshcore import EventType
 
 from .api import Context
+from .directory import Directory
 
 
-def make_context(name, options=None, users=None, admins=None, radio=None, commands=None):
-    """A Context like the one the bot creates a command with."""
-    return Context(name=name, options=options or {}, users=users or {}, admins=admins or set(),
+def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None):
+    """A Context like the one the bot creates a command with. Pass users and
+    admins, or a Directory to change them during a test."""
+    return Context(name=name, options=options or {}, directory=directory or Directory(users, admins),
                    radio=radio, commands=commands if commands is not None else {})
 
 

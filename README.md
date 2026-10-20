@@ -23,6 +23,7 @@ Channel messages are ignored entirely; only direct messages are acted on.
 | `emailall <message>` | users | Emails the message to the sender's preset group of addresses. |
 | `email <address> <message>` | users | Emails the message to the given address. |
 | `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. |
+| `reload` | admins | Reads the [users file](#users-file) now and replies with what changed. |
 
 Command names are case-insensitive. Everything after the command name is
 passed through as typed. Replies too long for one 133-character message are
@@ -78,7 +79,8 @@ to the source text.
 Users and admins are listed by their full public key (64 hex characters),
 which the MeshCore app shows for your node. A direct message carries only the
 first 12 characters (the prefix), so the bot looks the sender up in the
-radio's contacts and checks that contact's full key against the config. If no
+radio's contacts and checks that contact's full key against the
+[users file](#users-file). If no
 contact, or more than one, has the prefix, the sender is unidentified and may
 only run public commands, so a node that copies someone's prefix never gets
 their rights. The console prints the prefix and name for each message, e.g.
@@ -89,8 +91,8 @@ table (see [Configuration](#configuration)); the code has no built-in levels.
 Each command gets one of:
 
 - **public**: anyone.
-- **user**: senders with a `[users.<public key>]` section in the config.
-- **admin**: senders whose public key is in `[admin] keys`.
+- **user**: senders with a `[users.<public key>]` section in the users file.
+- **admin**: senders whose public key is in the users file's `[admin] keys`.
 - **disabled**: nobody.
 
 An installed command with no entry is disabled, with a warning at startup,
@@ -123,17 +125,21 @@ them automatically.
 python3 -m venv .venv
 .venv/bin/pip install -e .           # installs meshcore and the mesh-contingency command
 cp config.example.toml config.toml   # then edit it
+cp users.example.toml users.toml     # then add your users and admins
+chmod 600 config.toml users.toml     # they hold email addresses and keys
 ```
 
 The editable install (`-e`) runs the code straight from this folder, so edits
-take effect on restart and `config.toml` here is found by default. Re-run the
-install after pulling changes that add modules or commands, since commands are
-registered when the package is installed.
+take effect on restart, and `config.toml` and `users.toml` here are found by
+default. Re-run the install after pulling changes that add modules or
+commands, since commands are registered when the package is installed.
 
 ### Configuration
 
-`config.toml` is git-ignored because it holds real email addresses and node
-keys. See `config.example.toml`:
+`config.toml` holds the settings that change rarely and are read at startup:
+commands, permissions and contacts. People go in the [users file](#users-file),
+which can change while the bot runs. Both are git-ignored because they hold
+real email addresses and node keys. See `config.example.toml`:
 
 ```toml
 [commands]
@@ -144,14 +150,7 @@ quickim = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
-
-[admin]
-keys = ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
-
-[users.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2]
-name = "Alice"  # for reference only
-quickim = "someone@example.com"
-emailall = ["someone@example.com", "someone.else@example.com"]
+reload = { permission = "admin" }
 ```
 
 Each entry under `[commands]` takes:
@@ -186,6 +185,49 @@ message that starts with an email address is refused with a pointer to
 `email`, so a message meant for someone else isn't sent to the preset
 contact by mistake.
 
+### Users file
+
+Users and admins are in `users.toml`, next to `config.toml` (see
+`users.example.toml`):
+
+```toml
+[admin]
+keys = ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
+
+[users.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2]
+name = "Alice"  # used in reload messages
+quickim = "someone@example.com"
+emailall = ["someone@example.com", "someone.else@example.com"]
+```
+
+Keys are full public keys (64 hex characters); the 12-character prefix is not
+accepted. Each user's settings are read by the commands: `quickim` and
+`emailall` take one address or a list.
+
+The bot checks the file every 5 seconds and applies changes without a restart,
+logging what changed, e.g. `users.toml reloaded: added Bob; changed Alice`. A
+change is used once the file has stopped changing, so it takes effect within
+about 10 seconds. To apply it at once, send `reload` as an admin or signal the
+bot with `kill -HUP <pid>`.
+
+If an edit is invalid (bad TOML, a short key, a misspelled section), the bot
+keeps the users it has, logs the reason and sends it to each admin, e.g.
+`users.toml not reloaded: [users]: 'a1b2c3' is not a full public key`. Fix the
+file and it is picked up on the next check. A deleted file is reported the
+same way. At startup, an invalid file stops the bot; a missing one only
+warns, and is picked up once created.
+
+To use another file or interval, add to `config.toml`:
+
+```toml
+[directory]
+file = "/etc/mesh-contingency/users.toml"   # relative paths are relative to config.toml
+reload_seconds = 5                          # 0 = only on reload or SIGHUP
+```
+
+Users and admins used to be in `config.toml`; the bot now stops with a message
+if they are still there.
+
 ### Contacts
 
 By default a MeshCore radio stores every node whose advert it hears, so
@@ -207,10 +249,10 @@ the radio's setting is left as it is.
 
 Each admin also gets a direct message for every contact added, e.g.
 `New contact: Alice (a1b2c3d4e5f6, chat)`, so they know who has appeared and
-can ask for the person's full public key to add them to `[users]`. Set `notify_admins = false` under `[contacts]` to
-turn this off. Admins must themselves be contacts to receive it. Notices are
-sent in the background, one message at a time, so they never hold up replies
-to incoming messages.
+can ask for the person's full public key to add them to the users file. Set
+`notify_admins = false` under `[contacts]` to turn this off. Admins must
+themselves be contacts to receive it. Notices are sent in the background, one
+message at a time, so they never hold up replies to incoming messages.
 
 ### Email
 
@@ -242,7 +284,8 @@ Options: `-p/--port`, `-b/--baud` (default 115200), `-c/--config`
 
 At startup it checks the config and loads the enabled commands before
 connecting, prints which commands are available at each permission level, and
-warns about any that are disabled or failed to load. Each command has a time
+warns about any that are disabled or failed to load. It then watches the
+users file (see [Users file](#users-file)). Each command has a time
 limit (60 s unless its config says otherwise). Each reply is
 retried until the radio reports an ack, and the console notes whether it was
 delivered.
@@ -270,7 +313,7 @@ Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
   a verse lookup and a dice roll through the installed commands.
 
 The PR template has a short checklist. Never include real data (your
-`config.toml`, email addresses, node keys) in code, tests or issues.
+`config.toml` or `users.toml`, email addresses, node keys) in code, tests or issues.
 Dependabot opens weekly PRs to update GitHub Actions and Python dependencies.
 
 ## Project layout
@@ -279,6 +322,7 @@ Dependabot opens weekly PRs to update GitHub Actions and Python dependencies.
 mesh_contingency/
   api.py              the interface for commands: Command, Context, CommandResult, reply limits
   registry.py         finding commands (entry points), checking [commands], loading them
+  directory.py        the users file: checking it and reloading it while running
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
@@ -289,13 +333,14 @@ mesh_contingency/
     build.py          rebuilds bsb.json.gz
     votd.py           verse-of-the-day list
   commands/           built-in commands, one module each
-    help.py, wx.py, verse.py, advert.py
+    help.py, wx.py, verse.py, advert.py, reload.py
     mail.py           the shared email sending and address checks
     quickim.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package
 .github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
 config.example.toml   example configuration
+users.example.toml    example users file
 tests/                unit tests (python -m unittest)
 ```
 
@@ -347,8 +392,12 @@ Use a class when the command keeps state or needs setup.
 `ctx` (a `Context`) holds:
 - `name`: the name the command answers to
 - `options`: the extra keys from its config entry
-- `users`: each user's `[users.<key>]` settings
-- `admins`
+- `users`: each user's `[users.<key>]` settings from the users file, by public key
+- `admins`: the admins' public keys
+- `directory`: the users file itself
+
+`users` and `admins` change when the users file is reloaded, so read them
+when the command runs instead of keeping a copy from `__init__`.
 - `radio`: the connected `meshcore.MeshCore`
 - `commands`: every loaded command
 - `allowed(command, sender)`
@@ -398,7 +447,7 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 - Commands never pass mesh text to a shell. Email goes to `mail` as argument
   and stdin; addresses typed into `email` are strictly validated, and
   control characters are stripped from subjects.
-- Anyone in `[users]` can email any address with `email` while it is
+- Anyone in the users file can email any address with `email` while it is
   a `user` command; only add people you trust.
 - Think before making a command `public`: anyone on the mesh who can reach
   the node could run it. The email commands and `advert` act outside the bot.
@@ -407,6 +456,8 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
   trigger them. Install only command packages you trust. Disabled commands
   are never imported.
 - A flood `advert` is sent to the whole mesh; use it sparingly.
+- The users file decides who is an admin, and changes to it apply while the
+  bot runs. Keep it writable only by you (`chmod 600 users.toml`).
 
 ## License
 

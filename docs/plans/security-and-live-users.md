@@ -33,6 +33,11 @@ merged on its own. CI must pass at every step.
 
 ## Phase 1: live user directory
 
+*Status: done.* Built as planned, with full keys required (no prefixes) and
+one addition: a change is applied only once the file has looked the same on
+two checks in a row, so an editor's half-written save is never loaded (the
+`reload` command and SIGHUP apply it at once). Admin changes reload too.
+
 ### File layout
 
 Users and admins move to `users.toml` (git-ignored), next to `config.toml` by

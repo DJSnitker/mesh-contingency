@@ -1,6 +1,7 @@
 # Runtime configuration: holds real email addresses and node keys.
-# Copy config.example.toml to config.toml instead.
+# Copy config.example.toml and users.example.toml instead.
 config.toml
+users.toml
 
 # Python
 __pycache__/

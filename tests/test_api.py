@@ -20,6 +20,7 @@ from mesh_contingency.api import (
     split_reply,
     to_messages,
 )
+from mesh_contingency.directory import Directory
 from mesh_contingency.testing import make_context
 
 DANA = Sender("Dana", "d0" * 32)
@@ -123,7 +124,7 @@ class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         cmd = type("C", (), {"permission": permission})()
         users, admins = {"d0" * 32: {}}, {"ad" * 32}
-        ctx = Context(name="x", users=users, admins=admins)
+        ctx = Context(name="x", directory=Directory(users, admins))
         result = is_authorized(cmd, Sender("x", key), users, admins)
         self.assertEqual(ctx.allowed(cmd, Sender("x", key)), result)
         return result

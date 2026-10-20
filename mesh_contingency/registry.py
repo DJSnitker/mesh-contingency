@@ -29,29 +29,6 @@ ENTRY_POINT_GROUP = "mesh_contingency.commands"
 RESERVED_KEYS = {"permission", "handler", "timeout"}
 NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 HANDLER_RE = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*")
-PUBLIC_KEY_RE = re.compile(r"[0-9a-f]{64}")
-
-
-def _public_key(key, where):
-    """Return a full public key from the config in lowercase; exit if it is
-    anything else, such as the shorter prefix older configs used."""
-    public_key = key.strip().lower() if isinstance(key, str) else key
-    if not isinstance(public_key, str) or not PUBLIC_KEY_RE.fullmatch(public_key):
-        raise SystemExit(f"{where}: {key!r} is not a full public key (64 hex characters)")
-    return public_key
-
-
-def load_users(config):
-    """Return {public key: settings} from the [users.<key>] config sections.
-
-    Having a section is what approves a user for USER commands.
-    """
-    return {_public_key(key, "[users]"): user for key, user in config.get("users", {}).items()}
-
-
-def load_admins(config):
-    """Return the set of public keys in [admin] keys, allowed ADMIN commands."""
-    return {_public_key(key, "[admin] keys") for key in config.get("admin", {}).get("keys", [])}
 
 
 def discover():
@@ -164,7 +141,7 @@ class Registry:
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
         return CommandSpec(name, handler, permission, timeout, options)
 
-    def build(self, users, admins, radio):
+    def build(self, directory, radio):
         """Create the enabled commands and return them as {name: Command}.
 
         A command that fails to start is skipped and added to warnings.
@@ -172,8 +149,7 @@ class Registry:
         commands = {}
         for name, spec in self.specs.items():
             factory = self.factories[name]
-            ctx = Context(name=name, options=spec.options, users=users, admins=admins,
-                          radio=radio, commands=commands)
+            ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands)
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:

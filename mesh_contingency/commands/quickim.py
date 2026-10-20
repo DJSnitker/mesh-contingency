@@ -9,16 +9,19 @@ class QuickImCommand(MailCommand):
     args = "<message>"
     summary = "Email your message to your preset contact"
 
-    def __init__(self, ctx):
-        super().__init__(ctx)
-        # Each user's addresses for this command live under the command's own
-        # name in their [users.<key>] config section: one address or a list.
-        self.recipients = {}
-        for key, user in ctx.users.items():
+    @property
+    def recipients(self):
+        """{public key: addresses} for each user with addresses, read from the
+        users file as it is now. Each user's addresses for this command live
+        under the command's own name in their [users.<key>] section: one
+        address or a list."""
+        recipients = {}
+        for key, user in self.ctx.users.items():
             to = user.get(self.name)
             to = [to] if isinstance(to, str) else list(to or [])
             if to:
-                self.recipients[key] = to
+                recipients[key] = to
+        return recipients
 
     @property
     def enabled(self):

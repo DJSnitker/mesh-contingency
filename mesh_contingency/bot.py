@@ -5,7 +5,9 @@ Channel messages are ignored entirely.
 
 import argparse
 import asyncio
+import contextlib
 import glob
+import signal
 import time
 import tomllib
 from pathlib import Path
@@ -25,7 +27,8 @@ from .api import (
     to_messages,
 )
 from .contacts import load_auto_add, load_notify_admins, setup_auto_add
-from .registry import Registry, load_admins, load_users
+from .directory import Directory
+from .registry import Registry
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -76,8 +79,10 @@ async def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    users = load_users(config)
-    admins = load_admins(config)
+    # Users and admins live in their own file, reloaded while the bot runs.
+    directory = Directory.from_config(config, args.config)
+    if not directory.load():
+        print(f"Warning: {directory.path} not found; no users or admins until it is created.")
     auto_add = load_auto_add(config)
     notify_admins = load_notify_admins(config)
     # Check the [commands] config and import the enabled commands before
@@ -128,31 +133,56 @@ async def main():
 
     background = set()  # running notice tasks, kept so they aren't garbage collected
 
-    def announce_new_contact(key, name, type_name):
-        """Tell every admin about a contact the bot just added, without
+    def tell_admins(text, what):
+        """Send text to every current admin in the background, without
         holding up the radio's event handling while the messages go out."""
-        text = f"New contact: {name or '?'} ({key}, {type_name})"
-        for admin in sorted(admins):
-            task = asyncio.create_task(send_dm(admin, text, what="new-contact notice"))
+        for admin in sorted(directory.admins):
+            task = asyncio.create_task(send_dm(admin, text, what=what))
             background.add(task)
             task.add_done_callback(background.discard)
 
+    def announce_new_contact(key, name, type_name):
+        """Tell every admin about a contact the bot just added."""
+        tell_admins(f"New contact: {name or '?'} ({key}, {type_name})", "new-contact notice")
+
     if auto_add is not None:
         await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None)
-        if notify_admins and admins:
-            print(f"New contacts are announced to {len(admins)} admin(s).")
+        if notify_admins and directory.admins:
+            print(f"New contacts are announced to {len(directory.admins)} admin(s).")
 
-    commands = registry.build(users, admins, mc)
-    for level, who in [(PUBLIC, "anyone"), (USER, f"{len(users)} user(s)"), (ADMIN, f"{len(admins)} admin(s)")]:
+    commands = registry.build(directory, mc)
+    for level, who in [(PUBLIC, "anyone"), (USER, f"{len(directory.users)} user(s)"),
+                       (ADMIN, f"{len(directory.admins)} admin(s)")]:
         names = [c.name for c in commands.values() if c.permission == level]
         print(f"  {level} commands ({who}): {', '.join(names) or 'none'}")
     print(f"  {DISABLED} commands (nobody): {', '.join(registry.disabled) or 'none'}")
     for warning in registry.warnings:
         print(f"Warning: {warning}")
-    for command in commands.values():
-        if not command.enabled and command.permission != DISABLED:
-            print(f"Warning: no user has {command.name} addresses in {args.config}; "
-                  f"{command.name} command disabled.")
+
+    def warn_unconfigured():
+        for command in commands.values():
+            if not command.enabled and command.permission != DISABLED:
+                print(f"Warning: no user has {command.name} addresses in {directory.name}.", flush=True)
+
+    def on_users_reloaded(summary):
+        print(f"{directory.name} reloaded: {summary}", flush=True)
+        warn_unconfigured()
+
+    def on_users_error(reason):
+        """A new version of the users file can't be used: say so, and keep
+        the current users."""
+        print(f"Warning: {directory.name} not reloaded: {reason}; keeping the current users.", flush=True)
+        tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
+
+    warn_unconfigured()
+    directory.on_change.append(on_users_reloaded)
+    # Watch the users file; SIGHUP (kill -HUP <pid>) reloads it straight away.
+    wake = asyncio.Event()
+    with contextlib.suppress(AttributeError, NotImplementedError):  # no SIGHUP on Windows
+        asyncio.get_running_loop().add_signal_handler(signal.SIGHUP, wake.set)
+    watcher = asyncio.create_task(directory.watch(wake, on_users_error))
+    when = f"every {directory.reload_seconds}s" if directory.reload_seconds else "on reload or SIGHUP only"
+    print(f"Users file: {directory.path} (checked {when}).")
     print("Listening for direct messages (Ctrl+C to quit)...")
 
     def message_prefix(msg):
@@ -212,7 +242,7 @@ async def main():
                 await reply_unrecognized(msg, sender, "unrecognized command")
             return
         command, text = parsed
-        if not is_authorized(command, sender, users, admins):
+        if not is_authorized(command, sender, directory.users, directory.admins):
             await reply_unrecognized(msg, sender, f"{command.name} denied: sender not approved")
             return
         print(f"  -> running {command.name} {text}".rstrip(), flush=True)
@@ -250,6 +280,9 @@ async def main():
     try:
         await asyncio.Event().wait()
     finally:
+        watcher.cancel()
+        with contextlib.suppress(AttributeError, NotImplementedError):
+            asyncio.get_running_loop().remove_signal_handler(signal.SIGHUP)
         await mc.stop_auto_message_fetching()
         await mc.disconnect()
 
