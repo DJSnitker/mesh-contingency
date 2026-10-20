@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 
 from .api import DEFAULT_TIMEOUT, DISABLED, LEVELS, Command, Context, FunctionCommand
+from .state import State
 
 ENTRY_POINT_GROUP = "mesh_contingency.commands"
 # Keys of a [commands.<name>] section that are for the bot, not the command.
@@ -141,15 +142,18 @@ class Registry:
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
         return CommandSpec(name, handler, permission, timeout, options)
 
-    def build(self, directory, radio):
-        """Create the enabled commands and return them as {name: Command}.
+    def build(self, directory, radio, state=None, send=None):
+        """Create the enabled commands, sharing one State, and return them as
+        {name: Command}. send(public key, text) queues a direct message.
 
         A command that fails to start is skipped and added to warnings.
         """
         commands = {}
+        state = state or State()
         for name, spec in self.specs.items():
             factory = self.factories[name]
-            ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands)
+            ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands,
+                          state=state, **({"send": send} if send else {}))
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:

@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import hashlib
 import io
 import os
 import signal
@@ -12,7 +13,18 @@ from unittest import mock
 from meshcore import EventType
 
 from mesh_contingency import bot
-from mesh_contingency.api import ADMIN, DISABLED, MAX_PARTS, MAX_REPLY_LEN, PUBLIC, USER, CommandResult, Sender
+from mesh_contingency.api import (
+    ADMIN,
+    DISABLED,
+    MAX_PARTS,
+    MAX_REPLY_LEN,
+    PUBLIC,
+    USER,
+    Command,
+    CommandResult,
+    Sender,
+    split_reply,
+)
 from mesh_contingency.testing import FakeMeshCore, full_key, make_contact
 
 
@@ -23,6 +35,16 @@ async def echo(text, sender, ctx):
 
 async def slow(text, sender, ctx):
     await asyncio.sleep(10)
+
+
+class BrokenStart(Command):
+    """A plugin command whose startup fails."""
+
+    async def start(self):
+        raise RuntimeError("radio said no")
+
+    async def execute(self, text, sender):
+        return "still works"
 
 
 # Key prefixes, as direct messages carry them; the config holds full_key(prefix).
@@ -40,6 +62,20 @@ emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
 reload = { permission = "admin" }
+ok = { permission = "public" }
+status = { permission = "public" }
+clearstatus = { permission = "admin" }
+roster = { permission = "user" }
+msg = { permission = "user" }
+inbox = { permission = "user" }
+clearinbox = { permission = "user" }
+alert = { permission = "admin" }
+join = { permission = "public" }
+approve = { permission = "admin" }
+deny = { permission = "admin" }
+setquickim = { permission = "user" }
+addgroup = { permission = "user" }
+cleargroup = { permission = "user" }
 """
 
 USERS = f"""
@@ -198,14 +234,44 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV})  # no channel messages
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, verse", out)
-        self.assertIn("user commands (1 user(s)): quickim, emailall, email", out)
-        self.assertIn("admin commands (1 admin(s)): advert, reload", out)
+        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
+        self.assertIn("user commands (1 user(s)): quickim, emailall, email, roster, msg, inbox, clearinbox, "
+                      "setquickim, addgroup, cleargroup\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, reload, clearstatus, alert, approve, deny\n", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
         self.assertNotIn("no user has quickim addresses", out)
         self.assertIn(f"Users file: {self.users_file} (checked every 5s).", out)
         self.assertEqual(self.radio.manual_add_calls, [])  # no [contacts] section
+
+    async def test_alert_channel_added_at_startup(self):
+        await self.start()
+        self.assertEqual(self.radio.channels[1][0], "#contingency-wx")
+        self.assertIn("alert: #contingency-wx is channel slot 1 (added to the radio).", self.out.getvalue())
+
+    async def test_alert_channel_already_on_the_radio(self):
+        radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
+        radio.channels[3] = ("#contingency-wx", hashlib.sha256(b"#contingency-wx").digest()[:16])
+        await self.start(radio=radio)
+        self.assertIn("alert: #contingency-wx is channel slot 3.", self.out.getvalue())
+        self.assertEqual(radio.channels[1], ("", bytes(16)))
+
+    async def test_no_channel_slot_is_a_warning_not_a_stop(self):
+        radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
+        radio.channels[1:] = [(f"ch{i}", bytes([i]) * 16) for i in range(1, 8)]
+        await self.start(radio=radio)
+        self.assertIn("Warning: alert: no free channel slot on the radio for #contingency-wx", self.out.getvalue())
+        self.assertIn("Listening for direct messages", self.out.getvalue())
+
+    async def test_alert_disabled_leaves_channels_alone(self):
+        await self.start(CONFIG.replace('alert = { permission = "admin" }', 'alert = { permission = "disabled" }'))
+        self.assertEqual(self.radio.channels[1], ("", bytes(16)))
+
+    async def test_failed_start_is_a_warning(self):
+        await self.start(CONFIG + '[commands.broken]\nhandler = "tests.test_bot:BrokenStart"\npermission = "public"\n')
+        self.assertIn("Warning: broken could not get ready: radio said no", self.out.getvalue())
+        await self.radio.dm(STRANGER, "broken")
+        self.assertEqual(self.replies(), ["still works"])
 
     async def test_contacts_section_enables_auto_add(self):
         await self.start(CONFIG + '\n[contacts]\nauto_add = ["chat"]\n')
@@ -582,7 +648,7 @@ permission = "public"
     async def test_plugin_from_config(self):
         await self.start(CONFIG + self.PLUGINS)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, verse, echo, slow", out)
+        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join, echo, slow", out)
         self.assertIn("Warning: Could not load missing (no_such_module_xyz:thing)", out)
         await self.radio.dm(STRANGER, "echo hi there")
         self.assertEqual(self.replies(), ["> hi there"])
@@ -616,11 +682,68 @@ permission = "public"
         await self.radio.dm(STRANGER, "help wx")
         await self.radio.dm(STRANGER, "help secret")
         replies = self.replies()
-        self.assertEqual(replies[0], "commands: help, wx, verse, echo, slow. Send help <command> for usage")
-        self.assertEqual(replies[1], "commands: help, wx, verse, advert, reload, echo, slow, secret. "
+        self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
-        self.assertEqual(replies[2], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
-        self.assertEqual(replies[3], "help: no command secret")
+        # Too long for one message, so it comes in two.
+        self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, reload, ok, status, "
+                                                   "clearstatus, alert, join, approve, deny, echo, slow, secret. "
+                                                   "Send help <command> for usage"))
+        self.assertEqual(replies[3], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
+        self.assertEqual(replies[4], "help: no command secret")
+
+    # --- check-ins, roster and mailbox
+
+    async def test_roster_lists_everyone_who_messaged(self):
+        await self.start(contacts={DANA: "Dana-T1000", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
+        await self.radio.dm(STRANGER, "hello")  # not a command: still counted
+        await self.radio.dm("123456789abc", "help")  # not in contacts: shown by key prefix
+        await self.radio.dm(DANA, "roster")
+        self.assertRegex(self.replies()[-1], r"^roster since .* \(3\): Dana-T1000, 123456789abc, Stranger$")
+        sent = len(self.radio.sent)
+        await self.radio.dm(STRANGER, "roster")
+        self.assertEqual(len(self.radio.sent), sent)  # users only (and Stranger already got the reply)
+        self.assertIn("roster denied: sender not approved", self.out.getvalue())
+
+    async def test_check_in_and_mailbox_saved_next_to_the_config(self):
+        await self.start()
+        await self.radio.dm(STRANGER, "ok at the shelter")
+        await self.radio.dm(DANA, "status stranger")
+        self.assertEqual(self.replies()[-1], "Stranger: at the shelter (just now)")
+        await self.radio.dm(DANA, "msg Dana note to self")
+        self.assertEqual(self.replies()[-1], "msg: saved for Dana (1 in their inbox)")
+        folder = self.users_file.parent
+        self.assertEqual({p.name for p in folder.iterdir()}, {"config.toml", "users.toml", "status.json",
+                                                              "mailbox.json"})
+        self.assertNotIn(full_key(STRANGER)[:12] + "\n", self.out.getvalue())
+        self.assertNotIn(full_key(STRANGER), self.out.getvalue())  # full keys are only in the files
+        await self.radio.dm(DANA, "inbox")
+        self.assertEqual(self.replies()[-1], "Dana just now: note to self")
+        await self.radio.dm(DANA, "clearinbox")
+        self.assertEqual(self.replies()[-1], "clearinbox: deleted 1 message(s)")
+
+    # --- joining and users' own settings
+
+    async def test_join_approve_and_use(self):
+        await self.start()
+        await self.radio.dm(STRANGER, "join Sam")
+        await self.settle()
+        self.assertEqual(self.radio.sent, [
+            ("Stranger", "join: request sent to the admins"),
+            ("Admin", "Join request: Sam (ffeeddccbbaa). Reply approve ffeeddccbbaa or deny ffeeddccbbaa")])
+        self.radio.sent.clear()
+        await self.radio.dm(ADMIN_KEY, "approve ffeeddccbbaa")
+        await self.settle()
+        self.assertEqual(self.radio.sent, [
+            ("Admin", "approve: Sam added to users.toml"),
+            ("Stranger", "Welcome, Sam: you're now a user. Send help for your commands.")])
+        self.assertIn("users.toml reloaded: added Sam", self.out.getvalue())
+        self.assertIn(f'[users.{full_key(STRANGER)}]\nname = "Sam"\n', self.users_file.read_text())
+        self.assertNotIn(full_key(STRANGER), self.out.getvalue())
+        await self.radio.dm(STRANGER, "setquickim sam.home@example.com")
+        self.assertEqual(self.replies()[-1], "quickim now sends to sam.home@example.com")
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(STRANGER, "quickim hello")
+        self.assertEqual(send_email.call_args.args[0], ["sam.home@example.com"])
 
     # --- command failures
 

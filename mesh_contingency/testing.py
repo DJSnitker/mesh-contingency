@@ -7,19 +7,30 @@
 """
 
 import asyncio
+import hashlib
 from types import SimpleNamespace
 
 from meshcore import EventType
 
 from .api import Context
 from .directory import Directory
+from .state import State
+
+# The well-known key of MeshCore's default Public channel.
+PUBLIC_CHANNEL_SECRET = "8b3387e9c5cdea6ac9e5edbaa115cd72"
 
 
-def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None):
+def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None,
+                 state=None, sent=None):
     """A Context like the one the bot creates a command with. Pass users and
-    admins, or a Directory to change them during a test."""
+    admins, or a Directory to change them during a test. Commands that share
+    data need the same State; without a data_dir it is kept in memory. Direct
+    messages the command sends with ctx.send are added to the `sent` list as
+    (public key, text)."""
+    sent = sent if sent is not None else []
     return Context(name=name, options=options or {}, directory=directory or Directory(users, admins),
-                   radio=radio, commands=commands if commands is not None else {})
+                   radio=radio, commands=commands if commands is not None else {}, state=state or State(),
+                   send=lambda key, text: sent.append((key, text)))
 
 
 def event(event_type, payload=None):
@@ -79,6 +90,26 @@ class FakeCommands:
         self.radio.adverts.append(flood)
         return self.radio.advert_result
 
+    async def send_device_query(self):
+        return event(EventType.DEVICE_INFO, {"max_channels": len(self.radio.channels)})
+
+    async def get_channel(self, channel_idx):
+        if channel_idx >= len(self.radio.channels):
+            return event(EventType.ERROR, {"reason": "not found"})
+        name, secret = self.radio.channels[channel_idx]
+        return event(EventType.CHANNEL_INFO, {"channel_idx": channel_idx, "channel_name": name,
+                                              "channel_secret": secret})
+
+    async def set_channel(self, channel_idx, channel_name, channel_secret=None):
+        if channel_secret is None:  # like the library: a key from the name
+            channel_secret = hashlib.sha256(channel_name.encode("utf-8")).digest()[:16]
+        self.radio.channels[channel_idx] = (channel_name, channel_secret)
+        return event(EventType.OK)
+
+    async def send_chan_msg(self, chan, msg):
+        self.radio.channel_sent.append((chan, msg))
+        return self.radio.channel_result
+
 
 class FakeMeshCore:
     """Records what the bot asks of the radio and lets tests deliver events."""
@@ -91,6 +122,9 @@ class FakeMeshCore:
         self.auto_update_contacts = False
         self.commands = FakeCommands(self)
         self.handlers = {}
+        # Channel slots as (name, 16-byte secret); slot 0 is the usual Public
+        # channel and the rest are empty.
+        self.channels = [("Public", bytes.fromhex(PUBLIC_CHANNEL_SECRET))] + [("", bytes(16))] * 7
         self.listening = asyncio.Event()
         self.disconnected = False
         # Recorded calls
@@ -98,12 +132,14 @@ class FakeMeshCore:
         self.added = []
         self.adverts = []
         self.manual_add_calls = []
+        self.channel_sent = []  # (slot, text)
         self.get_contacts_calls = 0
         # Results the radio returns
         self.ack_result = event(EventType.MSG_SENT)
         self.manual_add_result = event(EventType.OK)
         self.add_contact_result = event(EventType.OK)
         self.advert_result = event(EventType.OK)
+        self.channel_result = event(EventType.OK)
 
     @property
     def contacts(self):

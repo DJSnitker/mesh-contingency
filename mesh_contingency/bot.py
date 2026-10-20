@@ -1,6 +1,6 @@
 """Listen to a MeshCore companion device over USB serial and act on direct messages.
 
-Channel messages are ignored entirely.
+Channel messages are ignored entirely (the alert command only posts to one).
 """
 
 import argparse
@@ -29,6 +29,7 @@ from .api import (
 from .contacts import load_auto_add, load_notify_admins, setup_auto_add
 from .directory import Directory, describe
 from .registry import Registry
+from .state import State
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -133,13 +134,17 @@ async def main():
 
     background = set()  # running notice tasks, kept so they aren't garbage collected
 
+    def send_later(key, text, what="notice"):
+        """Send a direct message in the background, without holding up the
+        radio's event handling (or a command's reply) while it goes out."""
+        task = asyncio.create_task(send_dm(key, text, what=what))
+        background.add(task)
+        task.add_done_callback(background.discard)
+
     def tell_admins(text, what):
-        """Send text to every current admin in the background, without
-        holding up the radio's event handling while the messages go out."""
+        """Send text to every current admin in the background."""
         for admin in sorted(directory.admins):
-            task = asyncio.create_task(send_dm(admin, text, what=what))
-            background.add(task)
-            task.add_done_callback(background.discard)
+            send_later(admin, text, what)
 
     def announce_new_contact(key, name, type_name):
         """Tell every admin about a contact the bot just added."""
@@ -162,7 +167,10 @@ async def main():
         if notify_admins and directory.admins:
             print(f"New contacts are announced to {len(directory.admins)} admin(s).")
 
-    commands = registry.build(directory, mc)
+    # Who has messaged the node, and the state files (statuses, the mailbox),
+    # kept next to config.toml.
+    state = State(args.config.resolve().parent)
+    commands = registry.build(directory, mc, state, send_later)
     for level, who in [(PUBLIC, "anyone"), (USER, f"{len(directory.users)} user(s)"),
                        (ADMIN, f"{len(directory.admins)} admin(s)")]:
         names = [c.name for c in commands.values() if c.permission == level]
@@ -170,6 +178,18 @@ async def main():
     print(f"  {DISABLED} commands (nobody): {', '.join(registry.disabled) or 'none'}")
     for warning in registry.warnings:
         print(f"Warning: {warning}")
+
+    # Setup that needs the radio, such as alert making sure its channel exists.
+    for command in commands.values():
+        try:
+            note = await asyncio.wait_for(command.start(), command.timeout)
+        except CommandError as e:
+            print(f"Warning: {e}")
+        except Exception as e:
+            print(f"Warning: {command.name} could not get ready: {e or type(e).__name__}")
+        else:
+            if note:
+                print(note)
 
     def warn_unconfigured():
         for command in commands.values():
@@ -270,6 +290,7 @@ async def main():
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
         print(f"[{label}] {msg.get('text', '')}", flush=True)
+        state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         parsed = parse_command(msg, commands)
         if parsed is None:
             if msg.get("text", "").strip():

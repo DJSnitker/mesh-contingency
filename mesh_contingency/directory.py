@@ -12,9 +12,14 @@ The bot checks the file every few seconds. A change is used only once the file
 has stopped changing and has been read and checked in full, so a half-saved
 file or a bad edit never locks anyone out: the previous users stay in effect
 until the file is fixed.
+
+Commands can also write one user's section (approve, setquickim, ...). Only
+that section is rewritten; the rest of the file, comments included, is kept.
 """
 
 import asyncio
+import json
+import os
 import re
 import tomllib
 from pathlib import Path
@@ -95,6 +100,49 @@ def summarize(old_users, old_admins, new_users, new_admins):
         if keys:
             parts.append(f"{label} {names(keys, users)}")
     return "; ".join(parts) or "no changes"
+
+
+TABLE_RE = re.compile(r"\s*\[")  # a line starting a [table]
+BARE_KEY_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def toml_value(value):
+    """A value written as TOML: text, true/false, a number, a list or an
+    inline table. Raises ValueError for anything else."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, str):
+        # A JSON string is a TOML basic string, apart from DEL, which TOML
+        # wants escaped.
+        return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{toml_key(k)} = {toml_value(v)}" for k, v in value.items()) + "}"
+    raise ValueError(f"can't write {type(value).__name__} values")
+
+
+def toml_key(key):
+    return key if BARE_KEY_RE.fullmatch(key) else toml_value(key)
+
+
+def with_user(text, key, settings):
+    """Return the users file text with [users.<key>] replaced by settings, or
+    added at the end if it isn't there. Comments and blank lines after the
+    section's last setting stay, since they usually describe what follows."""
+    section = [f"[users.{key}]\n"] + [f"{toml_key(k)} = {toml_value(v)}\n" for k, v in settings.items()]
+    header = re.compile(rf"\s*\[\s*users\s*\.\s*\"?{key}\"?\s*\]\s*(#.*)?", re.IGNORECASE)
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if header.fullmatch(line.rstrip("\r\n"))), None)
+    if start is None:
+        text = text.rstrip("\n")
+        return (text + "\n\n" if text else "") + "".join(section)
+    end = next((i for i in range(start + 1, len(lines)) if TABLE_RE.match(lines[i])), len(lines))
+    while end > start + 1 and (not lines[end - 1].strip() or lines[end - 1].lstrip().startswith("#")):
+        end -= 1
+    return "".join(lines[:start] + section + lines[end:])
 
 
 class Directory:
@@ -199,6 +247,50 @@ class Directory:
         for listener in self.on_change:
             listener(summary)
         return summary
+
+    def save_user(self, key, settings):
+        """Write one user's settings to the users file, adding the user if
+        new, and reload it. Returns the reload summary.
+
+        The result is read back before it is saved: if the file would hold
+        anything but its current users with this one change (a section the
+        bot can't rewrite cleanly), nothing is written and DirectoryError
+        says to edit the file by hand.
+        """
+        settings = dict(settings)
+        if self.path is None:  # not kept in a file (tests)
+            old = self._users
+            self._users = {**old, key: settings}
+            summary = summarize(old, self._admins, self._users, self._admins)
+            for listener in self.on_change:
+                listener(summary)
+            return summary
+        try:
+            text = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            text = ""
+        except OSError as e:
+            raise DirectoryError(f"can't be read: {e.strerror}") from None
+        try:
+            users, admins = parse(tomllib.loads(text))
+        except tomllib.TOMLDecodeError as e:
+            raise DirectoryError(f"not valid TOML: {e}; fix it first") from None
+        try:
+            new_text = with_user(text, key, settings)
+            written = parse(tomllib.loads(new_text))
+        except (ValueError, DirectoryError):  # TOMLDecodeError is a ValueError
+            written = None
+        if written != ({**users, key: settings}, admins):
+            raise DirectoryError(f"can't be changed automatically; edit {describe(key, users)}'s section by hand")
+        # Replace the file in one step, keeping its permissions.
+        mode = self.path.stat().st_mode & 0o777 if text else 0o600
+        temp = self.path.with_name(self.path.name + ".tmp")
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+        with open(fd, "w", encoding="utf-8") as f:
+            f.write(new_text)
+        os.chmod(temp, mode)
+        os.replace(temp, self.path)
+        return self.check(force=True)
 
     async def watch(self, wake, on_error):
         """Check the file every reload_seconds (or only when woken, if 0)

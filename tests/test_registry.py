@@ -16,11 +16,17 @@ from mesh_contingency.api import (
     Sender,
 )
 from mesh_contingency.commands.advert import AdvertCommand
+from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.help import HelpCommand
+from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
+from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand
 from mesh_contingency.commands.quickim import QuickImCommand
 from mesh_contingency.commands.reload import ReloadCommand
+from mesh_contingency.commands.roster import RosterCommand
+from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQuickImCommand
+from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.commands.verse import VerseCommand
 from mesh_contingency.commands.wx import WxCommand
 from mesh_contingency.directory import Directory
@@ -30,7 +36,12 @@ FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "quickim": QuickImCommand, "emailall": EmailAllCommand,
-            "email": EmailCommand, "advert": AdvertCommand, "reload": ReloadCommand}
+            "email": EmailCommand, "advert": AdvertCommand, "reload": ReloadCommand,
+            "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
+            "roster": RosterCommand, "msg": MsgCommand, "inbox": InboxCommand,
+            "clearinbox": ClearInboxCommand, "alert": AlertCommand,
+            "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setquickim": SetQuickImCommand,
+            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand}
 EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"
 
 

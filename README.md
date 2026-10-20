@@ -6,11 +6,13 @@ A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore) companion
 radio connected over USB serial. It listens for **direct messages** sent to the
 radio, runs simple commands, and replies over the mesh. It is meant as a
 contingency link: someone with only a mesh radio can check the weather, read
-a Bible verse, or get a message out by email. Commands are plugins: anyone can
+a Bible verse, check in, leave messages for others, or get a message out by
+email. Commands are plugins: anyone can
 write one in a separate package and install it (see
 [Writing a command](#writing-a-command)).
 
-Channel messages are ignored entirely; only direct messages are acted on.
+Channel messages are ignored entirely; only direct messages are acted on. The
+one exception is outgoing: `alert` posts weather alerts to a public channel.
 
 ## Commands
 
@@ -24,6 +26,20 @@ Channel messages are ignored entirely; only direct messages are acted on.
 | `email <address> <message>` | users | Emails the message to the given address. |
 | `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. |
 | `reload` | admins | Reads the [users file](#users-file) now and replies with what changed. |
+| `ok [status]` | anyone | Checks in: saves the sender's name, key and status (plain `ok` if none given), replacing their last one. |
+| `status <name or key>` | anyone | Shows the last check-in of anyone whose name matches (exactly, else in part) or whose key starts with the given hex (4+ characters), e.g. `Bob: at the shelter (2h ago)`. Plain `status` shows your own. |
+| `clearstatus` | admins | Deletes every check-in. |
+| `roster` | users | The node names (as their radios advertise them) of everyone who has direct-messaged the node since the bot started, most recent first. |
+| `msg <name> <message>` | users | Leaves a message for a user (by their name in the users file, or key prefix). Up to 20 are kept per person. |
+| `inbox [page]` | users | Sends you your messages, oldest first. They stay until you clear them; if they don't fit in one reply (8 messages), `inbox 2` shows the next page. |
+| `clearinbox` | users | Deletes the messages `inbox` has shown you. Any that arrived since are kept. |
+| `join [name]` | anyone | Asks to become a user, under the given name or the node's own. Every admin gets a direct message about it. |
+| `approve [name or key]` | admins | Adds the person who asked to the [users file](#users-file) and welcomes them by direct message. Plain `approve` lists the waiting requests. |
+| `deny <name or key>` | admins | Removes a request to join. The person isn't told. |
+| `setquickim <address>` | users | Sets the address your `quickim` sends to. Plain `setquickim` shows it. |
+| `addgroup <address>` | users | Adds an address to the group your `emailall` sends to (up to 10). Plain `addgroup` lists them. |
+| `cleargroup` | users | Empties your `emailall` group. |
+| `alert <zipcode>` | admins | Posts the zipcode's active NWS alerts to the public channel `#contingency-wx`, one message each, or `No alerts active for <zipcode>`. |
 
 Command names are case-insensitive. Everything after the command name is
 passed through as typed. Replies too long for one 133-character message are
@@ -32,6 +48,32 @@ split into numbered messages (`(1/3) ...`), at most 8 per reply.
 Notification emails have the subject
 `You have received a MeshCore message from: <sender>`, the message text as the
 body, and a fixed disclaimer that replies are not relayed back to the mesh.
+
+Check-ins and mailbox messages are saved in `status.json` and `mailbox.json`
+next to `config.toml`, so they survive a restart. Both are git-ignored and
+readable only by you. Messages stay until their reader sends `clearinbox`, so
+one lost on the air can be read again with `inbox`. The names a check-in or message
+shows are from the users file, or the name the node advertises.
+
+`approve`, `setquickim`, `addgroup` and `cleargroup` write to the users file
+and reload it at once. They rewrite only that person's `[users.<key>]` section
+(comments inside it are dropped); the rest of the file is kept as it is. The
+result is checked before it's saved, so if a section can't be rewritten
+cleanly (for example one split into sub-tables), nothing is changed and the
+command says to edit it by hand. Join requests wait in `requests.json` next to
+`config.toml` until approved or denied, at most 20 at a time.
+
+`alert` posts to a hashtag channel, which anyone can join by adding the same
+name (`#contingency-wx`) in their app. When the bot starts, it makes sure the
+radio has the channel, adding it to the first empty channel slot if needed
+(the console says which slot). If there is no free slot, it warns and keeps
+running. To use another channel:
+
+```toml
+[commands.alert]
+permission = "admin"
+channel = "#storm-watch"
+```
 
 Example `wx` reply:
 
@@ -153,6 +195,20 @@ emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
 reload = { permission = "admin" }
+ok = { permission = "public" }
+status = { permission = "public" }
+clearstatus = { permission = "admin" }
+roster = { permission = "user" }
+msg = { permission = "user" }
+inbox = { permission = "user" }
+clearinbox = { permission = "user" }
+alert = { permission = "admin" }
+join = { permission = "public" }
+approve = { permission = "admin" }
+deny = { permission = "admin" }
+setquickim = { permission = "user" }
+addgroup = { permission = "user" }
+cleargroup = { permission = "user" }
 ```
 
 Each entry under `[commands]` takes:
@@ -332,6 +388,7 @@ mesh_contingency/
   api.py              the interface for commands: Command, Context, CommandResult, reply limits
   registry.py         finding commands (entry points), checking [commands], loading them
   directory.py        the users file: checking it and reloading it while running
+  state.py            senders seen since startup; status.json and mailbox.json
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
@@ -342,7 +399,12 @@ mesh_contingency/
     build.py          rebuilds bsb.json.gz
     votd.py           verse-of-the-day list
   commands/           built-in commands, one module each
-    help.py, wx.py, verse.py, advert.py, reload.py
+    help.py, wx.py, verse.py, advert.py, reload.py, roster.py
+    status.py         ok, status and clearstatus
+    mailbox.py        msg, inbox and clearinbox
+    alert.py          posting alerts to a channel
+    join.py           join, approve and deny
+    settings.py       setquickim, addgroup and cleargroup
     mail.py           the shared email sending and address checks
     quickim.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package
@@ -394,7 +456,9 @@ class TideCommand(Command):
         return CommandResult(console=full_report, reply=short_text)
 ```
 
-Use a class when the command keeps state or needs setup.
+Use a class when the command keeps state or needs setup. Setup that needs the
+radio goes in `async def start(self)`, which the bot calls once after
+connecting and before handling messages; it may return a line to print.
 
 ### What a command gets and returns
 
@@ -409,6 +473,9 @@ Use a class when the command keeps state or needs setup.
 when the command runs instead of keeping a copy from `__init__`.
 - `radio`: the connected `meshcore.MeshCore`
 - `commands`: every loaded command
+- `state`: shared by every command: `seen` (who has messaged the node) and
+  `store("<file>.json")`, a JSON file next to `config.toml` that survives restarts
+- `name_of(sender)`: the sender's name from the users file, or as advertised
 - `allowed(command, sender)`
 
 A command returns reply text, a list of messages, a `CommandResult(console=...,
@@ -465,6 +532,16 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
   trigger them. Install only command packages you trust. Disabled commands
   are never imported.
 - A flood `advert` is sent to the whole mesh; use it sparingly.
+- `ok` and `status` are public: anyone who can reach the node can read
+  anyone's check-in by name. Don't put anything in a status you wouldn't
+  say on an open channel. `alert` posts to a public channel.
+- `join` is public, so anyone can ask; nothing changes until an admin
+  approves. Approving gives the person every `user` command, including
+  `email` to any address.
+- Addresses set over the mesh must be plain `user@domain.tld`; anything else
+  is refused, as with `email`.
+- `status.json`, `mailbox.json` and `requests.json` hold node keys and what
+  people wrote; they are created readable only by you.
 - The users file decides who is an admin, and changes to it apply while the
   bot runs. Keep it writable only by you (`chmod 600 users.toml`).
 

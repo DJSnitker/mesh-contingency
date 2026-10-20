@@ -87,12 +87,24 @@ def active_alerts(lat, lon):
     return [f["properties"] for f in data.get("features", [])]
 
 
-def fetch_weather(zipcode):
-    """Return a dict of current conditions, precip chance and alerts for a zipcode."""
+def check_zip(zipcode):
+    """Return the zipcode without surrounding spaces; raise ValueError unless it is 5 digits."""
     zipcode = zipcode.strip()
     if not (zipcode.isdigit() and len(zipcode) == 5):
         raise ValueError(f"invalid zipcode {zipcode!r}; expected 5 digits")
+    return zipcode
 
+
+def fetch_alerts(zipcode):
+    """Return (zipcode, "City, ST", active alerts) for a zipcode."""
+    zipcode = check_zip(zipcode)
+    lat, lon, place = geocode_zip(zipcode)
+    return zipcode, place, active_alerts(lat, lon)
+
+
+def fetch_weather(zipcode):
+    """Return a dict of current conditions, precip chance and alerts for a zipcode."""
+    zipcode = check_zip(zipcode)
     lat, lon, place = geocode_zip(zipcode)
     point = _get_json(f"{NWS_API}/points/{lat:.4f},{lon:.4f}")["properties"]
     station, obs = latest_observation(point["observationStations"])
