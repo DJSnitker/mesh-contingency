@@ -200,6 +200,13 @@ newly heard node whose type is listed, logging e.g.
 running are picked up when they advert again. Without a `[contacts]` section
 the radio's setting is left as it is.
 
+Each admin also gets a direct message for every contact added, e.g.
+`New contact: Alice (a1b2c3d4e5f6, chat)`, so they can add the person to
+`[users]` if appropriate. Set `notify_admins = false` under `[contacts]` to
+turn this off. Admins must themselves be contacts to receive it. Notices are
+sent in the background, one message at a time, so they never hold up replies
+to incoming messages.
+
 ### Email
 
 Mail is sent by running `mail -s <subject> <addresses...>`, so `mail` must be
