@@ -13,6 +13,11 @@ authors = [{ name = "Doug Snitker" }]
 requires-python = ">=3.11"
 dependencies = ["meshcore>=2.3"]
 
+[project.optional-dependencies]
+# Development tools; CI's lint job installs these. Pinned so a new lint rule
+# can't fail CI unannounced (Dependabot proposes upgrades).
+dev = ["ruff==0.17.1"]
+
 [project.urls]
 Repository = "https://github.com/DJSnitker/mesh-contingency"
 
@@ -34,3 +39,11 @@ include = ["mesh_contingency*"]
 
 [tool.setuptools.package-data]
 "mesh_contingency.bible" = ["bsb.json.gz"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, bugbear, pyupgrade
+select = ["E", "F", "W", "I", "B", "UP"]

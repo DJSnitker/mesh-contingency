@@ -12,8 +12,18 @@ from pathlib import Path
 
 from meshcore import EventType, MeshCore
 
-from .api import (ADMIN, DISABLED, MAX_REPLY_LEN, PUBLIC, USER, CommandError, CommandResult, Sender,
-                  is_authorized, to_messages)
+from .api import (
+    ADMIN,
+    DISABLED,
+    MAX_REPLY_LEN,
+    PUBLIC,
+    USER,
+    CommandError,
+    CommandResult,
+    Sender,
+    is_authorized,
+    to_messages,
+)
 from .contacts import load_auto_add, setup_auto_add
 from .registry import Registry, load_admins, load_users
 

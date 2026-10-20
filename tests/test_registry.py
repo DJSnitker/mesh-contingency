@@ -4,13 +4,22 @@ from importlib.metadata import EntryPoint
 from pathlib import Path
 from unittest import mock
 
-from mesh_contingency.api import (ADMIN, DEFAULT_TIMEOUT, DISABLED, PUBLIC, USER, Command, CommandResult,
-                                  FunctionCommand, Sender)
+from mesh_contingency.api import (
+    ADMIN,
+    DEFAULT_TIMEOUT,
+    DISABLED,
+    PUBLIC,
+    USER,
+    Command,
+    CommandResult,
+    FunctionCommand,
+    Sender,
+)
 from mesh_contingency.commands.advert import AdvertCommand
-from mesh_contingency.commands.help import HelpCommand
-from mesh_contingency.commands.quickim import QuickImCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
+from mesh_contingency.commands.help import HelpCommand
+from mesh_contingency.commands.quickim import QuickImCommand
 from mesh_contingency.commands.verse import VerseCommand
 from mesh_contingency.commands.wx import WxCommand
 from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, load_admins, load_users, resolve

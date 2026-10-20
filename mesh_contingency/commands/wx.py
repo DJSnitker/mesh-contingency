@@ -2,9 +2,8 @@
 
 import asyncio
 
-from ..weather import POP_HOURS, c_to_f, fetch_weather, kmh_to_mph, mm_to_in, value
-
 from ..api import Command, CommandError, CommandResult
+from ..weather import POP_HOURS, c_to_f, fetch_weather, kmh_to_mph, mm_to_in, value
 
 
 def _compass(deg):

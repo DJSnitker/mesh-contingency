@@ -5,7 +5,7 @@ import asyncio
 import re
 import subprocess
 
-from ..api import Command, CommandError, CommandResult, Sender
+from ..api import Command, CommandResult, Sender
 
 SUBJECT = "You have received a MeshCore message from: {sender}"
 DISCLAIMER = (

@@ -1,0 +1,27 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please don't paste your `config.toml`, email addresses, node keys or SMTP settings. Replace them with placeholders.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: The relevant lines from the bot's console, with keys and addresses removed.
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: mesh-contingency version (pip show mesh-contingency), Python version, radio firmware.
+      placeholder: "mesh-contingency 0.2.0, Python 3.13, MeshCore companion 1.9"

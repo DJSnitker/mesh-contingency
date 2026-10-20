@@ -1,5 +1,7 @@
 # mesh-contingency
 
+[![CI](https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml/badge.svg)](https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml)
+
 A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore) companion
 radio connected over USB serial. It listens for **direct messages** sent to the
 radio, runs simple commands, and replies over the mesh. It is meant as a
@@ -237,12 +239,27 @@ delivered.
 
 ```sh
 .venv/bin/python -m unittest
+.venv/bin/pip install -e ".[dev]" && .venv/bin/ruff check .   # lint
 ```
 
 The tests use only the standard library. Network calls, the `mail` command
 and the radio are all faked (see `mesh_contingency/testing.py`), so they run
 offline and without a device. `tests/test_bot.py` drives the real
 `mesh_contingency.bot.main()` with simulated direct messages.
+
+## Contributing
+
+Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
+
+- **Tests** on Python 3.11, 3.12, 3.13 and 3.14.
+- **Lint** with [ruff](https://docs.astral.sh/ruff/); the rules are in `pyproject.toml`.
+- **Package**: builds the wheel, checks the Bible data and command
+  registrations are inside it, installs it with `examples/mesh-dice`, and runs
+  a verse lookup and a dice roll through the installed commands.
+
+The PR template has a short checklist. Never include real data (your
+`config.toml`, email addresses, node keys) in code, tests or issues.
+Dependabot opens weekly PRs to update GitHub Actions and Python dependencies.
 
 ## Project layout
 
@@ -264,6 +281,7 @@ mesh_contingency/
     mail.py           the shared email sending and address checks
     quickim.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package
+.github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
 config.example.toml   example configuration
 tests/                unit tests (python -m unittest)

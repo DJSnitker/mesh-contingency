@@ -2,15 +2,13 @@ import contextlib
 import gzip
 import io
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from mesh_contingency import bible
-from mesh_contingency.bible import Bible, Passage, default_bible, normalize
-from mesh_contingency.bible import build
+from mesh_contingency.bible import Bible, Passage, build, default_bible, normalize
 from mesh_contingency.bible.votd import VERSES, reference_for
 
 

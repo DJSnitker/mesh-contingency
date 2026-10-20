@@ -1,0 +1,22 @@
+name: Feature or command request
+description: Suggest a new command or an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you'd like
+      description: The command or change, and an example of the mesh message and reply.
+      placeholder: "tide <station> -> 'Tides 8724580: H 4:12a 2.1ft, L 10:30a 0.2ft'"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Who it helps and when they'd use it.
+  - type: dropdown
+    id: permission
+    attributes:
+      label: Who should be able to run it by default
+      options: [public, user, admin]

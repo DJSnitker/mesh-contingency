@@ -1,9 +1,9 @@
 import datetime
 import unittest
 
+from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.bible import Bible, default_bible
 from mesh_contingency.bible.votd import reference_for
-from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.verse import MAX_PARTS, VerseCommand
 from mesh_contingency.testing import make_context
 

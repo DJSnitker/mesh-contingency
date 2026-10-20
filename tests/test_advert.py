@@ -2,8 +2,8 @@ import unittest
 
 from meshcore import EventType
 
-from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.api import CommandError, Sender
+from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 DANA = Sender("Dana", "d0d0d0d0d0d0")

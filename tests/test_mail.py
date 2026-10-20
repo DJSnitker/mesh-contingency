@@ -3,8 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from mesh_contingency.api import CommandError, Sender
-from mesh_contingency.api import ADMIN, PUBLIC, USER
+from mesh_contingency.api import ADMIN, PUBLIC, USER, CommandError, Sender
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email

@@ -14,7 +14,6 @@ from mesh_contingency.api import ADMIN, DISABLED, MAX_PARTS, MAX_REPLY_LEN, PUBL
 from mesh_contingency.testing import FakeMeshCore
 
 
-
 async def echo(text, sender, ctx):
     """A plugin command for the tests: replies with its text, or nothing."""
     return f"{ctx.options.get('prefix', '')}{text}" if text else None
@@ -143,7 +142,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.out = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.out))
         self.enterContext(mock.patch("mesh_contingency.bot.time", SimpleNamespace(monotonic=lambda: self.clock)))
-        self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial", mock.AsyncMock(return_value=self.radio)))
+        self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial",
+                                     mock.AsyncMock(return_value=self.radio)))
         self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", f.name] + (argv or [])))
 
         self.task = asyncio.create_task(bot.main())
