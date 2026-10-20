@@ -120,6 +120,11 @@ emailall = ["a@example.com", "b@example.com"]
 
 ## Phase 2: identity verification
 
+*Status: done.* Alerts name the prefix, not the full key, since full keys are
+never logged. The shared-prefix check runs at startup, after each users-file
+reload and when a message arrives from a shared prefix (not on every
+contacts refresh).
+
 Problem: senders are identified by a 6-byte key prefix, and auto-add accepts any
 node, so a node with a forged matching prefix would be treated as an admin or
 user.
@@ -130,7 +135,8 @@ user.
   Otherwise they are treated as unknown (public commands only).
 - **At auto-add:** a new node whose prefix matches a configured user/admin but
   whose full key differs is **not added**, and admins get a DM:
-  `Blocked contact posing as Alice: <full key>`.
+  `Blocked a1b2c3d4e5f6 Alice: posing as Alice (same key prefix, different key)`,
+  once per node.
 - **At startup and after each contacts refresh:** if the radio already holds two
   contacts sharing a configured prefix, log it, alert admins once, and refuse
   that prefix until resolved.

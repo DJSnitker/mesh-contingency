@@ -27,7 +27,7 @@ from .api import (
     to_messages,
 )
 from .contacts import load_auto_add, load_notify_admins, setup_auto_add
-from .directory import Directory
+from .directory import Directory, describe
 from .registry import Registry
 
 # config.toml in the project folder (the parent of this package).
@@ -145,8 +145,20 @@ async def main():
         """Tell every admin about a contact the bot just added."""
         tell_admins(f"New contact: {name or '?'} ({key}, {type_name})", "new-contact notice")
 
+    def protected_keys():
+        """Users' and admins' full keys, as of now."""
+        return directory.users.keys() | directory.admins
+
+    def announce_blocked(prefix, name, target):
+        """Warn every admin about a node posing as a user or admin. Sent even
+        with notify_admins off, since it may be an attack."""
+        who = describe(target, directory.users)
+        tell_admins(f"Blocked {prefix} {name or '?'}: posing as {who} (same key prefix, different key)",
+                    "blocked-contact alert")
+
     if auto_add is not None:
-        await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None)
+        await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None,
+                             protected=protected_keys, on_blocked=announce_blocked)
         if notify_admins and directory.admins:
             print(f"New contacts are announced to {len(directory.admins)} admin(s).")
 
@@ -167,6 +179,7 @@ async def main():
     def on_users_reloaded(summary):
         print(f"{directory.name} reloaded: {summary}", flush=True)
         warn_unconfigured()
+        check_shared_prefixes()
 
     def on_users_error(reason):
         """A new version of the users file can't be used: say so, and keep
@@ -196,6 +209,24 @@ async def main():
     def contacts_with_prefix(prefix):
         return [c for c in mc.contacts.values() if prefix and c.get("public_key", "").lower().startswith(prefix)]
 
+    reported_shared = set()  # (prefix, contacts' keys) already reported
+
+    def check_shared_prefixes():
+        """Warn (once per set of contacts) about a user's or admin's key
+        prefix shared by several contacts in the radio, which leaves that
+        person unable to use their rights until the impostor is removed."""
+        for key in sorted(protected_keys()):
+            matches = contacts_with_prefix(key[:12])
+            report = (key[:12], frozenset(c["public_key"] for c in matches))
+            if len(matches) < 2 or report in reported_shared:
+                continue
+            reported_shared.add(report)
+            who = describe(key, directory.users)
+            print(f"Warning: {len(matches)} contacts share {who}'s key prefix {key[:12]}; {who} has no "
+                  f"user or admin rights until the impostor is removed from the radio's contacts.", flush=True)
+            tell_admins(f"{len(matches)} contacts share {who}'s key prefix {key[:12]}: remove the impostor "
+                        f"from the radio", "shared-prefix alert")
+
     async def get_sender(msg):
         """Return the Sender of a direct message.
 
@@ -213,9 +244,12 @@ async def main():
         if len(matches) != 1:
             if matches:
                 print(f"  ({len(matches)} contacts share key prefix {prefix}; sender not identified)", flush=True)
+                check_shared_prefixes()  # tell the admins if it's a user's or admin's prefix
             return Sender(prefix, None)
         contact = matches[0]
         return Sender(contact.get("adv_name") or prefix, contact["public_key"].lower())
+
+    check_shared_prefixes()
 
     last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY
 

@@ -4,7 +4,7 @@ import unittest
 
 from meshcore import EventType
 
-from mesh_contingency.contacts import NODE_TYPES, load_auto_add, load_notify_admins, setup_auto_add
+from mesh_contingency.contacts import NODE_TYPES, load_auto_add, load_notify_admins, lookalike_of, setup_auto_add
 from mesh_contingency.testing import FakeMeshCore, event, make_contact
 
 
@@ -38,13 +38,31 @@ class LoadNotifyAdminsTest(unittest.TestCase):
                 load_notify_admins({"contacts": {"notify_admins": value}})
 
 
+DANA = "d0" * 32  # a protected user's full key
+LOOKALIKE = "d0" * 6 + "11" * 26  # same prefix, different key
+
+
+class LookalikeTest(unittest.TestCase):
+    def test_same_prefix_different_key(self):
+        self.assertEqual(lookalike_of(LOOKALIKE, {DANA, "ad" * 32}), DANA)
+        self.assertEqual(lookalike_of(LOOKALIKE.upper(), {DANA}), DANA)
+
+    def test_the_real_key_or_another_prefix(self):
+        self.assertIsNone(lookalike_of(DANA, {DANA}))
+        self.assertIsNone(lookalike_of("ab" * 32, {DANA}))
+        self.assertIsNone(lookalike_of(LOOKALIKE, set()))
+
+
 class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
     async def setup(self, types=frozenset({1}), manual=False):
         radio = FakeMeshCore(manual_add_contacts=manual)
         self.added = []  # on_added calls
+        self.blocked = []  # on_blocked calls
+        self.protected = {DANA}
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            await setup_auto_add(radio, set(types), on_added=lambda *args: self.added.append(args))
+            await setup_auto_add(radio, set(types), on_added=lambda *args: self.added.append(args),
+                                 protected=lambda: self.protected, on_blocked=lambda *args: self.blocked.append(args))
         return radio, out.getvalue()
 
     async def new_contact(self, radio, contact):
@@ -114,6 +132,35 @@ class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("could not add contact a1a1a1a1a1a1 Alice (chat)", out)
         self.assertEqual(radio.get_contacts_calls, 0)
         self.assertEqual(self.added, [])  # nor for nodes the radio refused
+
+
+    async def test_lookalike_of_a_user_is_blocked_once(self):
+        radio, _ = await self.setup({1})
+        out = await self.new_contact(radio, make_contact(LOOKALIKE, "Dana", 1))
+        out += await self.new_contact(radio, make_contact(LOOKALIKE, "Dana", 1))  # advertising again
+        self.assertEqual(radio.added, [])
+        self.assertEqual(self.added, [])
+        self.assertEqual(self.blocked, [("d0d0d0d0d0d0", "Dana", DANA)])
+        self.assertEqual(out.count("! blocked new contact d0d0d0d0d0d0 Dana (chat)"), 1)
+        self.assertNotIn(LOOKALIKE, out)  # no full keys in the log
+
+    async def test_the_user_themselves_is_added(self):
+        radio, _ = await self.setup({1})
+        await self.new_contact(radio, make_contact(DANA, "Dana", 1))
+        self.assertEqual(len(radio.added), 1)
+        self.assertEqual(self.blocked, [])
+
+    async def test_protected_keys_read_each_time(self):
+        radio, _ = await self.setup({1})
+        self.protected = set()  # Dana removed from the users file
+        await self.new_contact(radio, make_contact(LOOKALIKE, "Other", 1))
+        self.assertEqual(len(radio.added), 1)
+
+    async def test_lookalike_of_unlisted_type_just_skipped(self):
+        radio, _ = await self.setup({1})
+        out = await self.new_contact(radio, make_contact(LOOKALIKE, "Hilltop", 2))
+        self.assertIn("skipped new contact", out)
+        self.assertEqual(self.blocked, [])
 
 
 if __name__ == "__main__":

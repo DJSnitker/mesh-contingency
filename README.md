@@ -83,7 +83,9 @@ radio's contacts and checks that contact's full key against the
 [users file](#users-file). If no
 contact, or more than one, has the prefix, the sender is unidentified and may
 only run public commands, so a node that copies someone's prefix never gets
-their rights. The console prints the prefix and name for each message, e.g.
+their rights. If two contacts share a user's or admin's prefix, admins are told
+once (at startup, after a reload, or when such a message arrives) so they can
+remove the impostor from the radio. The console prints the prefix and name for each message, e.g.
 `[a1b2c3d4e5f6 Alice] wx 10001`.
 
 Who may run each command is set entirely in the config's `[commands]`
@@ -246,6 +248,13 @@ newly heard node whose type is listed, logging e.g.
 `+ contact a1b2c3d4e5f6 Alice (chat)`. Nodes heard while the bot isn't
 running are picked up when they advert again. Without a `[contacts]` section
 the radio's setting is left as it is.
+
+A new node whose key prefix matches a user or admin but whose full key
+differs is never added, since it could pass itself off as them. The admins get
+one alert per node, even with `notify_admins = false`:
+`Blocked a1b2c3d4e5f6 Alice: posing as Alice (same key prefix, different key)`.
+If it really is them on a new device, put the new key in the users file and
+the node is added when it next adverts.
 
 Each admin also gets a direct message for every contact added, e.g.
 `New contact: Alice (a1b2c3d4e5f6, chat)`, so they know who has appeared and

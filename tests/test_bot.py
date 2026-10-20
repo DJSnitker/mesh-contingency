@@ -282,6 +282,14 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.sent, [])
         self.assertIn(f"(no contact {ADMIN_KEY} to send new-contact notice to", self.out.getvalue())
 
+    async def test_lookalike_blocked_and_admins_told(self):
+        await self.start(CONFIG + self.AUTO_ADD + "notify_admins = false\n")  # alerts are sent anyway
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact(DANA + "11" * 26, "Dana", 1))
+        await self.settle()
+        self.assertEqual(self.radio.added, [])
+        self.assertEqual(self.radio.sent, [
+            ("Admin", "Blocked d0d0d0d0d0d0 Dana: posing as Dana (same key prefix, different key)")])
+
     async def test_messages_never_overlap(self):
         await self.start(CONFIG + self.AUTO_ADD)
         active, peak = 0, 0
@@ -481,6 +489,28 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         send_email.assert_not_called()
         self.assertIn(f"(2 contacts share key prefix {DANA}; sender not identified)", self.out.getvalue())
         self.assertIn("quickim denied: sender not approved", self.out.getvalue())
+
+    async def test_shared_prefix_reported_to_admins_once(self):
+        impostor = DANA + "11" * 26
+        await self.start(contacts={DANA: "Dana", impostor: "Dana", ADMIN_KEY: "Admin"})
+        await self.settle()
+        alert = ("Admin", f"2 contacts share Dana's key prefix {DANA}: remove the impostor from the radio")
+        self.assertEqual(self.radio.sent, [alert])
+        self.assertIn(f"Warning: 2 contacts share Dana's key prefix {DANA}", self.out.getvalue())
+        await self.radio.dm(DANA, "hello")
+        await self.settle()
+        self.assertEqual(self.radio.sent.count(alert), 1)
+
+    async def test_shared_prefix_checked_after_reload(self):
+        await self.start(contacts={STRANGER: "Stranger", STRANGER + "11" * 26: "Copy", ADMIN_KEY: "Admin"},
+                         config=CONFIG)
+        await self.settle()
+        self.assertEqual(self.radio.sent, [])  # not a user's prefix: nothing to protect
+        self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Sam"\n')
+        await self.radio.dm(ADMIN_KEY, "reload")
+        await self.settle()
+        self.assertIn(("Admin", f"2 contacts share Sam's key prefix {STRANGER}: remove the impostor from the radio"),
+                      self.radio.sent)
 
     async def test_reply_goes_to_the_full_key(self):
         await self.start()
