@@ -10,7 +10,7 @@ from unittest import mock
 from meshcore import EventType
 
 import mesh_contingency
-from commands.base import ADMIN, MAX_REPLY_LEN, PUBLIC, USER, Sender
+from commands.base import ADMIN, MAX_REPLY_LEN, PUBLIC, USER, CommandResult, Sender
 from tests.fakes import FakeMeshCore
 
 DANA = "d0d0d0d0d0d0"  # user
@@ -147,7 +147,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV})  # no channel messages
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): wx", out)
+        self.assertIn("public commands (anyone): wx, verse", out)
         self.assertIn("user commands (1 user(s)): notify_default, notify_group, notify_email", out)
         self.assertIn("admin commands (1 admin(s)): advert", out)
         self.assertIn("notify_group command disabled", out)
@@ -247,6 +247,22 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         with mock.patch("commands.wx.fetch_weather", return_value=data):
             await self.radio.dm(STRANGER, "wx 10001")
         self.assertEqual(self.radio.sent, [("Stranger", "10001 0% precip 6h | no current obs")])
+
+    async def test_multi_part_reply_sent_in_order(self):
+        await self.start()
+        result = CommandResult(console="full text", reply=["(1/2) first", "(2/2) second"])
+        with mock.patch("commands.verse.VerseCommand.execute", mock.AsyncMock(return_value=result)):
+            await self.radio.dm(STRANGER, "verse john 3:16")
+        self.assertEqual(self.radio.sent, [("Stranger", "(1/2) first"), ("Stranger", "(2/2) second")])
+        out = self.out.getvalue()
+        self.assertIn("full text", out)
+        self.assertIn("-> replied (11 chars): (1/2) first", out)
+        self.assertIn("-> replied (12 chars): (2/2) second", out)
+
+    async def test_verse_end_to_end(self):
+        await self.start()
+        await self.radio.dm(STRANGER, "verse phil 4:13")
+        self.assertEqual(self.replies(), ["Philippians 4:13 I can do all things through Christ who gives me strength."])
 
     # --- command failures
 

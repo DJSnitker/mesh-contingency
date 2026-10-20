@@ -1,5 +1,6 @@
 """Base class shared by all mesh commands."""
 
+import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -16,7 +17,7 @@ ADMIN = "admin"  # senders listed in [admin] keys
 @dataclass
 class CommandResult:
     console: str  # full output printed locally
-    reply: str  # short text sent back over the mesh
+    reply: str | list[str]  # text sent back over the mesh: one message, or several in order
 
 
 @dataclass
@@ -64,3 +65,22 @@ class Command(ABC):
                 text = candidate[: limit - 3] + "..."
                 break
         return text
+
+    @staticmethod
+    def split_reply(text, limit=MAX_REPLY_LEN):
+        """Split text into messages of at most `limit` chars, breaking between words.
+
+        Text that fits is returned as a single message. Otherwise every message
+        is numbered "(i/n) " so the receiver can put them back in order even if
+        the mesh delivers them out of sequence.
+        """
+        if len(text) <= limit:
+            return [text]
+        count = 2
+        while True:
+            width = limit - len(f"({count}/{count}) ")
+            chunks = textwrap.wrap(text, width, break_on_hyphens=False)
+            # Only accept once the numbering is at least as wide as assumed.
+            if len(chunks) <= count:
+                return [f"({i}/{len(chunks)}) {chunk}" for i, chunk in enumerate(chunks, 1)]
+            count = len(chunks)

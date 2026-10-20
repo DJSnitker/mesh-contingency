@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mesh-contingency"
 version = "0.1.0"
-description = "MeshCore direct-message bot: weather lookups, email notifications and radio admin commands"
+description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -21,4 +21,7 @@ mesh-contingency = "mesh_contingency:run"
 
 [tool.setuptools]
 py-modules = ["mesh_contingency", "weather", "contacts"]
-packages = ["commands"]
+packages = ["commands", "bible"]
+
+[tool.setuptools.package-data]
+bible = ["bsb.json.gz"]

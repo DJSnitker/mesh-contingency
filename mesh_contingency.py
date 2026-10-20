@@ -172,8 +172,10 @@ async def main():
             await reply(msg, f"{command.name}: failed")
             return
         print(result.console, flush=True)
-        await reply(msg, result.reply)
-        print(f"  -> replied ({len(result.reply)} chars): {result.reply}", flush=True)
+        # A long reply comes as several messages, sent in order.
+        for text in [result.reply] if isinstance(result.reply, str) else result.reply:
+            await reply(msg, text)
+            print(f"  -> replied ({len(text)} chars): {text}", flush=True)
 
     # Only direct messages; channel messages are never subscribed to.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)

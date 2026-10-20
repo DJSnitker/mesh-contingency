@@ -3,8 +3,8 @@
 A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore) companion
 radio connected over USB serial. It listens for **direct messages** sent to the
 radio, runs simple commands, and replies over the mesh. It is meant as a
-contingency link: someone with only a mesh radio can check the weather or get
-a message out by email.
+contingency link: someone with only a mesh radio can check the weather, read
+a Bible verse, or get a message out by email.
 
 Channel messages are ignored entirely; only direct messages are acted on.
 
@@ -13,6 +13,7 @@ Channel messages are ignored entirely; only direct messages are acted on.
 | Command | Who can run it | What it does |
 |---|---|---|
 | `wx <zipcode>` | anyone | Current conditions, chance of precipitation and active NWS alerts for a US zipcode. Full report on the console; a ≤133-char summary is sent back, prioritizing alerts, then precipitation, then temperature and wind. |
+| `verse [reference]` | anyone | A Bible verse or short passage from the Berean Standard Bible, e.g. `verse john 3:16` or `verse ps 23:1-3`; plain `verse` gives the verse of the day. Works offline. |
 | `notify_default <message>` | users | Emails the message to the sender's configured default address. |
 | `notify_group <message>` | users | Emails the message to the sender's configured group of addresses. |
 | `notify_email <address> <message>` | users | Emails the message to the given address. |
@@ -32,6 +33,39 @@ Example `wx` reply:
 ```
 
 (`G18` is wind gusts in mph.)
+
+### Bible verses
+
+The whole [Berean Standard Bible](https://berean.bible/) is bundled with the
+bot (`bible/bsb.json.gz`, 1.2 MB), so `verse` never touches the network. The
+BSB was dedicated to the public domain in 2023, so verses are sent without a
+copyright notice.
+
+References accept full book names, standard abbreviations and any
+unambiguous prefix: `john 3:16`, `jn 3:16`, `1 jn 4:8`, `I John 4:8`,
+`song 2:4`, `phil 4:13`. Single-chapter books can be cited by verse alone
+(`jude 24`). A range within one chapter, `ps 23:1-3`, numbers each verse
+after the first.
+
+A reply that doesn't fit in one 133-character message is split between words
+into numbered messages, so they can be read in order even if the mesh
+delivers them out of sequence:
+
+```
+(1/2) John 3:16 For God so loved the world that He gave His one and only Son, that everyone who believes in Him shall not perish but
+(2/2) have eternal life.
+```
+
+A reply may take at most 8 messages; longer ranges are refused. The verse of
+the day comes from a built-in list of 237 well-known verses
+(`bible/votd.py`), taken in turn by date, so everyone gets the same verse on
+the same day. Text is converted to plain ASCII (straight quotes, `--` for
+dashes). Verses the BSB omits from the main text, such as Matthew 17:21, are
+reported as not in the text.
+
+The bundled file is built from the [Free Use Bible API](https://bible.helloao.org)
+with `python -m bible.build`. It only needs rebuilding to pick up corrections
+to the source text.
 
 ### Permissions
 
@@ -59,7 +93,8 @@ them automatically.
 - The `mail` command (e.g. s-nail or mailutils) able to send through an SMTP
   server, for the `notify_*` commands
 - Internet access for `wx` ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)
-  and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys)
+  and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys).
+  `verse` works offline.
 
 ## Setup
 
@@ -70,7 +105,8 @@ cp config.example.toml config.toml   # then edit it
 ```
 
 The editable install (`-e`) runs the code straight from this folder, so edits
-take effect on restart and `config.toml` here is found by default.
+take effect on restart and `config.toml` here is found by default. Re-run the
+install after pulling changes that add new modules or packages.
 
 ### Configuration
 
@@ -160,10 +196,16 @@ with simulated direct messages.
 mesh_contingency.py   entry point: radio connection, permissions, dispatch, replies
 contacts.py           auto-adding new contacts by node type
 weather.py            api.weather.gov / zipcode lookups (data only)
+bible/
+  __init__.py         reference parsing and verse lookup
+  bsb.json.gz         the bundled Berean Standard Bible
+  build.py            rebuilds bsb.json.gz (python -m bible.build)
+  votd.py             verse-of-the-day list
 commands/
   __init__.py         command registry and config loading
-  base.py             Command base class, permission levels, reply fitting
+  base.py             Command base class, permission levels, reply fitting and splitting
   wx.py               wx
+  verse.py            verse
   notify_default.py   notify_default and the shared email sending
   notify_group.py     notify_group
   notify_email.py     notify_email (validates the address from the mesh)
@@ -178,6 +220,8 @@ tests/                unit tests (python -m unittest)
 Create a `Command` subclass in its own module under `commands/` with `name`,
 `usage`, `permission` (`PUBLIC`, `USER` or `ADMIN`) and an async
 `execute(text, sender)` that returns a `CommandResult(console=..., reply=...)`.
+`reply` is one message, or a list of messages sent in order (see
+`Command.split_reply`).
 Raise `CommandError` for failures whose message is safe to send back. Then add
 an instance in `build_commands()` in `commands/__init__.py`.
 

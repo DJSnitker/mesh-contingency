@@ -32,6 +32,39 @@ class FitReplyTest(unittest.TestCase):
         self.assertEqual(len(text), MAX_REPLY_LEN)
 
 
+class SplitReplyTest(unittest.TestCase):
+    def test_fitting_text_is_one_unnumbered_message(self):
+        self.assertEqual(Command.split_reply("short"), ["short"])
+        text = "x" * MAX_REPLY_LEN
+        self.assertEqual(Command.split_reply(text), [text])
+
+    def test_numbered_parts_rejoin_to_the_text(self):
+        text = " ".join(f"word{i}" for i in range(60))  # ~410 chars
+        parts = Command.split_reply(text)
+        self.assertEqual(len(parts), 4)
+        for i, part in enumerate(parts, 1):
+            self.assertLessEqual(len(part), MAX_REPLY_LEN)
+            self.assertTrue(part.startswith(f"({i}/4) "))
+        self.assertEqual(" ".join(p.split(" ", 1)[1] for p in parts), text)
+
+    def test_breaks_between_words(self):
+        self.assertEqual(Command.split_reply("aaaa bbbb cccc-dddd", limit=16),
+                         ["(1/2) aaaa bbbb", "(2/2) cccc-dddd"])
+
+    def test_numbering_width_grows_past_nine_parts(self):
+        text = " ".join(["abcdefghi"] * 120)
+        parts = Command.split_reply(text)
+        self.assertGreaterEqual(len(parts), 10)
+        self.assertTrue(parts[0].startswith(f"(1/{len(parts)}) "))
+        self.assertTrue(all(len(p) <= MAX_REPLY_LEN for p in parts))
+        self.assertEqual(" ".join(p.split(" ", 1)[1] for p in parts), text)
+
+    def test_overlong_word_is_cut(self):
+        parts = Command.split_reply("y" * 30, limit=20)
+        self.assertTrue(all(len(p) <= 20 for p in parts))
+        self.assertEqual("".join(p.split(" ", 1)[1] for p in parts), "y" * 30)
+
+
 class BaseTypesTest(unittest.TestCase):
     def test_command_defaults(self):
         self.assertEqual(Command.permission, PUBLIC)

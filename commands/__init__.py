@@ -6,6 +6,7 @@ from .base import ADMIN, PUBLIC, USER, Command, CommandError, CommandResult, Sen
 from .notify_default import NotifyDefaultCommand
 from .notify_email import NotifyEmailCommand
 from .notify_group import NotifyGroupCommand
+from .verse import VerseCommand
 from .wx import WxCommand
 
 
@@ -34,6 +35,7 @@ def build_commands(config, radio):
     users = load_users(config)
     commands = [
         WxCommand(),
+        VerseCommand(),
         NotifyDefaultCommand(users),
         NotifyGroupCommand(users),
         NotifyEmailCommand(),

@@ -5,6 +5,7 @@ from commands.advert import AdvertCommand
 from commands.notify_default import NotifyDefaultCommand
 from commands.notify_email import NotifyEmailCommand
 from commands.notify_group import NotifyGroupCommand
+from commands.verse import VerseCommand
 from commands.wx import WxCommand
 
 FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
@@ -34,7 +35,8 @@ class BuildCommandsTest(unittest.TestCase):
     def test_registry(self):
         radio = object()
         commands = build_commands({"users": {FULL_KEY: {"notify_default": "a@example.com"}}}, radio)
-        expected = {"wx": (WxCommand, PUBLIC), "notify_default": (NotifyDefaultCommand, USER),
+        expected = {"wx": (WxCommand, PUBLIC), "verse": (VerseCommand, PUBLIC),
+                    "notify_default": (NotifyDefaultCommand, USER),
                     "notify_group": (NotifyGroupCommand, USER), "notify_email": (NotifyEmailCommand, USER),
                     "advert": (AdvertCommand, ADMIN)}
         self.assertEqual(set(commands), set(expected))

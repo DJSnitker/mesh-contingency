@@ -1,0 +1,57 @@
+"""Verse of the day: a fixed list of well-known verses, one per day in turn."""
+
+VERSES = [
+    "Genesis 1:1", "Genesis 1:27", "Genesis 28:15", "Genesis 50:20", "Exodus 14:14",
+    "Exodus 15:2", "Exodus 33:14", "Numbers 6:24-26", "Deuteronomy 6:5", "Deuteronomy 31:6",
+    "Deuteronomy 31:8", "Joshua 1:8", "Joshua 1:9", "Joshua 24:15", "Ruth 1:16",
+    "1 Samuel 16:7", "2 Samuel 22:31", "1 Chronicles 16:11", "1 Chronicles 16:34",
+    "2 Chronicles 7:14", "Nehemiah 8:10", "Job 19:25", "Psalm 4:8", "Psalm 16:8",
+    "Psalm 16:11", "Psalm 18:2", "Psalm 19:1", "Psalm 19:14", "Psalm 23:1", "Psalm 23:4",
+    "Psalm 27:1", "Psalm 27:14", "Psalm 28:7", "Psalm 30:5", "Psalm 32:8", "Psalm 34:8",
+    "Psalm 34:18", "Psalm 37:4", "Psalm 37:5", "Psalm 40:1", "Psalm 42:11", "Psalm 46:1",
+    "Psalm 46:10", "Psalm 51:10", "Psalm 55:22", "Psalm 56:3", "Psalm 62:1", "Psalm 73:26",
+    "Psalm 84:11", "Psalm 90:12", "Psalm 91:1", "Psalm 91:11", "Psalm 100:4", "Psalm 103:2",
+    "Psalm 103:12", "Psalm 107:1", "Psalm 118:24", "Psalm 119:11", "Psalm 119:105",
+    "Psalm 121:1-2", "Psalm 127:1", "Psalm 133:1", "Psalm 139:14", "Psalm 145:18",
+    "Psalm 147:3", "Proverbs 3:5-6", "Proverbs 4:23", "Proverbs 9:10", "Proverbs 15:1",
+    "Proverbs 16:3", "Proverbs 16:9", "Proverbs 17:17", "Proverbs 18:10", "Proverbs 22:6",
+    "Proverbs 27:17", "Proverbs 31:25", "Ecclesiastes 3:1", "Ecclesiastes 4:9", "Isaiah 9:6",
+    "Isaiah 26:3", "Isaiah 40:8", "Isaiah 40:29", "Isaiah 40:31", "Isaiah 41:10",
+    "Isaiah 43:2", "Isaiah 43:19", "Isaiah 53:5", "Isaiah 54:10", "Isaiah 55:8",
+    "Isaiah 55:11", "Isaiah 58:11", "Jeremiah 17:7", "Jeremiah 29:11", "Jeremiah 29:13",
+    "Jeremiah 33:3", "Lamentations 3:22-23", "Ezekiel 36:26", "Micah 6:8", "Micah 7:7",
+    "Nahum 1:7", "Habakkuk 3:19", "Zephaniah 3:17", "Zechariah 4:6", "Malachi 3:10",
+    "Matthew 5:9", "Matthew 5:14", "Matthew 5:16", "Matthew 5:44", "Matthew 6:21",
+    "Matthew 6:33", "Matthew 6:34", "Matthew 7:7", "Matthew 7:12", "Matthew 11:28",
+    "Matthew 11:29", "Matthew 19:26", "Matthew 22:37", "Matthew 28:19", "Matthew 28:20",
+    "Mark 9:23", "Mark 10:27", "Mark 10:45", "Mark 11:24", "Mark 12:31", "Luke 1:37",
+    "Luke 6:31", "Luke 6:38", "Luke 12:34", "Luke 19:10", "John 1:1", "John 1:5",
+    "John 1:14", "John 3:16", "John 3:17", "John 8:12", "John 8:32", "John 10:10",
+    "John 10:11", "John 11:25", "John 13:34", "John 14:1", "John 14:6", "John 14:27",
+    "John 15:5", "John 15:12", "John 15:13", "John 16:33", "Acts 1:8", "Acts 2:38",
+    "Acts 4:12", "Acts 16:31", "Acts 20:35", "Romans 1:16", "Romans 3:23", "Romans 5:1",
+    "Romans 5:8", "Romans 6:23", "Romans 8:1", "Romans 8:18", "Romans 8:28", "Romans 8:31",
+    "Romans 8:38-39", "Romans 10:9", "Romans 12:2", "Romans 12:12", "Romans 15:13",
+    "1 Corinthians 10:13", "1 Corinthians 13:4", "1 Corinthians 13:13", "1 Corinthians 15:58",
+    "1 Corinthians 16:14", "2 Corinthians 4:16", "2 Corinthians 4:18", "2 Corinthians 5:7",
+    "2 Corinthians 5:17", "2 Corinthians 9:7", "2 Corinthians 12:9", "Galatians 2:20",
+    "Galatians 5:1", "Galatians 5:22-23", "Galatians 6:2", "Galatians 6:9", "Ephesians 2:8",
+    "Ephesians 2:10", "Ephesians 3:20", "Ephesians 4:2", "Ephesians 4:32", "Ephesians 6:10",
+    "Philippians 1:6", "Philippians 2:3", "Philippians 4:4", "Philippians 4:6",
+    "Philippians 4:7", "Philippians 4:8", "Philippians 4:13", "Philippians 4:19",
+    "Colossians 3:2", "Colossians 3:13", "Colossians 3:15", "Colossians 3:23",
+    "1 Thessalonians 5:11", "1 Thessalonians 5:16-18", "2 Thessalonians 3:3",
+    "1 Timothy 4:12", "1 Timothy 6:6", "2 Timothy 1:7", "2 Timothy 3:16", "Titus 3:5",
+    "Hebrews 4:12", "Hebrews 4:16", "Hebrews 10:23", "Hebrews 11:1", "Hebrews 11:6",
+    "Hebrews 12:1", "Hebrews 12:2", "Hebrews 13:5", "Hebrews 13:8", "James 1:2-3",
+    "James 1:5", "James 1:17", "James 1:19", "James 4:8", "James 5:16", "1 Peter 3:15",
+    "1 Peter 4:8", "1 Peter 5:7", "2 Peter 3:9", "1 John 1:9", "1 John 3:18", "1 John 4:7",
+    "1 John 4:8", "1 John 4:18", "1 John 4:19", "Jude 24", "Revelation 3:20",
+    "Revelation 21:4", "Revelation 22:13",
+]
+
+
+def reference_for(day):
+    """Return the verse-of-the-day reference for a date; everyone asking on
+    the same day gets the same verse."""
+    return VERSES[day.toordinal() % len(VERSES)]
