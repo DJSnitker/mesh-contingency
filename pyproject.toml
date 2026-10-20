@@ -7,7 +7,7 @@ name = "mesh-contingency"
 version = "0.2.0"
 description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands, with pluggable third-party commands"
 readme = "README.md"
-license = "MIT"
+license = "LicenseRef-Proprietary"
 license-files = ["LICENSE"]
 authors = [{ name = "Doug Snitker" }]
 requires-python = ">=3.11"
