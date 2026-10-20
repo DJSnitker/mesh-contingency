@@ -2,8 +2,10 @@ import asyncio
 import contextlib
 import io
 import os
+import signal
 import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -11,7 +13,7 @@ from meshcore import EventType
 
 from mesh_contingency import bot
 from mesh_contingency.api import ADMIN, DISABLED, MAX_PARTS, MAX_REPLY_LEN, PUBLIC, USER, CommandResult, Sender
-from mesh_contingency.testing import FakeMeshCore, make_contact
+from mesh_contingency.testing import FakeMeshCore, full_key, make_contact
 
 
 async def echo(text, sender, ctx):
@@ -23,24 +25,29 @@ async def slow(text, sender, ctx):
     await asyncio.sleep(10)
 
 
+# Key prefixes, as direct messages carry them; the config holds full_key(prefix).
 DANA = "d0d0d0d0d0d0"  # user
 ADMIN_KEY = "adadadadadad"  # admin only
 STRANGER = "ffeeddccbbaa"  # in contacts, but neither user nor admin
 
-CONFIG = f"""
+CONFIG = """
 [commands]
-help = {{ permission = "public" }}
-wx = {{ permission = "public" }}
-verse = {{ permission = "public" }}
-quickim = {{ permission = "user" }}
-emailall = {{ permission = "user" }}
-email = {{ permission = "user" }}
-advert = {{ permission = "admin" }}
+help = { permission = "public" }
+wx = { permission = "public" }
+verse = { permission = "public" }
+quickim = { permission = "user" }
+emailall = { permission = "user" }
+email = { permission = "user" }
+advert = { permission = "admin" }
+reload = { permission = "admin" }
+"""
 
+USERS = f"""
 [admin]
-keys = ["{ADMIN_KEY}"]
+keys = ["{full_key(ADMIN_KEY)}"]
 
-[users.{DANA}]
+[users.{full_key(DANA)}]
+name = "Dana"
 quickim = "partner@example.com"
 """
 
@@ -74,7 +81,8 @@ class LoadConfigTest(unittest.TestCase):
 class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         command = SimpleNamespace(permission=permission)
-        return bot.is_authorized(command, Sender("x", key), users={DANA: {}}, admins={ADMIN_KEY})
+        return bot.is_authorized(command, Sender("x", full_key(key)),
+                                 users={full_key(DANA): {}}, admins={full_key(ADMIN_KEY)})
 
     def test_matrix(self):
         self.assertTrue(self.check(PUBLIC, STRANGER))
@@ -131,12 +139,12 @@ class ParseCommandTest(unittest.TestCase):
 class MainTest(unittest.IsolatedAsyncioTestCase):
     """Runs bot.main() against a fake radio and drives it with messages."""
 
-    async def start(self, config=CONFIG, contacts=None, argv=None, radio=None):
+    async def start(self, config=CONFIG, contacts=None, argv=None, radio=None, users=USERS):
+        """Start the bot with config.toml and users.toml (if users isn't None)
+        in a temporary folder."""
         self.radio = radio or FakeMeshCore(contacts if contacts is not None else
                                            {DANA: "Dana", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
-        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
-            f.write(config)
-        self.addCleanup(os.unlink, f.name)
+        config_file = self.write_files(config, users)
 
         self.clock = 1000.0
         self.out = io.StringIO()
@@ -144,7 +152,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.enterContext(mock.patch("mesh_contingency.bot.time", SimpleNamespace(monotonic=lambda: self.clock)))
         self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial",
                                      mock.AsyncMock(return_value=self.radio)))
-        self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", f.name] + (argv or [])))
+        self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", str(config_file)]
+                                     + (argv or [])))
 
         self.task = asyncio.create_task(bot.main())
         listening = asyncio.create_task(self.radio.listening.wait())
@@ -153,6 +162,26 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         if self.task.done():
             self.task.result()  # re-raise a startup failure
         self.addAsyncCleanup(self.stop)
+
+    def write_files(self, config, users):
+        """Write config.toml and users.toml (unless users is None) to a
+        temporary folder and return the config's path."""
+        folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        config_file = folder / "config.toml"
+        config_file.write_text(config)
+        self.users_file = folder / "users.toml"
+        if users is not None:
+            self.users_file.write_text(users)
+        return config_file
+
+    async def main_exits(self, config, users, error):
+        """Check bot.main() stops with this error before connecting."""
+        config_file = self.write_files(config, users)
+        self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", str(config_file)]))
+        connect = self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial", mock.AsyncMock()))
+        with self.assertRaisesRegex(SystemExit, error):
+            await bot.main()
+        connect.assert_not_called()
 
     async def stop(self):
         self.task.cancel()
@@ -171,11 +200,11 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         out = self.out.getvalue()
         self.assertIn("public commands (anyone): help, wx, verse", out)
         self.assertIn("user commands (1 user(s)): quickim, emailall, email", out)
-        self.assertIn("admin commands (1 admin(s)): advert", out)
+        self.assertIn("admin commands (1 admin(s)): advert, reload", out)
         self.assertIn("disabled commands (nobody): none", out)
-        self.assertNotIn("Warning: quickim", out)
-        self.assertIn("emailall command disabled", out)
-        self.assertNotIn("quickim command disabled", out)
+        self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
+        self.assertNotIn("no user has quickim addresses", out)
+        self.assertIn(f"Users file: {self.users_file} (checked every 5s).", out)
         self.assertEqual(self.radio.manual_add_calls, [])  # no [contacts] section
 
     async def test_contacts_section_enables_auto_add(self):
@@ -191,7 +220,6 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("disabled commands (nobody): emailall, advert", out)
         self.assertIn("Warning: advert has no [commands.advert] section; disabled.", out)
         # Disabled anyway, so no second warning about missing addresses.
-        self.assertNotIn("emailall command disabled.\nWarning: no user", out)
         self.assertNotIn("no user has emailall addresses", out)
         await self.radio.dm(ADMIN_KEY, "advert")
         self.assertEqual(self.radio.adverts, [])
@@ -204,14 +232,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.adverts, [False])
 
     async def test_bad_permissions_stop_startup_before_connecting(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
-            f.write(CONFIG.replace('wx = { permission = "public" }', 'wx = { permission = "everyone" }'))
-        self.addCleanup(os.unlink, f.name)
-        self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", f.name]))
-        connect = self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial", mock.AsyncMock()))
-        with self.assertRaisesRegex(SystemExit, r"\[commands.wx\] has unknown permission 'everyone'"):
-            await bot.main()
-        connect.assert_not_called()
+        await self.main_exits(CONFIG.replace('wx = { permission = "public" }', 'wx = { permission = "everyone" }'),
+                              USERS, r"\[commands.wx\] has unknown permission 'everyone'")
 
     # --- new contacts announced to admins
 
@@ -231,8 +253,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"(new-contact notice to {ADMIN_KEY} delivered)", self.out.getvalue())
 
     async def test_every_admin_told_once(self):
-        config = (CONFIG + self.AUTO_ADD).replace(f'keys = ["{ADMIN_KEY}"]', f'keys = ["{ADMIN_KEY}", "{DANA}"]')
-        await self.start(config)
+        users = USERS.replace(f'keys = ["{full_key(ADMIN_KEY)}"]',
+                              f'keys = ["{full_key(ADMIN_KEY)}", "{full_key(DANA)}"]')
+        await self.start(CONFIG + self.AUTO_ADD, users=users)
         await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "", 1))
         await self.settle()
         self.assertEqual(sorted(self.radio.sent), [("Admin", "New contact: ? (a1a1a1a1a1a1, chat)"),
@@ -258,6 +281,14 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.settle()
         self.assertEqual(self.radio.sent, [])
         self.assertIn(f"(no contact {ADMIN_KEY} to send new-contact notice to", self.out.getvalue())
+
+    async def test_lookalike_blocked_and_admins_told(self):
+        await self.start(CONFIG + self.AUTO_ADD + "notify_admins = false\n")  # alerts are sent anyway
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact(DANA + "11" * 26, "Dana", 1))
+        await self.settle()
+        self.assertEqual(self.radio.added, [])
+        self.assertEqual(self.radio.sent, [
+            ("Admin", "Blocked d0d0d0d0d0d0 Dana: posing as Dana (same key prefix, different key)")])
 
     async def test_messages_never_overlap(self):
         await self.start(CONFIG + self.AUTO_ADD)
@@ -288,6 +319,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_no_serial_port(self):
         self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-c", "/nonexistent.toml"]))
         self.enterContext(mock.patch("mesh_contingency.bot.find_serial_port", return_value=None))
+        self.enterContext(contextlib.redirect_stdout(io.StringIO()))
         with self.assertRaisesRegex(SystemExit, "No serial device found"):
             await bot.main()
 
@@ -298,6 +330,82 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(SystemExit, "Could not connect"):
             await bot.main()
 
+    # --- the users file, reloaded while running
+
+    FAST_RELOAD = "\n[directory]\nreload_seconds = 0.01\n"
+
+    async def wait_for_output(self, text):
+        for _ in range(300):
+            if text in self.out.getvalue():
+                return
+            await asyncio.sleep(0.01)
+        self.fail(f"never printed {text!r}")
+
+    def edit_users(self, text):
+        self.users_file.write_text(text)
+        stat = self.users_file.stat()  # make sure the change is seen as one
+        os.utime(self.users_file, ns=(stat.st_atime_ns, stat.st_mtime_ns + 10**9))
+
+    async def test_user_added_without_restart(self):
+        await self.start(CONFIG + self.FAST_RELOAD)
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(STRANGER, "quickim hi")
+            send_email.assert_not_called()
+            self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Stranger"\nquickim = "s@example.com"\n')
+            await self.wait_for_output("users.toml reloaded: added Stranger")
+            await self.radio.dm(STRANGER, "quickim hi")
+        self.assertEqual(send_email.call_args.args[0], ["s@example.com"])
+
+    async def test_user_removed_without_restart(self):
+        await self.start(CONFIG + self.FAST_RELOAD)
+        self.edit_users(USERS.split("[users.")[0])
+        await self.wait_for_output("users.toml reloaded: removed Dana")
+        self.assertIn("Warning: no user has quickim addresses in users.toml.", self.out.getvalue())
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_not_called()
+
+    async def test_bad_edit_keeps_users_and_tells_admins(self):
+        await self.start(CONFIG + self.FAST_RELOAD)
+        self.edit_users(USERS + "[users.d0d0]\n")
+        await self.wait_for_output("Warning: users.toml not reloaded: ")
+        await self.settle()
+        self.assertEqual(self.radio.sent, [
+            ("Admin", "users.toml not reloaded: [users]: 'd0d0' is not a full public key (64 hex characters)")])
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_called_once()  # Dana is still a user
+
+    async def test_reload_command(self):
+        await self.start()  # polls every 5s, so only the command reloads in time
+        self.edit_users(USERS.replace('name = "Dana"', 'name = "Dee"'))
+        await self.radio.dm(DANA, "reload")
+        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])  # admins only
+        await self.radio.dm(ADMIN_KEY, "reload")
+        self.assertEqual(self.radio.sent[-1], ("Admin", "reload: changed Dee"))
+        self.assertIn("users.toml reloaded: changed Dee", self.out.getvalue())
+
+    async def test_sighup_reloads(self):
+        await self.start(CONFIG + "\n[directory]\nreload_seconds = 0\n")
+        self.assertIn("(checked on reload or SIGHUP only)", self.out.getvalue())
+        self.edit_users(USERS.replace('name = "Dana"', 'name = "Dee"'))
+        os.kill(os.getpid(), signal.SIGHUP)
+        await self.wait_for_output("users.toml reloaded: changed Dee")
+
+    async def test_missing_users_file(self):
+        await self.start(users=None)
+        out = self.out.getvalue()
+        self.assertIn(f"Warning: {self.users_file} not found; no users or admins until it is created.", out)
+        self.assertIn("user commands (0 user(s))", out)
+        await self.radio.dm(ADMIN_KEY, "advert")
+        self.assertEqual(self.radio.adverts, [])
+
+    async def test_invalid_users_file_stops_startup_before_connecting(self):
+        await self.main_exits(CONFIG, '[admin]\nkeys = "x"\n', r"users.toml: \[admin\] keys must be a list")
+
+    async def test_users_left_in_config_toml(self):
+        await self.main_exits(CONFIG + USERS, None, r"\[users\] and \[admin\] now go in their own file")
+
     # --- console logging
 
     async def test_logs_sender_key_and_name(self):
@@ -307,6 +415,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         out = self.out.getvalue()
         self.assertIn(f"[{DANA} Dana] hi there", out)
         self.assertIn("[123456789abc] who am i", out)
+        self.assertNotIn(full_key(DANA), out)  # only the prefix is logged
 
     # --- unrecognized messages and the cooldown
 
@@ -360,6 +469,69 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(ADMIN_KEY, "advert flood")
         self.assertEqual(self.radio.adverts, [True])
         self.assertEqual(self.radio.sent[-1], ("Admin", "advert: flood sent"))
+
+    async def test_rights_need_the_full_key_in_the_config(self):
+        # A contact whose key shares the user's prefix but differs after it.
+        lookalike = DANA + "11" * 26
+        await self.start(contacts={lookalike: "Dana", ADMIN_KEY: "Admin"})
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_not_called()
+        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+
+    async def test_shared_prefix_identifies_nobody(self):
+        # An impostor with the user's prefix: neither contact gets rights,
+        # whichever of them sent the message.
+        impostor = DANA + "11" * 26
+        await self.start(contacts={DANA: "Dana", impostor: "Dana"})
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_not_called()
+        self.assertIn(f"(2 contacts share key prefix {DANA}; sender not identified)", self.out.getvalue())
+        self.assertIn("quickim denied: sender not approved", self.out.getvalue())
+
+    async def test_shared_prefix_reported_to_admins_once(self):
+        impostor = DANA + "11" * 26
+        await self.start(contacts={DANA: "Dana", impostor: "Dana", ADMIN_KEY: "Admin"})
+        await self.settle()
+        alert = ("Admin", f"2 contacts share Dana's key prefix {DANA}: remove the impostor from the radio")
+        self.assertEqual(self.radio.sent, [alert])
+        self.assertIn(f"Warning: 2 contacts share Dana's key prefix {DANA}", self.out.getvalue())
+        await self.radio.dm(DANA, "hello")
+        await self.settle()
+        self.assertEqual(self.radio.sent.count(alert), 1)
+
+    async def test_shared_prefix_checked_after_reload(self):
+        await self.start(contacts={STRANGER: "Stranger", STRANGER + "11" * 26: "Copy", ADMIN_KEY: "Admin"},
+                         config=CONFIG)
+        await self.settle()
+        self.assertEqual(self.radio.sent, [])  # not a user's prefix: nothing to protect
+        self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Sam"\n')
+        await self.radio.dm(ADMIN_KEY, "reload")
+        await self.settle()
+        self.assertIn(("Admin", f"2 contacts share Sam's key prefix {STRANGER}: remove the impostor from the radio"),
+                      self.radio.sent)
+
+    async def test_reply_goes_to_the_full_key(self):
+        await self.start()
+        sent_to = []
+        original = self.radio.commands.send_msg_with_retry
+
+        async def record(contact, text):
+            sent_to.append(contact["public_key"])
+            return await original(contact, text)
+
+        self.radio.commands.send_msg_with_retry = record
+        await self.radio.dm(ADMIN_KEY, "advert")
+        self.assertEqual(sent_to, [full_key(ADMIN_KEY)])
+
+    async def test_new_contact_gets_rights_without_restart(self):
+        # Messages from a node the bot hasn't loaded yet: refresh, then match.
+        await self.start(contacts={ADMIN_KEY: "Admin"})
+        self.radio.stored[full_key(DANA)] = "Dana"
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_called_once()
 
     async def test_public_command_for_anyone(self):
         await self.start()
@@ -445,7 +617,7 @@ permission = "public"
         await self.radio.dm(STRANGER, "help secret")
         replies = self.replies()
         self.assertEqual(replies[0], "commands: help, wx, verse, echo, slow. Send help <command> for usage")
-        self.assertEqual(replies[1], "commands: help, wx, verse, advert, echo, slow, secret. "
+        self.assertEqual(replies[1], "commands: help, wx, verse, advert, reload, echo, slow, secret. "
                                      "Send help <command> for usage")
         self.assertEqual(replies[2], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
         self.assertEqual(replies[3], "help: no command secret")

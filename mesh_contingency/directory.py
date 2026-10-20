@@ -1,0 +1,217 @@
+"""The users file: who may run user and admin commands, reloaded while the bot runs.
+
+    # users.toml
+    [admin]
+    keys = ["<64-hex public key>"]
+
+    [users.<64-hex public key>]
+    name = "Alice"                    # for messages about the file; optional
+    quickim = "someone@example.com"   # settings for the commands
+
+The bot checks the file every few seconds. A change is used only once the file
+has stopped changing and has been read and checked in full, so a half-saved
+file or a bad edit never locks anyone out: the previous users stay in effect
+until the file is fixed.
+"""
+
+import asyncio
+import re
+import tomllib
+from pathlib import Path
+
+DEFAULT_FILE = "users.toml"
+DEFAULT_RELOAD_SECONDS = 5
+DIRECTORY_KEYS = {"file", "reload_seconds"}
+PUBLIC_KEY_RE = re.compile(r"[0-9a-f]{64}")
+_NOTHING = object()  # no change waiting (a missing file's signature is None)
+
+
+class DirectoryError(Exception):
+    """The users file can't be used; the message says why."""
+
+
+def _show(value):
+    """A config value for an error message, shortened so a long key is never
+    copied out in full."""
+    text = repr(value)
+    return text if len(text) <= 20 else text[:16] + "...'"
+
+
+def public_key(key, where):
+    """Return a full public key from the users file in lowercase; raise
+    DirectoryError if it is anything else, such as just the prefix."""
+    normalized = key.strip().lower() if isinstance(key, str) else key
+    if not isinstance(normalized, str) or not PUBLIC_KEY_RE.fullmatch(normalized):
+        raise DirectoryError(f"{where}: {_show(key)} is not a full public key (64 hex characters)")
+    return normalized
+
+
+def parse(data):
+    """Return (users, admins) from a parsed users file: {public key: settings}
+    and a frozenset of public keys. Raises DirectoryError on any mistake."""
+    unknown = sorted(set(data) - {"admin", "users"})
+    if unknown:
+        raise DirectoryError(f"unknown section(s) {', '.join(unknown)}; use [admin] and [users.<key>]")
+    admin = data.get("admin", {})
+    if not isinstance(admin, dict) or set(admin) - {"keys"}:
+        raise DirectoryError('[admin] must only hold keys = ["<public key>", ...]')
+    keys = admin.get("keys", [])
+    if not isinstance(keys, list):
+        raise DirectoryError("[admin] keys must be a list")
+    admins = frozenset(public_key(key, "[admin] keys") for key in keys)
+
+    users = {}
+    for key, settings in data.get("users", {}).items():
+        normalized = public_key(key, "[users]")
+        if not isinstance(settings, dict):
+            raise DirectoryError(f"[users.{_show(key)[1:-1]}] must be a table")
+        if normalized in users:
+            raise DirectoryError(f"[users]: {_show(key)} is listed twice")
+        if not isinstance(settings.get("name", ""), str):
+            raise DirectoryError(f"[users.{_show(key)[1:-1]}] name must be text")
+        users[normalized] = settings
+    return users, admins
+
+
+def describe(key, users):
+    """A user's name from the file, or their key prefix."""
+    return users.get(key, {}).get("name") or key[:12]
+
+
+def summarize(old_users, old_admins, new_users, new_admins):
+    """Describe what a reload changed, e.g. "added Bob; removed Carol"."""
+    def names(keys, users):
+        return ", ".join(sorted(describe(k, users) for k in keys))
+
+    both = {**old_users, **new_users}
+    parts = []
+    for label, keys, users in [
+        ("added", new_users.keys() - old_users.keys(), new_users),
+        ("removed", old_users.keys() - new_users.keys(), old_users),
+        ("changed", {k for k in new_users.keys() & old_users.keys() if new_users[k] != old_users[k]}, new_users),
+        ("admin added", new_admins - old_admins, both),
+        ("admin removed", old_admins - new_admins, both),
+    ]:
+        if keys:
+            parts.append(f"{label} {names(keys, users)}")
+    return "; ".join(parts) or "no changes"
+
+
+class Directory:
+    """The current users and admins.
+
+    Read .users and .admins at the moment of use rather than keeping a copy:
+    a reload replaces them.
+    """
+
+    def __init__(self, users=None, admins=None, path=None, reload_seconds=DEFAULT_RELOAD_SECONDS):
+        self.path = Path(path) if path is not None else None
+        self.reload_seconds = reload_seconds
+        self._users = dict(users or {})
+        self._admins = frozenset(admins or ())
+        self.on_change = []  # functions called with the summary after each reload
+        self._seen = None  # signature of the file version last acted on
+        self._pending = _NOTHING  # a changed signature waiting to be seen again
+
+    @property
+    def users(self):
+        """{public key: that user's settings}"""
+        return self._users
+
+    @property
+    def admins(self):
+        """frozenset of admin public keys"""
+        return self._admins
+
+    @property
+    def name(self):
+        return self.path.name if self.path else DEFAULT_FILE
+
+    @classmethod
+    def from_config(cls, config, config_path):
+        """Return the Directory named by config.toml's [directory] section
+        (not yet loaded). Exits on a config mistake."""
+        if "users" in config or "admin" in config:
+            raise SystemExit(f"[users] and [admin] now go in their own file ({DEFAULT_FILE} next to "
+                             f"{Path(config_path).name}), which the bot reloads while running. Move "
+                             f"them there; see users.example.toml.")
+        section = config.get("directory", {})
+        if not isinstance(section, dict) or set(section) - DIRECTORY_KEYS:
+            raise SystemExit(f"[directory] may only set {' and '.join(sorted(DIRECTORY_KEYS))}.")
+        file = section.get("file", DEFAULT_FILE)
+        if not isinstance(file, str) or not file:
+            raise SystemExit("[directory] file must be a file name or path.")
+        seconds = section.get("reload_seconds", DEFAULT_RELOAD_SECONDS)
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds < 0:
+            raise SystemExit("[directory] reload_seconds must be a number of seconds, or 0 to only "
+                             "reload on request.")
+        path = Path(config_path).parent / Path(file).expanduser()
+        return cls(path=path, reload_seconds=seconds)
+
+    def load(self):
+        """Read the file at startup. Returns False if it doesn't exist yet
+        (it is picked up once created); exits if it is invalid."""
+        try:
+            self.check(force=True)
+        except DirectoryError as e:
+            if self._seen is None:
+                return False
+            raise SystemExit(f"{self.path}: {e}") from None
+        return True
+
+    def _signature(self):
+        try:
+            st = self.path.stat()
+        except FileNotFoundError:
+            return None
+        return st.st_mtime_ns, st.st_size, st.st_ino
+
+    def check(self, force=False):
+        """Reload the file if it changed, returning a summary of the changes,
+        or None if there was nothing new to read.
+
+        Without force, a change is acted on only once the file has looked the
+        same on two checks in a row, so an editor's half-written save isn't
+        read. Raises DirectoryError (once per bad version) if the file is
+        missing or invalid; the current users then stay in effect.
+        """
+        signature = self._signature()
+        if not force:
+            if signature == self._seen:
+                self._pending = _NOTHING
+                return None
+            if signature != self._pending:
+                self._pending = signature
+                return None
+        self._pending = _NOTHING
+        self._seen = signature
+        if signature is None:
+            raise DirectoryError("file not found")
+        try:
+            with open(self.path, "rb") as f:
+                users, admins = parse(tomllib.load(f))
+        except tomllib.TOMLDecodeError as e:
+            raise DirectoryError(f"not valid TOML: {e}") from None
+        except OSError as e:
+            raise DirectoryError(f"can't be read: {e.strerror}") from None
+        summary = summarize(self._users, self._admins, users, admins)
+        self._users, self._admins = users, admins
+        for listener in self.on_change:
+            listener(summary)
+        return summary
+
+    async def watch(self, wake, on_error):
+        """Check the file every reload_seconds (or only when woken, if 0)
+        and whenever `wake` (an asyncio.Event) is set, which forces a reload.
+        on_error(reason) is called when a new version can't be used."""
+        while True:
+            try:
+                await asyncio.wait_for(wake.wait(), self.reload_seconds or None)
+            except TimeoutError:
+                pass
+            forced = wake.is_set()
+            wake.clear()
+            try:
+                self.check(force=forced)
+            except DirectoryError as e:
+                on_error(str(e))

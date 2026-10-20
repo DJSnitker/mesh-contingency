@@ -12,6 +12,8 @@ import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from .directory import Directory
+
 # Standard MeshCore text message limit for one message.
 MAX_REPLY_LEN = 133
 # The most messages one reply may take, so a command can't tie up the mesh.
@@ -22,10 +24,10 @@ DEFAULT_TIMEOUT = 60
 
 # Who may run a command, set per command in the config's [commands.<name>]
 # sections. Only direct messages are handled, so every sender is identified by
-# their pubkey prefix.
+# their full public key.
 PUBLIC = "public"  # anyone
-USER = "user"  # senders with a [users.<key>] config section
-ADMIN = "admin"  # senders listed in [admin] keys
+USER = "user"  # senders with a [users.<key>] section in the users file
+ADMIN = "admin"  # senders listed in the users file's [admin] keys
 DISABLED = "disabled"  # nobody
 LEVELS = (PUBLIC, USER, ADMIN, DISABLED)
 
@@ -39,7 +41,9 @@ class CommandResult:
 @dataclass
 class Sender:
     name: str  # display name
-    key: str  # 12-hex-char pubkey prefix
+    # Full 64-hex public key, or None if the sender is not exactly one of the
+    # radio's contacts (then only public commands are allowed).
+    public_key: str | None
 
 
 class CommandError(Exception):
@@ -51,9 +55,9 @@ def is_authorized(command, sender, users, admins):
     if command.permission == PUBLIC:
         return True
     if command.permission == USER:
-        return sender.key in users
+        return sender.public_key in users
     if command.permission == ADMIN:
-        return sender.key in admins
+        return sender.public_key in admins
     return False
 
 
@@ -63,10 +67,21 @@ class Context:
 
     name: str  # the name the command answers to
     options: dict = field(default_factory=dict)  # its [commands.<name>] settings, e.g. {"station": "..."}
-    users: dict = field(default_factory=dict)  # pubkey prefix -> that user's [users.<key>] settings
-    admins: set = field(default_factory=set)  # pubkey prefixes in [admin] keys
+    directory: Directory = field(default_factory=Directory)  # the users file, reloaded while running
     radio: object = None  # the connected meshcore.MeshCore
     commands: dict = field(default_factory=dict)  # every loaded command by name, complete once all are built
+
+    # Read these when they are needed; don't keep a copy. Editing the users
+    # file replaces them while the bot runs.
+    @property
+    def users(self):
+        """{public key: that user's [users.<key>] settings}, as of now."""
+        return self.directory.users
+
+    @property
+    def admins(self):
+        """The public keys in [admin] keys, as of now."""
+        return self.directory.admins
 
     def allowed(self, command, sender):
         """Return True if the sender may run the command."""

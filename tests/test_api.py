@@ -20,9 +20,10 @@ from mesh_contingency.api import (
     split_reply,
     to_messages,
 )
+from mesh_contingency.directory import Directory
 from mesh_contingency.testing import make_context
 
-DANA = Sender("Dana", "d0d0d0d0d0d0")
+DANA = Sender("Dana", "d0" * 32)
 
 
 class FitReplyTest(unittest.TestCase):
@@ -116,26 +117,26 @@ class BaseTypesTest(unittest.TestCase):
 
     def test_dataclasses(self):
         self.assertEqual(CommandResult("c", "r"), CommandResult(console="c", reply="r"))
-        self.assertEqual(Sender("Dana", "d0d0d0d0d0d0").key, "d0d0d0d0d0d0")
+        self.assertEqual(Sender("Dana", "d0" * 32).public_key, "d0" * 32)
 
 
 class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         cmd = type("C", (), {"permission": permission})()
-        users, admins = {"d0d0d0d0d0d0": {}}, {"adadadadadad"}
-        ctx = Context(name="x", users=users, admins=admins)
+        users, admins = {"d0" * 32: {}}, {"ad" * 32}
+        ctx = Context(name="x", directory=Directory(users, admins))
         result = is_authorized(cmd, Sender("x", key), users, admins)
         self.assertEqual(ctx.allowed(cmd, Sender("x", key)), result)
         return result
 
     def test_matrix(self):
-        self.assertTrue(self.check(PUBLIC, "ffffffffffff"))
-        self.assertTrue(self.check(USER, "d0d0d0d0d0d0"))
-        self.assertFalse(self.check(USER, "adadadadadad"))
-        self.assertTrue(self.check(ADMIN, "adadadadadad"))
-        self.assertFalse(self.check(ADMIN, "d0d0d0d0d0d0"))
-        self.assertFalse(self.check(DISABLED, "adadadadadad"))
-        self.assertFalse(self.check("other", "adadadadadad"))
+        self.assertTrue(self.check(PUBLIC, "ff" * 32))
+        self.assertTrue(self.check(USER, "d0" * 32))
+        self.assertFalse(self.check(USER, "ad" * 32))
+        self.assertTrue(self.check(ADMIN, "ad" * 32))
+        self.assertFalse(self.check(ADMIN, "d0" * 32))
+        self.assertFalse(self.check(DISABLED, "ad" * 32))
+        self.assertFalse(self.check("other", "ad" * 32))
 
 
 class ToMessagesTest(unittest.TestCase):

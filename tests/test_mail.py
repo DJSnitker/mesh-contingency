@@ -8,15 +8,16 @@ from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email
 from mesh_contingency.commands.quickim import QuickImCommand
+from mesh_contingency.directory import Directory
 from mesh_contingency.testing import make_context
 
-DANA = Sender("Dana", "d0d0d0d0d0d0")
-BOB = Sender("Bob", "b0b0b0b0b0b0")
+DANA = Sender("Dana", "d0" * 32)
+BOB = Sender("Bob", "b0" * 32)
 USERS = {
-    "d0d0d0d0d0d0": {"quickim": "partner@example.com",
+    "d0" * 32: {"quickim": "partner@example.com",
                      "emailall": ["a@example.com", "b@example.com"]},
-    "b0b0b0b0b0b0": {"quickim": ["bob1@example.com", "bob2@example.com"]},
-    "c0c0c0c0c0c0": {"name": "No addresses"},
+    "b0" * 32: {"quickim": ["bob1@example.com", "bob2@example.com"]},
+    "c0" * 32: {"name": "No addresses"},
 }
 
 
@@ -79,11 +80,23 @@ class QuickImTest(MailCommandTestCase):
     def test_recipients_per_user_accept_string_or_list(self):
         cmd = QuickImCommand(make_context("quickim", users=USERS))
         self.assertEqual(cmd.recipients, {
-            "d0d0d0d0d0d0": ["partner@example.com"],
-            "b0b0b0b0b0b0": ["bob1@example.com", "bob2@example.com"],
+            "d0" * 32: ["partner@example.com"],
+            "b0" * 32: ["bob1@example.com", "bob2@example.com"],
         })
         self.assertTrue(cmd.enabled)
         self.assertFalse(QuickImCommand(make_context("quickim")).enabled)
+
+    async def test_addresses_read_when_sending(self):
+        # The users file can change while the bot runs.
+        directory = Directory(USERS)
+        cmd = QuickImCommand(make_context("quickim", directory=directory))
+        directory._users = {DANA.public_key: {"quickim": "new@example.com"}}
+        await cmd.execute("hi", DANA)
+        self.assert_sent(["new@example.com"], "hi")
+        directory._users = {}
+        self.assertFalse(cmd.enabled)
+        with self.assertRaisesRegex(CommandError, "quickim: not configured for you"):
+            await cmd.execute("hi", DANA)
 
     async def test_sends_to_senders_own_addresses(self):
         result = await QuickImCommand(make_context("quickim", users=USERS)).execute("Running late", DANA)
@@ -100,7 +113,7 @@ class QuickImTest(MailCommandTestCase):
         with self.assertRaisesRegex(CommandError, "usage: quickim <message>"):
             await cmd.execute("", DANA)
         with self.assertRaisesRegex(CommandError, "quickim: not configured for you"):
-            await cmd.execute("hi", Sender("Nobody", "c0c0c0c0c0c0"))
+            await cmd.execute("hi", Sender("Nobody", "c0" * 32))
         self.send_email.assert_not_called()
 
     async def test_mail_failure_propagates(self):
@@ -139,7 +152,7 @@ class EmailAllTest(MailCommandTestCase):
     async def test_uses_group_list(self):
         cmd = EmailAllCommand(make_context("emailall", users=USERS))
         self.assertEqual(cmd.name, "emailall")
-        self.assertEqual(cmd.recipients, {"d0d0d0d0d0d0": ["a@example.com", "b@example.com"]})
+        self.assertEqual(cmd.recipients, {"d0" * 32: ["a@example.com", "b@example.com"]})
         result = await cmd.execute("Meeting moved", DANA)
         self.assert_sent(["a@example.com", "b@example.com"], "Meeting moved")
         self.assertEqual(result.reply, "emailall: sent")

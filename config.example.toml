@@ -14,8 +14,9 @@ notify_admins = true
 
 # Which commands run, and who may use each:
 #   "public"   anyone who can direct-message the node
-#   "user"     senders with a [users.<key>] section below
-#   "admin"    senders listed in [admin] keys (admins are not automatically users)
+#   "user"     senders with a [users.<key>] section in users.toml
+#   "admin"    senders listed in users.toml [admin] keys (admins are not
+#              automatically users)
 #   "disabled" nobody
 # An installed command with no entry here is disabled (with a warning at
 # startup). An unknown command or level stops startup. Optional per command:
@@ -28,6 +29,7 @@ quickim = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
+reload = { permission = "admin" }
 
 # A command from an installed package (pip install <package>) needs only a
 # permission. Your own code, packaged or not, can be named with handler =
@@ -38,21 +40,9 @@ advert = { permission = "admin" }
 # permission = "public"
 # max_dice = 10        # an option for the command itself
 
-# Admins may run admin commands. Pubkey prefixes, 12 hex chars.
-[admin]
-keys = ["a1b2c3d4e5f6"]
-
-# One section per approved user, keyed by their pubkey prefix (12 hex chars,
-# shown in the console for direct messages). Having a section is what allows
-# the user to run "user" commands. The quickim and emailall keys say where
-# that user's messages are emailed (one address or a list); the email command
-# needs no addresses here.
-
-[users.a1b2c3d4e5f6]
-name = "Alice"  # for reference only
-quickim = "someone@example.com"
-emailall = ["someone@example.com", "someone.else@example.com"]
-
-[users.f6e5d4c3b2a1]
-name = "Bob"
-quickim = "bobs.partner@example.com"
+# Users and admins are in their own file, which the bot reloads while it runs
+# (see users.example.toml). These are the defaults:
+# [directory]
+# file = "users.toml"   # relative to this file
+# reload_seconds = 5    # how often to check it for changes; 0 = only on
+#                       # the reload command or SIGHUP

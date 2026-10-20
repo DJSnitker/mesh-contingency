@@ -3,7 +3,7 @@
     from mesh_contingency.testing import FakeMeshCore, make_context
 
     cmd = MyCommand(make_context("mine", options={"station": "x"}, radio=FakeMeshCore()))
-    result = await cmd.execute("some text", Sender("Dana", "d0d0d0d0d0d0"))
+    result = await cmd.execute("some text", Sender("Dana", "d0" * 32))
 """
 
 import asyncio
@@ -12,11 +12,13 @@ from types import SimpleNamespace
 from meshcore import EventType
 
 from .api import Context
+from .directory import Directory
 
 
-def make_context(name, options=None, users=None, admins=None, radio=None, commands=None):
-    """A Context like the one the bot creates a command with."""
-    return Context(name=name, options=options or {}, users=users or {}, admins=admins or set(),
+def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None):
+    """A Context like the one the bot creates a command with. Pass users and
+    admins, or a Directory to change them during a test."""
+    return Context(name=name, options=options or {}, directory=directory or Directory(users, admins),
                    radio=radio, commands=commands if commands is not None else {})
 
 
@@ -25,10 +27,16 @@ def event(event_type, payload=None):
     return SimpleNamespace(type=event_type, payload=payload if payload is not None else {})
 
 
+def full_key(prefix):
+    """The full 64-hex public key the fakes give a contact with this prefix
+    (or the key itself, if already full)."""
+    return prefix if len(prefix) == 64 else prefix + "00" * 26
+
+
 def make_contact(prefix, name, node_type=1):
     """A contact record shaped like the ones MeshCore reports."""
     return {
-        "public_key": prefix + "00" * 26,
+        "public_key": full_key(prefix),
         "type": node_type,
         "flags": 0,
         "out_path_len": -1,
@@ -64,7 +72,7 @@ class FakeCommands:
     async def add_contact(self, contact):
         self.radio.added.append(contact)
         if self.radio.add_contact_result.type != EventType.ERROR:
-            self.radio.stored[contact["public_key"][:12]] = contact["adv_name"]
+            self.radio.stored[contact["public_key"]] = contact["adv_name"]
         return self.radio.add_contact_result
 
     async def send_advert(self, flood=False):
@@ -76,10 +84,10 @@ class FakeMeshCore:
     """Records what the bot asks of the radio and lets tests deliver events."""
 
     def __init__(self, contacts=None, manual_add_contacts=False):
-        self.known = dict(contacts or {})  # pubkey prefix -> name, as cached by the library
+        # Contacts as {prefix or full public key: name}; a prefix gets full_key(prefix).
+        self.known = dict(contacts or {})  # as cached by the library
         self.stored = dict(self.known)  # what the radio itself holds
         self.self_info = {"name": "test-node", "manual_add_contacts": manual_add_contacts}
-        self.contacts = {}
         self.auto_update_contacts = False
         self.commands = FakeCommands(self)
         self.handlers = {}
@@ -97,10 +105,15 @@ class FakeMeshCore:
         self.add_contact_result = event(EventType.OK)
         self.advert_result = event(EventType.OK)
 
+    @property
+    def contacts(self):
+        return {full_key(k): {"public_key": full_key(k), "adv_name": name} for k, name in self.known.items()}
+
     def get_contact_by_key_prefix(self, prefix):
-        if prefix in self.known:
-            return {"adv_name": self.known[prefix], "public_key": prefix}
-        return None
+        # Like the library: the first contact whose key starts with prefix.
+        if not prefix:
+            return None
+        return next((c for key, c in self.contacts.items() if key.startswith(prefix.lower())), None)
 
     def subscribe(self, event_type, handler):
         self.handlers.setdefault(event_type, []).append(handler)

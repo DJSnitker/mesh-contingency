@@ -31,25 +31,6 @@ NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 HANDLER_RE = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*")
 
 
-def _normalize_key(key):
-    """Reduce a pubkey or prefix to the lowercase 6-byte prefix MeshCore
-    includes with direct messages."""
-    return key.strip().lower()[:12]
-
-
-def load_users(config):
-    """Return {pubkey prefix: settings} from the [users.<key>] config sections.
-
-    Having a section is what approves a user for USER commands.
-    """
-    return {_normalize_key(key): user for key, user in config.get("users", {}).items()}
-
-
-def load_admins(config):
-    """Return the set of pubkey prefixes in [admin] keys, allowed ADMIN commands."""
-    return {_normalize_key(key) for key in config.get("admin", {}).get("keys", [])}
-
-
 def discover():
     """Return {command name: "module:attr"} for every installed command.
 
@@ -160,7 +141,7 @@ class Registry:
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
         return CommandSpec(name, handler, permission, timeout, options)
 
-    def build(self, users, admins, radio):
+    def build(self, directory, radio):
         """Create the enabled commands and return them as {name: Command}.
 
         A command that fails to start is skipped and added to warnings.
@@ -168,8 +149,7 @@ class Registry:
         commands = {}
         for name, spec in self.specs.items():
             factory = self.factories[name]
-            ctx = Context(name=name, options=spec.options, users=users, admins=admins,
-                          radio=radio, commands=commands)
+            ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands)
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:

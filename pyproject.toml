@@ -33,6 +33,7 @@ quickim = "mesh_contingency.commands.quickim:QuickImCommand"
 emailall = "mesh_contingency.commands.emailall:EmailAllCommand"
 email = "mesh_contingency.commands.email:EmailCommand"
 advert = "mesh_contingency.commands.advert:AdvertCommand"
+reload = "mesh_contingency.commands.reload:ReloadCommand"
 
 [tool.setuptools.packages.find]
 include = ["mesh_contingency*"]

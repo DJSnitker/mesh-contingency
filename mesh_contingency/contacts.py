@@ -5,6 +5,10 @@ hears it reports each new one as a NEW_CONTACT event; we add only the types
 listed in config. This keeps repeaters, rooms and sensors from filling the
 radio's contact table, which would block new people from messaging us.
 Each node added can be announced to the admins.
+
+A node whose key prefix matches a user or admin but whose full key doesn't
+is never added: messages carry only the prefix, so it could pass itself off
+as them (see the bot's sender check).
 """
 
 from meshcore import EventType
@@ -35,10 +39,21 @@ def load_notify_admins(config):
     return value
 
 
-async def setup_auto_add(mc, types, on_added=None):
+def lookalike_of(public_key, protected):
+    """Return the key in `protected` that public_key shares a 12-hex prefix
+    with but doesn't equal, or None."""
+    public_key = public_key.lower()
+    return next((key for key in sorted(protected) if key[:12] == public_key[:12] and key != public_key), None)
+
+
+async def setup_auto_add(mc, types, on_added=None, protected=None, on_blocked=None):
     """Switch the radio to manual-add mode and add new nodes of the given types.
 
     on_added(key, name, type_name), if given, is called for each node added.
+    protected(), if given, returns the full public keys of the users and admins as they
+    are now; a node that shares one's prefix but not its key is not added, and
+    on_blocked(key, name, protected_key), if given, is called the first time
+    each such node is heard.
     """
     if not mc.self_info.get("manual_add_contacts"):
         res = await mc.commands.set_manual_add_contacts(True)
@@ -50,11 +65,21 @@ async def setup_auto_add(mc, types, on_added=None):
     names = ", ".join(sorted(TYPE_NAMES[t] for t in types)) or "none"
     print(f"Auto-adding new contacts of type: {names}")
 
+    blocked = set()  # full keys already reported, so repeated adverts stay quiet
+
     async def on_new_contact(event):
         c = event.payload
         label = f"{c['public_key'][:12]} {c.get('adv_name') or '?'} ({TYPE_NAMES.get(c['type'], c['type'])})"
         if c["type"] not in types:
             print(f"  (skipped new contact {label})", flush=True)
+            return
+        target = lookalike_of(c["public_key"], protected() if protected else ())
+        if target is not None:
+            if c["public_key"] not in blocked:
+                blocked.add(c["public_key"])
+                print(f"! blocked new contact {label}: same key prefix as a user or admin, different key", flush=True)
+                if on_blocked is not None:
+                    on_blocked(c["public_key"][:12], c.get("adv_name") or "", target)
             return
         res = await mc.commands.add_contact(c)
         if res.type == EventType.ERROR:
