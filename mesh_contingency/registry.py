@@ -29,25 +29,29 @@ ENTRY_POINT_GROUP = "mesh_contingency.commands"
 RESERVED_KEYS = {"permission", "handler", "timeout"}
 NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 HANDLER_RE = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*")
+PUBLIC_KEY_RE = re.compile(r"[0-9a-f]{64}")
 
 
-def _normalize_key(key):
-    """Reduce a pubkey or prefix to the lowercase 6-byte prefix MeshCore
-    includes with direct messages."""
-    return key.strip().lower()[:12]
+def _public_key(key, where):
+    """Return a full public key from the config in lowercase; exit if it is
+    anything else, such as the shorter prefix older configs used."""
+    public_key = key.strip().lower() if isinstance(key, str) else key
+    if not isinstance(public_key, str) or not PUBLIC_KEY_RE.fullmatch(public_key):
+        raise SystemExit(f"{where}: {key!r} is not a full public key (64 hex characters)")
+    return public_key
 
 
 def load_users(config):
-    """Return {pubkey prefix: settings} from the [users.<key>] config sections.
+    """Return {public key: settings} from the [users.<key>] config sections.
 
     Having a section is what approves a user for USER commands.
     """
-    return {_normalize_key(key): user for key, user in config.get("users", {}).items()}
+    return {_public_key(key, "[users]"): user for key, user in config.get("users", {}).items()}
 
 
 def load_admins(config):
-    """Return the set of pubkey prefixes in [admin] keys, allowed ADMIN commands."""
-    return {_normalize_key(key) for key in config.get("admin", {}).get("keys", [])}
+    """Return the set of public keys in [admin] keys, allowed ADMIN commands."""
+    return {_public_key(key, "[admin] keys") for key in config.get("admin", {}).get("keys", [])}
 
 
 def discover():

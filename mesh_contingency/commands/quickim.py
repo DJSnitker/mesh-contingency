@@ -27,7 +27,7 @@ class QuickImCommand(MailCommand):
     async def execute(self, text, sender: Sender):
         if not text:
             raise CommandError(f"usage: {self.usage}")
-        to = self.recipients.get(sender.key)
+        to = self.recipients.get(sender.public_key)
         if not to:
             raise CommandError(f"{self.name}: not configured for you")
         if ADDRESS_RE.fullmatch(text.split()[0]):

@@ -25,7 +25,7 @@ from mesh_contingency.commands.wx import WxCommand
 from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, load_admins, load_users, resolve
 
 FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
-DANA = Sender("Dana", "d0d0d0d0d0d0")
+DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "quickim": QuickImCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand}
@@ -65,10 +65,16 @@ def commands_config(**sections):
 
 
 class LoadUsersTest(unittest.TestCase):
-    def test_keys_normalized_to_lowercase_prefix(self):
+    def test_full_keys_normalized_to_lowercase(self):
         users = load_users({"users": {FULL_KEY: {"quickim": "a@example.com"},
-                                      " B0B0B0B0B0B0 ": {}}})
-        self.assertEqual(users, {"d0d0d0d0d0d0": {"quickim": "a@example.com"}, "b0b0b0b0b0b0": {}})
+                                      f" {'B0' * 32} ": {}}})
+        self.assertEqual(users, {FULL_KEY.lower(): {"quickim": "a@example.com"}, "b0" * 32: {}})
+
+    def test_prefix_or_other_key_rejected(self):
+        for key in ("d0d0d0d0d0d0", FULL_KEY + "00", "zz" * 32, ""):
+            with (self.subTest(key=key),
+                  self.assertRaisesRegex(SystemExit, r"\[users\]: .* is not a full public key")):
+                load_users({"users": {key: {}}})
 
     def test_missing_section(self):
         self.assertEqual(load_users({}), {})
@@ -76,8 +82,14 @@ class LoadUsersTest(unittest.TestCase):
 
 class LoadAdminsTest(unittest.TestCase):
     def test_keys_normalized(self):
-        self.assertEqual(load_admins({"admin": {"keys": [FULL_KEY, "adadadadadad"]}}),
-                         {"d0d0d0d0d0d0", "adadadadadad"})
+        self.assertEqual(load_admins({"admin": {"keys": [FULL_KEY, "ad" * 32]}}),
+                         {FULL_KEY.lower(), "ad" * 32})
+
+    def test_prefix_or_other_key_rejected(self):
+        for key in ("adadadadadad", 42, "ad" * 31):
+            with (self.subTest(key=key),
+                  self.assertRaisesRegex(SystemExit, r"\[admin\] keys: .* is not a full public key")):
+                load_admins({"admin": {"keys": [key]}})
 
     def test_missing_section(self):
         self.assertEqual(load_admins({}), set())
@@ -222,14 +234,14 @@ class RegistryBuildTest(unittest.TestCase):
             self.assertEqual(cmd.name, name)
             self.assertEqual(cmd.permission, sections[name]["permission"])
         self.assertIs(commands["advert"].radio, radio)
-        self.assertEqual(commands["quickim"].recipients, {"d0d0d0d0d0d0": ["a@example.com"]})
+        self.assertEqual(commands["quickim"].recipients, {FULL_KEY.lower(): ["a@example.com"]})
         self.assertIs(commands["help"].ctx.commands, commands)  # help sees every command
 
     def test_context_and_settings(self):
         r = Registry(commands_config(
             echo={"permission": "admin", "handler": "tests.test_registry:EchoCommand", "timeout": 5, "prefix": ">"}),
             available={})
-        users, admins, radio = {"d0d0d0d0d0d0": {}}, {"adadadadadad"}, object()
+        users, admins, radio = {"d0" * 32: {}}, {"ad" * 32}, object()
         cmd = r.build(users, admins, radio)["echo"]
         self.assertEqual((cmd.name, cmd.permission, cmd.timeout, cmd.usage), ("echo", ADMIN, 5, "echo <text>"))
         ctx = cmd.ctx
@@ -249,9 +261,9 @@ class RegistryBuildTest(unittest.TestCase):
         r = Registry(commands_config(
             quickim={"permission": "user"},
             quickim_mom={"permission": "user", "handler": "mesh_contingency.commands.quickim:QuickImCommand"}))
-        users = {"d0d0d0d0d0d0": {"quickim": "a@example.com", "quickim_mom": "mom@example.com"}}
+        users = {"d0" * 32: {"quickim": "a@example.com", "quickim_mom": "mom@example.com"}}
         commands = r.build(users, set(), None)
-        self.assertEqual(commands["quickim_mom"].recipients, {"d0d0d0d0d0d0": ["mom@example.com"]})
+        self.assertEqual(commands["quickim_mom"].recipients, {"d0" * 32: ["mom@example.com"]})
         self.assertEqual(commands["quickim_mom"].usage, "quickim_mom <message>")
 
     def test_function_command_wrapped(self):

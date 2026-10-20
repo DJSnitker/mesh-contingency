@@ -11,7 +11,7 @@ from meshcore import EventType
 
 from mesh_contingency import bot
 from mesh_contingency.api import ADMIN, DISABLED, MAX_PARTS, MAX_REPLY_LEN, PUBLIC, USER, CommandResult, Sender
-from mesh_contingency.testing import FakeMeshCore, make_contact
+from mesh_contingency.testing import FakeMeshCore, full_key, make_contact
 
 
 async def echo(text, sender, ctx):
@@ -23,6 +23,7 @@ async def slow(text, sender, ctx):
     await asyncio.sleep(10)
 
 
+# Key prefixes, as direct messages carry them; the config holds full_key(prefix).
 DANA = "d0d0d0d0d0d0"  # user
 ADMIN_KEY = "adadadadadad"  # admin only
 STRANGER = "ffeeddccbbaa"  # in contacts, but neither user nor admin
@@ -38,9 +39,9 @@ email = {{ permission = "user" }}
 advert = {{ permission = "admin" }}
 
 [admin]
-keys = ["{ADMIN_KEY}"]
+keys = ["{full_key(ADMIN_KEY)}"]
 
-[users.{DANA}]
+[users.{full_key(DANA)}]
 quickim = "partner@example.com"
 """
 
@@ -74,7 +75,8 @@ class LoadConfigTest(unittest.TestCase):
 class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         command = SimpleNamespace(permission=permission)
-        return bot.is_authorized(command, Sender("x", key), users={DANA: {}}, admins={ADMIN_KEY})
+        return bot.is_authorized(command, Sender("x", full_key(key)),
+                                 users={full_key(DANA): {}}, admins={full_key(ADMIN_KEY)})
 
     def test_matrix(self):
         self.assertTrue(self.check(PUBLIC, STRANGER))
@@ -231,7 +233,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"(new-contact notice to {ADMIN_KEY} delivered)", self.out.getvalue())
 
     async def test_every_admin_told_once(self):
-        config = (CONFIG + self.AUTO_ADD).replace(f'keys = ["{ADMIN_KEY}"]', f'keys = ["{ADMIN_KEY}", "{DANA}"]')
+        config = (CONFIG + self.AUTO_ADD).replace(f'keys = ["{full_key(ADMIN_KEY)}"]',
+                                                f'keys = ["{full_key(ADMIN_KEY)}", "{full_key(DANA)}"]')
         await self.start(config)
         await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "", 1))
         await self.settle()
@@ -307,6 +310,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         out = self.out.getvalue()
         self.assertIn(f"[{DANA} Dana] hi there", out)
         self.assertIn("[123456789abc] who am i", out)
+        self.assertNotIn(full_key(DANA), out)  # only the prefix is logged
 
     # --- unrecognized messages and the cooldown
 
@@ -360,6 +364,47 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(ADMIN_KEY, "advert flood")
         self.assertEqual(self.radio.adverts, [True])
         self.assertEqual(self.radio.sent[-1], ("Admin", "advert: flood sent"))
+
+    async def test_rights_need_the_full_key_in_the_config(self):
+        # A contact whose key shares the user's prefix but differs after it.
+        lookalike = DANA + "11" * 26
+        await self.start(contacts={lookalike: "Dana", ADMIN_KEY: "Admin"})
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_not_called()
+        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+
+    async def test_shared_prefix_identifies_nobody(self):
+        # An impostor with the user's prefix: neither contact gets rights,
+        # whichever of them sent the message.
+        impostor = DANA + "11" * 26
+        await self.start(contacts={DANA: "Dana", impostor: "Dana"})
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_not_called()
+        self.assertIn(f"(2 contacts share key prefix {DANA}; sender not identified)", self.out.getvalue())
+        self.assertIn("quickim denied: sender not approved", self.out.getvalue())
+
+    async def test_reply_goes_to_the_full_key(self):
+        await self.start()
+        sent_to = []
+        original = self.radio.commands.send_msg_with_retry
+
+        async def record(contact, text):
+            sent_to.append(contact["public_key"])
+            return await original(contact, text)
+
+        self.radio.commands.send_msg_with_retry = record
+        await self.radio.dm(ADMIN_KEY, "advert")
+        self.assertEqual(sent_to, [full_key(ADMIN_KEY)])
+
+    async def test_new_contact_gets_rights_without_restart(self):
+        # Messages from a node the bot hasn't loaded yet: refresh, then match.
+        await self.start(contacts={ADMIN_KEY: "Admin"})
+        self.radio.stored[full_key(DANA)] = "Dana"
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "quickim hi")
+        send_email.assert_called_once()
 
     async def test_public_command_for_anyone(self):
         await self.start()

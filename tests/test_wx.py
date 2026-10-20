@@ -5,7 +5,7 @@ from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.wx import WxCommand, _compass, _fmt, format_report, format_short
 from mesh_contingency.testing import make_context
 
-SENDER = Sender("Dana", "d0d0d0d0d0d0")
+SENDER = Sender("Dana", "d0" * 32)
 
 
 def obs(**fields):

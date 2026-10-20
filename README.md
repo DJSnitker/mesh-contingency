@@ -75,17 +75,22 @@ to the source text.
 
 ### Permissions
 
-Senders are identified by the 6-byte public key prefix (12 hex characters)
-MeshCore includes with every direct message. The console prints it for each
-message, e.g. `[a1b2c3d4e5f6 Alice] wx 10001`.
+Users and admins are listed by their full public key (64 hex characters),
+which the MeshCore app shows for your node. A direct message carries only the
+first 12 characters (the prefix), so the bot looks the sender up in the
+radio's contacts and checks that contact's full key against the config. If no
+contact, or more than one, has the prefix, the sender is unidentified and may
+only run public commands, so a node that copies someone's prefix never gets
+their rights. The console prints the prefix and name for each message, e.g.
+`[a1b2c3d4e5f6 Alice] wx 10001`.
 
 Who may run each command is set entirely in the config's `[commands]`
 table (see [Configuration](#configuration)); the code has no built-in levels.
 Each command gets one of:
 
 - **public**: anyone.
-- **user**: senders with a `[users.<prefix>]` section in the config.
-- **admin**: senders whose prefix is in `[admin] keys`.
+- **user**: senders with a `[users.<public key>]` section in the config.
+- **admin**: senders whose public key is in `[admin] keys`.
 - **disabled**: nobody.
 
 An installed command with no entry is disabled, with a warning at startup,
@@ -141,9 +146,9 @@ email = { permission = "user" }
 advert = { permission = "admin" }
 
 [admin]
-keys = ["a1b2c3d4e5f6"]
+keys = ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
 
-[users.a1b2c3d4e5f6]
+[users.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2]
 name = "Alice"  # for reference only
 quickim = "someone@example.com"
 emailall = ["someone@example.com", "someone.else@example.com"]
@@ -201,8 +206,8 @@ running are picked up when they advert again. Without a `[contacts]` section
 the radio's setting is left as it is.
 
 Each admin also gets a direct message for every contact added, e.g.
-`New contact: Alice (a1b2c3d4e5f6, chat)`, so they can add the person to
-`[users]` if appropriate. Set `notify_admins = false` under `[contacts]` to
+`New contact: Alice (a1b2c3d4e5f6, chat)`, so they know who has appeared and
+can ask for the person's full public key to add them to `[users]`. Set `notify_admins = false` under `[contacts]` to
 turn this off. Admins must themselves be contacts to receive it. Notices are
 sent in the background, one message at a time, so they never hold up replies
 to incoming messages.
@@ -312,7 +317,8 @@ def roll(text, sender, ctx):
 ```
 
 The function gets the text after the command name, the `Sender` (`name` and
-`key`, the 12-hex pubkey prefix) and the `Context`. It returns the reply text.
+`public_key`, the full 64-hex key, or `None` if the sender couldn't be
+identified) and the `Context`. It returns the reply text.
 It can be `async def`; a plain `def` runs in a worker thread so it can't stall
 the radio.
 
@@ -384,7 +390,7 @@ from mesh_contingency.api import Sender
 from mesh_contingency.testing import FakeMeshCore, make_context
 
 cmd = TideCommand(make_context("tide", options={"station": "8724580"}, radio=FakeMeshCore()))
-result = await cmd.execute("", Sender("Dana", "d0d0d0d0d0d0"))
+result = await cmd.execute("", Sender("Dana", "d0" * 32))
 ```
 
 ## Security notes

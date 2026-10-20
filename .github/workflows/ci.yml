@@ -93,7 +93,7 @@ jobs:
 
           config = {"commands": {"verse": {"permission": "public"}, "roll": {"permission": "public"}}}
           commands = Registry(config).build({}, set(), None)
-          dana = Sender("Dana", "d0d0d0d0d0d0")
+          dana = Sender("Dana", "d0" * 32)
           verse = asyncio.run(commands["verse"].execute("john 3:16", dana))
           roll = asyncio.run(commands["roll"].execute("2d6", dana))
           print(verse.reply, roll, sep="\n")

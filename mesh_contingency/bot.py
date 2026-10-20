@@ -103,17 +103,19 @@ async def main():
     # just sent, so overlapping sends could confuse delivery tracking.
     send_lock = asyncio.Lock()
 
-    async def send_dm(prefix, text, what="reply"):
-        """Send a direct message to a contact by pubkey prefix, retrying until
-        the radio reports an ack, and log whether it was delivered."""
+    async def send_dm(key, text, what="reply"):
+        """Send a direct message to a contact by public key (or, for a sender
+        we couldn't identify, the prefix they wrote from), retrying until the
+        radio reports an ack, and log whether it was delivered."""
         if len(text) > MAX_REPLY_LEN:
             # Error text can echo the sender's input; never exceed the mesh limit.
             text = text[: MAX_REPLY_LEN - 3] + "..."
-        contact = mc.get_contact_by_key_prefix(prefix)
+        prefix = key[:12]  # logged instead of the full key
+        contact = mc.get_contact_by_key_prefix(key)
         if contact is None:
             # The radio may have learned this node after we loaded contacts.
             await mc.commands.get_contacts()
-            contact = mc.get_contact_by_key_prefix(prefix)
+            contact = mc.get_contact_by_key_prefix(key)
         if contact is None:
             print(f"  (no contact {prefix} to send {what} to; is it in the radio's contacts?)", flush=True)
             return
@@ -153,32 +155,56 @@ async def main():
                   f"{command.name} command disabled.")
     print("Listening for direct messages (Ctrl+C to quit)...")
 
-    async def reply(msg, text):
+    def message_prefix(msg):
+        """The 6-byte key prefix (12 hex chars) a direct message comes with."""
+        return msg.get("pubkey_prefix", "").lower()
+
+    async def reply(msg, sender, text):
         """Send text back to the sender of a direct message."""
-        await send_dm(msg.get("pubkey_prefix", ""), text)
+        await send_dm(sender.public_key or message_prefix(msg), text)
 
-    def get_sender(msg):
-        """Return the Sender of a direct message."""
-        prefix = msg.get("pubkey_prefix", "").lower()
-        contact = mc.get_contact_by_key_prefix(prefix)
-        return Sender((contact or {}).get("adv_name") or prefix, prefix)
+    def contacts_with_prefix(prefix):
+        return [c for c in mc.contacts.values() if prefix and c.get("public_key", "").lower().startswith(prefix)]
 
-    last_unrecognized = {}  # sender -> time.monotonic() of the last UNRECOGNIZED_REPLY
+    async def get_sender(msg):
+        """Return the Sender of a direct message.
+
+        A message carries only the sender's key prefix, so it is matched to
+        the radio's contacts for the full public key that permissions use. If
+        no contact or more than one has the prefix, the sender is unidentified
+        (public_key None): a node with a copied prefix never gets rights.
+        """
+        prefix = message_prefix(msg)
+        matches = contacts_with_prefix(prefix)
+        if not matches:
+            # The radio may have learned this node after we loaded contacts.
+            await mc.commands.get_contacts()
+            matches = contacts_with_prefix(prefix)
+        if len(matches) != 1:
+            if matches:
+                print(f"  ({len(matches)} contacts share key prefix {prefix}; sender not identified)", flush=True)
+            return Sender(prefix, None)
+        contact = matches[0]
+        return Sender(contact.get("adv_name") or prefix, contact["public_key"].lower())
+
+    last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY
 
     async def reply_unrecognized(msg, sender, why):
         """Send UNRECOGNIZED_REPLY unless this sender got one recently."""
         now = time.monotonic()
-        if now - last_unrecognized.get(sender.key, -UNRECOGNIZED_COOLDOWN) < UNRECOGNIZED_COOLDOWN:
+        prefix = message_prefix(msg)
+        if now - last_unrecognized.get(prefix, -UNRECOGNIZED_COOLDOWN) < UNRECOGNIZED_COOLDOWN:
             print(f"  -> {why}; not replying (replied within {UNRECOGNIZED_COOLDOWN}s)", flush=True)
             return
-        last_unrecognized[sender.key] = now
+        last_unrecognized[prefix] = now
         print(f"  -> {why}; sending unrecognized reply", flush=True)
-        await reply(msg, UNRECOGNIZED_REPLY)
+        await reply(msg, sender, UNRECOGNIZED_REPLY)
 
     async def on_message(event):
         msg = event.payload
-        sender = get_sender(msg)
-        label = sender.key if sender.name == sender.key else f"{sender.key} {sender.name}"
+        sender = await get_sender(msg)
+        prefix = message_prefix(msg)
+        label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
         print(f"[{label}] {msg.get('text', '')}", flush=True)
         parsed = parse_command(msg, commands)
         if parsed is None:
@@ -194,15 +220,15 @@ async def main():
             result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
         except TimeoutError:
             print(f"  {command.name} timed out after {command.timeout}s", flush=True)
-            await reply(msg, f"{command.name}: timed out")
+            await reply(msg, sender, f"{command.name}: timed out")
             return
         except CommandError as e:
             print(f"  {e}", flush=True)
-            await reply(msg, str(e))
+            await reply(msg, sender, str(e))
             return
         except Exception as e:
             print(f"  {command.name} failed: {e}", flush=True)
-            await reply(msg, f"{command.name}: failed")
+            await reply(msg, sender, f"{command.name}: failed")
             return
         if not isinstance(result, CommandResult):
             # Function commands may return just the reply.
@@ -214,7 +240,7 @@ async def main():
             print("  -> no reply", flush=True)
         # A long reply comes as several messages, sent in order.
         for text in messages:
-            await reply(msg, text)
+            await reply(msg, sender, text)
             print(f"  -> replied ({len(text)} chars): {text}", flush=True)
 
     # Only direct messages; channel messages are never subscribed to.

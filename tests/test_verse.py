@@ -7,7 +7,7 @@ from mesh_contingency.bible.votd import reference_for
 from mesh_contingency.commands.verse import MAX_PARTS, VerseCommand
 from mesh_contingency.testing import make_context
 
-DANA = Sender("Dana", "d0d0d0d0d0d0")
+DANA = Sender("Dana", "d0" * 32)
 TODAY = datetime.date(2026, 10, 19)
 
 
