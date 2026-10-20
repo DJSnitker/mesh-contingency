@@ -2,9 +2,9 @@
 
 import asyncio
 
-from weather import POP_HOURS, c_to_f, fetch_weather, kmh_to_mph, mm_to_in, value
+from ..weather import POP_HOURS, c_to_f, fetch_weather, kmh_to_mph, mm_to_in, value
 
-from .base import Command, CommandError, CommandResult
+from ..api import Command, CommandError, CommandResult
 
 
 def _compass(deg):
@@ -100,8 +100,8 @@ def format_short(wx):
 
 
 class WxCommand(Command):
-    name = "wx"
-    usage = "wx <zipcode>"
+    args = "<zipcode>"
+    summary = "Weather, precipitation and alerts for a US zipcode"
 
     async def execute(self, text, sender):
         args = text.split()
@@ -110,5 +110,5 @@ class WxCommand(Command):
         try:
             wx = await asyncio.to_thread(fetch_weather, args[0])
         except ValueError as e:
-            raise CommandError(f"wx: {e}") from e
+            raise CommandError(f"{self.name}: {e}") from e
         return CommandResult(console=format_report(wx), reply=format_short(wx))

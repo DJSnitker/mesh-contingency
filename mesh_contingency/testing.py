@@ -1,9 +1,23 @@
-"""Test doubles for the MeshCore radio."""
+"""Test helpers for commands, built in or third party.
+
+    from mesh_contingency.testing import FakeMeshCore, make_context
+
+    cmd = MyCommand(make_context("mine", options={"station": "x"}, radio=FakeMeshCore()))
+    result = await cmd.execute("some text", Sender("Dana", "d0d0d0d0d0d0"))
+"""
 
 import asyncio
 from types import SimpleNamespace
 
 from meshcore import EventType
+
+from .api import Context
+
+
+def make_context(name, options=None, users=None, admins=None, radio=None, commands=None):
+    """A Context like the one the bot creates a command with."""
+    return Context(name=name, options=options or {}, users=users or {}, admins=admins or set(),
+                   radio=radio, commands=commands if commands is not None else {})
 
 
 def event(event_type, payload=None):

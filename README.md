@@ -4,23 +4,27 @@ A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore) companion
 radio connected over USB serial. It listens for **direct messages** sent to the
 radio, runs simple commands, and replies over the mesh. It is meant as a
 contingency link: someone with only a mesh radio can check the weather, read
-a Bible verse, or get a message out by email.
+a Bible verse, or get a message out by email. Commands are plugins: anyone can
+write one in a separate package and install it (see
+[Writing a command](#writing-a-command)).
 
 Channel messages are ignored entirely; only direct messages are acted on.
 
 ## Commands
 
-| Command | Who can run it | What it does |
+| Command | Who can run it (example config) | What it does |
 |---|---|---|
+| `help [command]` | anyone | Lists the commands the sender may run, or shows how to use one. Commands the sender can't run aren't mentioned. |
 | `wx <zipcode>` | anyone | Current conditions, chance of precipitation and active NWS alerts for a US zipcode. Full report on the console; a ≤133-char summary is sent back, prioritizing alerts, then precipitation, then temperature and wind. |
 | `verse [reference]` | anyone | A Bible verse or short passage from the Berean Standard Bible, e.g. `verse john 3:16` or `verse ps 23:1-3`; plain `verse` gives the verse of the day. Works offline. |
-| `notify_default <message>` | users | Emails the message to the sender's configured default address. |
-| `notify_group <message>` | users | Emails the message to the sender's configured group of addresses. |
-| `notify_email <address> <message>` | users | Emails the message to the given address. |
+| `quickim <message>` | users | Emails the message to the sender's preset contact. |
+| `emailall <message>` | users | Emails the message to the sender's preset group of addresses. |
+| `email <address> <message>` | users | Emails the message to the given address. |
 | `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. |
 
 Command names are case-insensitive. Everything after the command name is
-passed through as typed.
+passed through as typed. Replies too long for one 133-character message are
+split into numbered messages (`(1/3) ...`), at most 8 per reply.
 
 Notification emails have the subject
 `You have received a MeshCore message from: <sender>`, the message text as the
@@ -37,7 +41,7 @@ Example `wx` reply:
 ### Bible verses
 
 The whole [Berean Standard Bible](https://berean.bible/) is bundled with the
-bot (`bible/bsb.json.gz`, 1.2 MB), so `verse` never touches the network. The
+bot (`mesh_contingency/bible/bsb.json.gz`, 1.2 MB), so `verse` never touches the network. The
 BSB was dedicated to the public domain in 2023, so verses are sent without a
 copyright notice.
 
@@ -58,13 +62,13 @@ delivers them out of sequence:
 
 A reply may take at most 8 messages; longer ranges are refused. The verse of
 the day comes from a built-in list of 237 well-known verses
-(`bible/votd.py`), taken in turn by date, so everyone gets the same verse on
+(`mesh_contingency/bible/votd.py`), taken in turn by date, so everyone gets the same verse on
 the same day. Text is converted to plain ASCII (straight quotes, `--` for
 dashes). Verses the BSB omits from the main text, such as Matthew 17:21, are
 reported as not in the text.
 
 The bundled file is built from the [Free Use Bible API](https://bible.helloao.org)
-with `python -m bible.build`. It only needs rebuilding to pick up corrections
+with `python -m mesh_contingency.bible.build`. It only needs rebuilding to pick up corrections
 to the source text.
 
 ### Permissions
@@ -73,11 +77,21 @@ Senders are identified by the 6-byte public key prefix (12 hex characters)
 MeshCore includes with every direct message. The console prints it for each
 message, e.g. `[a1b2c3d4e5f6 Alice] wx 10001`.
 
-- **public** commands can be run by anyone.
-- **user** commands need a `[users.<prefix>]` section in the config.
-- **admin** commands need the prefix in `[admin] keys`.
+Who may run each command is set entirely in the config's `[commands]`
+table (see [Configuration](#configuration)); the code has no built-in levels.
+Each command gets one of:
 
-The user and admin lists are independent. Anything else — an unknown command,
+- **public**: anyone.
+- **user**: senders with a `[users.<prefix>]` section in the config.
+- **admin**: senders whose prefix is in `[admin] keys`.
+- **disabled**: nobody.
+
+An installed command with no entry is disabled, with a warning at startup,
+so installing a command never opens it until you allow it. An unknown
+command name or level stops the bot before it connects.
+
+The user and admin lists are independent: an admin isn't automatically a
+user. Anything else — an unknown command,
 or a command the sender isn't allowed to run — gets the reply
 `unrecognized user or function`, at most once per sender every 5 minutes so
 the bot can't be pulled into a reply loop with another automated node.
@@ -91,7 +105,7 @@ them automatically.
 - Python 3.11+
 - A MeshCore companion radio on USB serial
 - The `mail` command (e.g. s-nail or mailutils) able to send through an SMTP
-  server, for the `notify_*` commands
+  server, for the `quickim`, `emailall` and `email` commands
 - Internet access for `wx` ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)
   and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys).
   `verse` works offline.
@@ -106,7 +120,8 @@ cp config.example.toml config.toml   # then edit it
 
 The editable install (`-e`) runs the code straight from this folder, so edits
 take effect on restart and `config.toml` here is found by default. Re-run the
-install after pulling changes that add new modules or packages.
+install after pulling changes that add modules or commands, since commands are
+registered when the package is installed.
 
 ### Configuration
 
@@ -114,17 +129,55 @@ install after pulling changes that add new modules or packages.
 keys. See `config.example.toml`:
 
 ```toml
+[commands]
+help = { permission = "public" }
+wx = { permission = "public" }
+verse = { permission = "public" }
+quickim = { permission = "user" }
+emailall = { permission = "user" }
+email = { permission = "user" }
+advert = { permission = "admin" }
+
 [admin]
 keys = ["a1b2c3d4e5f6"]
 
 [users.a1b2c3d4e5f6]
 name = "Alice"  # for reference only
-notify_default = "someone@example.com"
-notify_group = ["someone@example.com", "someone.else@example.com"]
+quickim = "someone@example.com"
+emailall = ["someone@example.com", "someone.else@example.com"]
 ```
 
-Each user's `notify_default` / `notify_group` may be a single address or a
-list. A user with no addresses can still use `notify_email`.
+Each entry under `[commands]` takes:
+
+| Key | Meaning |
+|---|---|
+| `permission` | Required: `public`, `user`, `admin` or `disabled`. |
+| `timeout` | Seconds before the command is abandoned with a "timed out" reply (default 60). |
+| `handler` | Code to run, as `"module:attr"`: a `Command` subclass or a function. Only needed for commands that aren't installed as a package, or to run installed code under another name. |
+| anything else | Passed to the command as its options. |
+
+A command with options reads more easily as its own section:
+
+```toml
+[commands.roll]
+permission = "public"
+max_dice = 10
+```
+
+The same code can run under several names. For example, a second quickim
+command whose addresses come from each user's `quickfam` key:
+
+```toml
+[commands.quickfam]
+handler = "mesh_contingency.commands.quickim:QuickImCommand"
+permission = "user"
+```
+
+Each user's `quickim` / `emailall` key may be a single address or a list.
+A user with no addresses can still use `email`. A `quickim` or `emailall`
+message that starts with an email address is refused with a pointer to
+`email`, so a message meant for someone else isn't sent to the preset
+contact by mistake.
 
 ### Contacts
 
@@ -168,14 +221,15 @@ Test with `echo test | mail -s test you@example.com` before relying on it.
 ```
 
 With the venv activated (`source .venv/bin/activate`), plain
-`mesh-contingency` works. `python mesh_contingency.py` still works without
-installing.
+`mesh-contingency` works, as does `python -m mesh_contingency`.
 
 Options: `-p/--port`, `-b/--baud` (default 115200), `-c/--config`
-(default `config.toml` next to `mesh_contingency.py`), `--debug` for library logging.
+(default `config.toml` in the project folder), `--debug` for library logging.
 
-At startup it prints which commands are available at each permission level and
-warns about any that are disabled for lack of configuration. Each reply is
+At startup it checks the config and loads the enabled commands before
+connecting, prints which commands are available at each permission level, and
+warns about any that are disabled or failed to load. Each command has a time
+limit (60 s unless its config says otherwise). Each reply is
 retried until the radio reports an ack, and the console notes whether it was
 delivered.
 
@@ -186,52 +240,141 @@ delivered.
 ```
 
 The tests use only the standard library. Network calls, the `mail` command
-and the radio are all faked (see `tests/fakes.py`), so they run offline and
-without a device. `tests/test_mesh_contingency.py` drives the real `mesh_contingency.main()`
-with simulated direct messages.
+and the radio are all faked (see `mesh_contingency/testing.py`), so they run
+offline and without a device. `tests/test_bot.py` drives the real
+`mesh_contingency.bot.main()` with simulated direct messages.
 
 ## Project layout
 
 ```
-mesh_contingency.py   entry point: radio connection, permissions, dispatch, replies
-contacts.py           auto-adding new contacts by node type
-weather.py            api.weather.gov / zipcode lookups (data only)
-bible/
-  __init__.py         reference parsing and verse lookup
-  bsb.json.gz         the bundled Berean Standard Bible
-  build.py            rebuilds bsb.json.gz (python -m bible.build)
-  votd.py             verse-of-the-day list
-commands/
-  __init__.py         command registry and config loading
-  base.py             Command base class, permission levels, reply fitting and splitting
-  wx.py               wx
-  verse.py            verse
-  notify_default.py   notify_default and the shared email sending
-  notify_group.py     notify_group
-  notify_email.py     notify_email (validates the address from the mesh)
-  advert.py           advert
-pyproject.toml        package metadata and the mesh-contingency command
+mesh_contingency/
+  api.py              the interface for commands: Command, Context, CommandResult, reply limits
+  registry.py         finding commands (entry points), checking [commands], loading them
+  bot.py              entry point: radio connection, permissions, dispatch, replies
+  testing.py          fake radio and make_context() for testing commands
+  contacts.py         auto-adding new contacts by node type
+  weather.py          api.weather.gov / zipcode lookups (data only)
+  bible/
+    __init__.py       reference parsing and verse lookup
+    bsb.json.gz       the bundled Berean Standard Bible
+    build.py          rebuilds bsb.json.gz
+    votd.py           verse-of-the-day list
+  commands/           built-in commands, one module each
+    help.py, wx.py, verse.py, advert.py
+    mail.py           the shared email sending and address checks
+    quickim.py, emailall.py, email.py
+examples/mesh-dice/   an example third-party command package
+pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
 config.example.toml   example configuration
 tests/                unit tests (python -m unittest)
 ```
 
-### Adding a command
+## Writing a command
 
-Create a `Command` subclass in its own module under `commands/` with `name`,
-`usage`, `permission` (`PUBLIC`, `USER` or `ADMIN`) and an async
-`execute(text, sender)` that returns a `CommandResult(console=..., reply=...)`.
-`reply` is one message, or a list of messages sent in order (see
-`Command.split_reply`).
-Raise `CommandError` for failures whose message is safe to send back. Then add
-an instance in `build_commands()` in `commands/__init__.py`.
+A command is a Python class or function. It can live in its own package,
+installed next to the bot, so you never edit this project.
+`examples/mesh-dice` is a complete example.
+
+### As a function
+
+```python
+from mesh_contingency.api import CommandError, command
+
+@command(args="[NdS]", summary="Roll dice, e.g. 2d6")
+def roll(text, sender, ctx):
+    ...
+    return f"{sender.name} rolled {total}"
+```
+
+The function gets the text after the command name, the `Sender` (`name` and
+`key`, the 12-hex pubkey prefix) and the `Context`. It returns the reply text.
+It can be `async def`; a plain `def` runs in a worker thread so it can't stall
+the radio.
+
+### As a class
+
+```python
+from mesh_contingency.api import Command, CommandError, CommandResult
+
+class TideCommand(Command):
+    args = "<station>"
+    summary = "Today's tides"
+
+    def __init__(self, ctx):
+        super().__init__(ctx)
+        self.default = ctx.options.get("station")
+
+    async def execute(self, text, sender):
+        ...
+        return CommandResult(console=full_report, reply=short_text)
+```
+
+Use a class when the command keeps state or needs setup.
+
+### What a command gets and returns
+
+`ctx` (a `Context`) holds:
+- `name`: the name the command answers to
+- `options`: the extra keys from its config entry
+- `users`: each user's `[users.<key>]` settings
+- `admins`
+- `radio`: the connected `meshcore.MeshCore`
+- `commands`: every loaded command
+- `allowed(command, sender)`
+
+A command returns reply text, a list of messages, a `CommandResult(console=...,
+reply=...)` or `None` for no reply. The bot enforces the mesh limits for every
+command:
+- text is split into numbered messages;
+- each reply is capped at 8 messages, and each message at 133 characters;
+- each command has a time limit.
+
+To fail, raise `CommandError("...")` with a short message to send back. Any
+other exception is logged and answered with `<name>: failed`, so error details
+never leak onto the mesh.
+
+### Registering it
+
+In your package's `pyproject.toml`, the name on the left is the command name:
+
+```toml
+[project.entry-points."mesh_contingency.commands"]
+roll = "mesh_dice:roll"
+flip = "mesh_dice:FlipCommand"
+```
+
+Install it into the bot's environment (`.venv/bin/pip install ./mesh-dice`
+or from PyPI) and add an entry for it under `[commands]` in `config.toml`.
+Without installing, `handler = "module:attr"` in that entry works too, as long
+as the module is importable (e.g. on `PYTHONPATH`).
+
+The built-in commands are registered the same way, in this project's
+`pyproject.toml`. If two installed packages offer the same command name, the
+bot stops at startup; pick one with `handler`.
+
+### Testing it
+
+```python
+from mesh_contingency.api import Sender
+from mesh_contingency.testing import FakeMeshCore, make_context
+
+cmd = TideCommand(make_context("tide", options={"station": "8724580"}, radio=FakeMeshCore()))
+result = await cmd.execute("", Sender("Dana", "d0d0d0d0d0d0"))
+```
 
 ## Security notes
 
 - Commands never pass mesh text to a shell. Email goes to `mail` as argument
-  and stdin; addresses typed into `notify_email` are strictly validated, and
+  and stdin; addresses typed into `email` are strictly validated, and
   control characters are stripped from subjects.
-- Anyone in `[users]` can email any address with `notify_email`; only add
-  people you trust.
+- Anyone in `[users]` can email any address with `email` while it is
+  a `user` command; only add people you trust.
+- Think before making a command `public`: anyone on the mesh who can reach
+  the node could run it. The email commands and `advert` act outside the bot.
+- Installed commands run inside the bot with all of its access (radio,
+  network, `mail`, files). Permissions only decide who on the mesh may
+  trigger them. Install only command packages you trust. Disabled commands
+  are never imported.
 - A flood `advert` is sent to the whole mesh; use it sparingly.
 
 ## License

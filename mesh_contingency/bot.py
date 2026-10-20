@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Listen to a MeshCore companion device over USB serial and act on direct messages.
 
 Channel messages are ignored entirely.
@@ -13,11 +12,13 @@ from pathlib import Path
 
 from meshcore import EventType, MeshCore
 
-from commands import ADMIN, PUBLIC, USER, CommandError, Sender, build_commands, load_admins, load_users
-from commands.base import MAX_REPLY_LEN
-from contacts import load_auto_add, setup_auto_add
+from .api import (ADMIN, DISABLED, MAX_REPLY_LEN, PUBLIC, USER, CommandError, CommandResult, Sender,
+                  is_authorized, to_messages)
+from .contacts import load_auto_add, setup_auto_add
+from .registry import Registry, load_admins, load_users
 
-DEFAULT_CONFIG = Path(__file__).with_name("config.toml")
+# config.toml in the project folder (the parent of this package).
+DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 
 # Sent for unknown commands and for commands the sender may not run.
 UNRECOGNIZED_REPLY = "unrecognized user or function"
@@ -43,17 +44,6 @@ def load_config(path):
         return {}
 
 
-def is_authorized(command, sender, users, admins):
-    """Return True if the sender may run the command."""
-    if command.permission == PUBLIC:
-        return True
-    if command.permission == USER:
-        return sender.key in users
-    if command.permission == ADMIN:
-        return sender.key in admins
-    return False
-
-
 def parse_command(msg, commands):
     """Return (command, text) for a message naming a known command, or None.
 
@@ -67,18 +57,21 @@ def parse_command(msg, commands):
 
 
 async def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog="mesh-contingency", description=__doc__)
     parser.add_argument("-p", "--port", help="serial port (auto-detected if omitted)")
     parser.add_argument("-b", "--baud", type=int, default=115200)
     parser.add_argument("--debug", action="store_true", help="verbose library logging")
     parser.add_argument("-c", "--config", type=Path, default=DEFAULT_CONFIG,
-                        help=f"config file (default: {DEFAULT_CONFIG.name})")
+                        help=f"config file (default: {DEFAULT_CONFIG})")
     args = parser.parse_args()
 
     config = load_config(args.config)
     users = load_users(config)
     admins = load_admins(config)
     auto_add = load_auto_add(config)
+    # Check the [commands] config and import the enabled commands before
+    # connecting, so mistakes show up straight away.
+    registry = Registry(config)
 
     port = args.port or find_serial_port()
     if not port:
@@ -97,12 +90,15 @@ async def main():
     if auto_add is not None:
         await setup_auto_add(mc, auto_add)
 
-    commands = build_commands(config, mc)
+    commands = registry.build(users, admins, mc)
     for level, who in [(PUBLIC, "anyone"), (USER, f"{len(users)} user(s)"), (ADMIN, f"{len(admins)} admin(s)")]:
         names = [c.name for c in commands.values() if c.permission == level]
         print(f"  {level} commands ({who}): {', '.join(names) or 'none'}")
+    print(f"  {DISABLED} commands (nobody): {', '.join(registry.disabled) or 'none'}")
+    for warning in registry.warnings:
+        print(f"Warning: {warning}")
     for command in commands.values():
-        if not command.enabled:
+        if not command.enabled and command.permission != DISABLED:
             print(f"Warning: no user has {command.name} addresses in {args.config}; "
                   f"{command.name} command disabled.")
     print("Listening for direct messages (Ctrl+C to quit)...")
@@ -162,7 +158,11 @@ async def main():
             return
         print(f"  -> running {command.name} {text}".rstrip(), flush=True)
         try:
-            result = await command.execute(text, sender)
+            result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
+        except TimeoutError:
+            print(f"  {command.name} timed out after {command.timeout}s", flush=True)
+            await reply(msg, f"{command.name}: timed out")
+            return
         except CommandError as e:
             print(f"  {e}", flush=True)
             await reply(msg, str(e))
@@ -171,9 +171,16 @@ async def main():
             print(f"  {command.name} failed: {e}", flush=True)
             await reply(msg, f"{command.name}: failed")
             return
-        print(result.console, flush=True)
+        if not isinstance(result, CommandResult):
+            # Function commands may return just the reply.
+            result = CommandResult(console=result if isinstance(result, str) else "", reply=result)
+        if result.console:
+            print(result.console, flush=True)
+        messages = to_messages(result.reply)
+        if not messages:
+            print("  -> no reply", flush=True)
         # A long reply comes as several messages, sent in order.
-        for text in [result.reply] if isinstance(result.reply, str) else result.reply:
+        for text in messages:
             await reply(msg, text)
             print(f"  -> replied ({len(text)} chars): {text}", flush=True)
 
@@ -194,7 +201,3 @@ def run():
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nStopped.")
-
-
-if __name__ == "__main__":
-    run()

@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import bible
-from bible import Bible, Passage, default_bible, normalize
-from bible import build
-from bible.votd import VERSES, reference_for
+from mesh_contingency import bible
+from mesh_contingency.bible import Bible, Passage, default_bible, normalize
+from mesh_contingency.bible import build
+from mesh_contingency.bible.votd import VERSES, reference_for
 
 
 def source_verse(number, text):
@@ -87,7 +87,7 @@ class BuildMainTest(unittest.TestCase):
         self.out_file = Path(tmp.name) / "bsb.json.gz"
         self.source_file = Path(tmp.name) / "complete.simple.json"
         self.source_file.write_text(json.dumps(SOURCE))
-        self.enterContext(mock.patch("bible.build.DATA_FILE", self.out_file))
+        self.enterContext(mock.patch("mesh_contingency.bible.build.DATA_FILE", self.out_file))
         self.enterContext(contextlib.redirect_stdout(io.StringIO()))
 
     def run_build(self, *args):
@@ -103,7 +103,7 @@ class BuildMainTest(unittest.TestCase):
 
     def test_downloads_by_default(self):
         response = io.BytesIO(json.dumps(SOURCE).encode())
-        with mock.patch("bible.build.urllib.request.urlopen", return_value=response) as urlopen:
+        with mock.patch("mesh_contingency.bible.build.urllib.request.urlopen", return_value=response) as urlopen:
             written = self.run_build()
         request = urlopen.call_args.args[0]
         self.assertEqual(request.full_url, build.SOURCE_URL)

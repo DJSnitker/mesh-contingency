@@ -1,9 +1,11 @@
-"""notify_default <message>: email a preconfigured user."""
+"""Sending mesh messages out as email, shared by the quickim, emailall and
+email commands."""
 
 import asyncio
+import re
 import subprocess
 
-from .base import USER, Command, CommandError, CommandResult, Sender
+from ..api import Command, CommandError, CommandResult, Sender
 
 SUBJECT = "You have received a MeshCore message from: {sender}"
 DISCLAIMER = (
@@ -14,13 +16,17 @@ DISCLAIMER = (
 # Every notification email: the mesh text, a blank line, then the disclaimer.
 BODY = "{text}\n\n{disclaimer}"
 TIMEOUT = 30
+# Deliberately strict: the address comes from the mesh and is passed to `mail`
+# as an argument, where a leading "-" would be an option and "|" or "/" a pipe
+# or file target. Only plain user@domain.tld addresses get through.
+ADDRESS_RE = re.compile(r"[A-Za-z0-9._%+][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 
 
 def send_email(to, subject, body):
     """Send an email to a list of addresses with the `mail` command line tool.
 
     Everything is passed as argv or stdin and never through a shell. Callers
-    must validate any address that comes from the mesh (see notify_email).
+    must validate any address that comes from the mesh with ADDRESS_RE.
     """
     # The subject holds the mesh sender's name; drop control characters so a
     # crafted name cannot add lines or headers.
@@ -45,32 +51,8 @@ def send_email(to, subject, body):
         raise RuntimeError(f"`mail` failed: {detail}")
 
 
-class NotifyDefaultCommand(Command):
-    name = "notify_default"
-    usage = "notify_default <message>"
-    permission = USER
-
-    def __init__(self, users):
-        # Each user's addresses for this command live under the command's own
-        # name in their [users.<key>] config section: one address or a list.
-        self.recipients = {}
-        for key, user in users.items():
-            to = user.get(self.name)
-            to = [to] if isinstance(to, str) else list(to or [])
-            if to:
-                self.recipients[key] = to
-
-    @property
-    def enabled(self):
-        return bool(self.recipients)
-
-    async def execute(self, text, sender: Sender):
-        if not text:
-            raise CommandError(f"usage: {self.usage}")
-        to = self.recipients.get(sender.key)
-        if not to:
-            raise CommandError(f"{self.name}: not configured for you")
-        return await self.send(to, text, sender)
+class MailCommand(Command):
+    """Base for commands that email the sender's message."""
 
     async def send(self, to, text, sender: Sender):
         """Email text to the given addresses and return the CommandResult."""

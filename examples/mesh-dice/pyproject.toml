@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mesh-dice"
+version = "0.1.0"
+description = "Example mesh-contingency commands: roll and flip"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["mesh-contingency>=0.2"]
+
+[tool.setuptools]
+py-modules = ["mesh_dice"]
+
+# The mesh-contingency bot finds commands in this group. The name on the left
+# is the command name; the right is the "module:attr" that implements it.
+[project.entry-points."mesh_contingency.commands"]
+roll = "mesh_dice:roll"
+flip = "mesh_dice:FlipCommand"

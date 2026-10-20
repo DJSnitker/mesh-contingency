@@ -8,21 +8,17 @@ import asyncio
 import datetime
 import textwrap
 
-from bible import default_bible
-from bible.votd import reference_for
-
-from .base import Command, CommandError, CommandResult
-
-# The most messages one reply may take, to keep a long range from tying up
-# the mesh. The longest single verse (2 Kings 16:15) needs 4.
-MAX_PARTS = 8
+from ..api import MAX_PARTS, Command, CommandError, CommandResult
+from ..bible import default_bible
+from ..bible.votd import reference_for
 
 
 class VerseCommand(Command):
-    name = "verse"
-    usage = "verse [book chapter:verse[-verse]]"
+    args = "[book chapter:verse[-verse]]"
+    summary = "A Bible verse (BSB), or the verse of the day"
 
-    def __init__(self, load=default_bible, today=datetime.date.today):
+    def __init__(self, ctx, load=default_bible, today=datetime.date.today):
+        super().__init__(ctx)
         self.load = load  # returns the Bible; cached after the first call
         self.today = today
 
@@ -32,11 +28,13 @@ class VerseCommand(Command):
         try:
             passage = bible.lookup(reference)
         except ValueError as e:
-            raise CommandError(f"verse: {e}") from e
+            raise CommandError(f"{self.name}: {e}") from e
 
         reply = self.split_reply(f"{passage.reference} {passage.text}")
         if len(reply) > MAX_PARTS:
-            raise CommandError(f"verse: {passage.reference} needs {len(reply)} messages, "
+            # Refuse rather than let the bot cut the passage short. The
+            # longest single verse (2 Kings 16:15) needs 4 messages.
+            raise CommandError(f"{self.name}: {passage.reference} needs {len(reply)} messages, "
                                f"max {MAX_PARTS}; ask for fewer verses")
         title = f"{'Verse of the day: ' if not text else ''}{passage.reference} ({bible.translation})"
         body = textwrap.fill(passage.text, 76, initial_indent="  ", subsequent_indent="  ")

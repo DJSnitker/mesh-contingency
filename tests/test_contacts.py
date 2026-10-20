@@ -4,8 +4,8 @@ import unittest
 
 from meshcore import EventType
 
-from contacts import NODE_TYPES, load_auto_add, setup_auto_add
-from tests.fakes import FakeMeshCore, event, make_contact
+from mesh_contingency.contacts import NODE_TYPES, load_auto_add, setup_auto_add
+from mesh_contingency.testing import FakeMeshCore, event, make_contact
 
 
 class LoadAutoAddTest(unittest.TestCase):

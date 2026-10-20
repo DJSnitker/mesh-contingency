@@ -1,8 +1,9 @@
 import unittest
 from unittest import mock
 
-from commands.base import MAX_REPLY_LEN, PUBLIC, CommandError, Sender
-from commands.wx import WxCommand, _compass, _fmt, format_report, format_short
+from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
+from mesh_contingency.commands.wx import WxCommand, _compass, _fmt, format_report, format_short
+from mesh_contingency.testing import make_context
 
 SENDER = Sender("Dana", "d0d0d0d0d0d0")
 
@@ -103,29 +104,28 @@ class FormatReportTest(unittest.TestCase):
 
 
 class WxCommandTest(unittest.IsolatedAsyncioTestCase):
-    def test_is_public(self):
-        self.assertEqual(WxCommand.name, "wx")
-        self.assertEqual(WxCommand.permission, PUBLIC)
+    def test_name(self):
+        self.assertEqual(WxCommand(make_context("wx")).usage, "wx <zipcode>")
 
     async def test_usage_errors(self):
         for text in ("", "12345 67890"):
             with self.assertRaisesRegex(CommandError, "usage: wx <zipcode>"):
-                await WxCommand().execute(text, SENDER)
+                await WxCommand(make_context("wx")).execute(text, SENDER)
 
     async def test_invalid_zip_becomes_command_error(self):
-        with mock.patch("commands.wx.fetch_weather", side_effect=ValueError("unknown zipcode 00000")):
+        with mock.patch("mesh_contingency.commands.wx.fetch_weather", side_effect=ValueError("unknown zipcode 00000")):
             with self.assertRaisesRegex(CommandError, "^wx: unknown zipcode 00000$"):
-                await WxCommand().execute("00000", SENDER)
+                await WxCommand(make_context("wx")).execute("00000", SENDER)
 
     async def test_other_errors_propagate(self):
-        with mock.patch("commands.wx.fetch_weather", side_effect=OSError("network down")):
+        with mock.patch("mesh_contingency.commands.wx.fetch_weather", side_effect=OSError("network down")):
             with self.assertRaises(OSError):
-                await WxCommand().execute("12345", SENDER)
+                await WxCommand(make_context("wx")).execute("12345", SENDER)
 
     async def test_success(self):
         data = wx(STORMY, pop=90)
-        with mock.patch("commands.wx.fetch_weather", return_value=data) as fetch:
-            result = await WxCommand().execute("12345", SENDER)
+        with mock.patch("mesh_contingency.commands.wx.fetch_weather", return_value=data) as fetch:
+            result = await WxCommand(make_context("wx")).execute("12345", SENDER)
         fetch.assert_called_once_with("12345")
         self.assertEqual(result.reply, format_short(data))
         self.assertEqual(result.console, format_report(data))

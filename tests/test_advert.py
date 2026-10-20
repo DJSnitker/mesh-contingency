@@ -2,9 +2,9 @@ import unittest
 
 from meshcore import EventType
 
-from commands.advert import AdvertCommand
-from commands.base import ADMIN, CommandError, Sender
-from tests.fakes import FakeMeshCore, event
+from mesh_contingency.commands.advert import AdvertCommand
+from mesh_contingency.api import CommandError, Sender
+from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 DANA = Sender("Dana", "d0d0d0d0d0d0")
 
@@ -12,10 +12,7 @@ DANA = Sender("Dana", "d0d0d0d0d0d0")
 class AdvertCommandTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.radio = FakeMeshCore()
-        self.cmd = AdvertCommand(self.radio)
-
-    def test_is_admin_only(self):
-        self.assertEqual(AdvertCommand.permission, ADMIN)
+        self.cmd = AdvertCommand(make_context("advert", radio=self.radio))
 
     async def test_zero_hop_by_default(self):
         result = await self.cmd.execute("", DANA)

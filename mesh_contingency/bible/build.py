@@ -1,6 +1,6 @@
 """Download the Berean Standard Bible and write the compact copy the bot reads.
 
-    python -m bible.build [--source complete.simple.json]
+    python -m mesh_contingency.bible.build [--source complete.simple.json]
 
 The BSB is public domain (dedicated April 30, 2023; see https://berean.bible/),
 so it can be bundled and quoted without attribution. The text comes from the

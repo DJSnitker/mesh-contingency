@@ -1,6 +1,6 @@
 """Offline Berean Standard Bible: reference parsing and verse lookup.
 
-The text is bundled in bsb.json.gz (built by bible/build.py), so lookups need
+The text is bundled in bsb.json.gz (built by build.py), so lookups need
 no network. The BSB is public domain and needs no attribution.
 """
 

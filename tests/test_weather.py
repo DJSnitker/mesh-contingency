@@ -4,7 +4,7 @@ import unittest
 import urllib.error
 from unittest import mock
 
-import weather
+from mesh_contingency import weather
 
 
 def http_error(code):
@@ -42,7 +42,7 @@ def observation(temp_c=20.0):
 
 class GetJsonTest(unittest.TestCase):
     def test_sends_user_agent_and_parses_json(self):
-        with mock.patch("weather.urllib.request.urlopen") as urlopen:
+        with mock.patch("mesh_contingency.weather.urllib.request.urlopen") as urlopen:
             urlopen.return_value.__enter__.return_value = io.BytesIO(json.dumps({"ok": 1}).encode())
             self.assertEqual(weather._get_json("https://example.test/x"), {"ok": 1})
         req = urlopen.call_args.args[0]
@@ -74,17 +74,17 @@ class ConversionTest(unittest.TestCase):
 class GeocodeZipTest(unittest.TestCase):
     def test_returns_lat_lon_and_place(self):
         api = FakeApi({weather.ZIP_API: ZIP_RESPONSE})
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             self.assertEqual(weather.geocode_zip("33101"), (25.7743, -80.1937, "Miami, FL"))
         self.assertEqual(api.calls, [f"{weather.ZIP_API}/33101"])
 
     def test_unknown_zip_raises_value_error(self):
-        with mock.patch("weather._get_json", FakeApi({weather.ZIP_API: http_error(404)})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({weather.ZIP_API: http_error(404)})):
             with self.assertRaisesRegex(ValueError, "unknown zipcode 00000"):
                 weather.geocode_zip("00000")
 
     def test_other_http_errors_propagate(self):
-        with mock.patch("weather._get_json", FakeApi({weather.ZIP_API: http_error(500)})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({weather.ZIP_API: http_error(500)})):
             with self.assertRaises(urllib.error.HTTPError):
                 weather.geocode_zip("33101")
 
@@ -100,7 +100,7 @@ class LatestObservationTest(unittest.TestCase):
             self.STATIONS: {"features": [station("A", "Alpha"), station("B", "Bravo")]},
             self.obs_url("A"): observation(21.0),
         })
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             name, obs = weather.latest_observation(self.STATIONS)
         self.assertEqual(name, "Alpha")
         self.assertEqual(weather.value(obs, "temperature"), 21.0)
@@ -113,7 +113,7 @@ class LatestObservationTest(unittest.TestCase):
             self.obs_url("B"): http_error(404),
             self.obs_url("C"): observation(5.0),
         })
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             name, _ = weather.latest_observation(self.STATIONS)
         self.assertEqual(name, "Charlie")
 
@@ -122,7 +122,7 @@ class LatestObservationTest(unittest.TestCase):
         routes = {self.STATIONS: {"features": features}}
         routes.update({self.obs_url(f"S{i}"): observation(None) for i in range(len(features))})
         api = FakeApi(routes)
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             self.assertEqual(weather.latest_observation(self.STATIONS), (None, None))
         self.assertEqual(len(api.calls), 1 + weather.MAX_STATIONS)
 
@@ -134,23 +134,23 @@ class PrecipChanceTest(unittest.TestCase):
         return {"properties": {"periods": [{"probabilityOfPrecipitation": {"value": c}} for c in chances]}}
 
     def test_max_over_next_hours(self):
-        with mock.patch("weather._get_json", FakeApi({self.URL: self.periods(5, 40, None, 10)})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: self.periods(5, 40, None, 10)})):
             self.assertEqual(weather.precip_chance(self.URL), 40)
 
     def test_only_first_pop_hours_count(self):
         chances = [0] * weather.POP_HOURS + [90]
-        with mock.patch("weather._get_json", FakeApi({self.URL: self.periods(*chances)})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: self.periods(*chances)})):
             self.assertEqual(weather.precip_chance(self.URL), 0)
 
     def test_none_when_no_values(self):
-        with mock.patch("weather._get_json", FakeApi({self.URL: self.periods(None, None)})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: self.periods(None, None)})):
             self.assertIsNone(weather.precip_chance(self.URL))
 
     def test_none_on_errors(self):
         for failure in (http_error(500), urllib.error.URLError("down")):
-            with mock.patch("weather._get_json", FakeApi({self.URL: failure})):
+            with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: failure})):
                 self.assertIsNone(weather.precip_chance(self.URL))
-        with mock.patch("weather._get_json", FakeApi({self.URL: {"unexpected": 1}})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: {"unexpected": 1}})):
             self.assertIsNone(weather.precip_chance(self.URL))
 
 
@@ -158,17 +158,17 @@ class ActiveAlertsTest(unittest.TestCase):
     def test_returns_alert_properties_for_point(self):
         url = f"{weather.NWS_API}/alerts/active?point=25.7743,-80.1937"
         api = FakeApi({url: {"features": [{"properties": {"event": "Flood Warning"}}]}})
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             self.assertEqual(weather.active_alerts(25.7743, -80.1937), [{"event": "Flood Warning"}])
 
     def test_no_features(self):
-        with mock.patch("weather._get_json", FakeApi({weather.NWS_API: {}})):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({weather.NWS_API: {}})):
             self.assertEqual(weather.active_alerts(1, 2), [])
 
 
 class FetchWeatherTest(unittest.TestCase):
     def test_rejects_invalid_zipcodes_without_network(self):
-        with mock.patch("weather._get_json") as get_json:
+        with mock.patch("mesh_contingency.weather._get_json") as get_json:
             for bad in ("abc", "1234", "123456", "", "12a45"):
                 with self.assertRaisesRegex(ValueError, "invalid zipcode"):
                     weather.fetch_weather(bad)
@@ -186,7 +186,7 @@ class FetchWeatherTest(unittest.TestCase):
             hourly: {"properties": {"periods": [{"probabilityOfPrecipitation": {"value": 20}}]}},
             f"{weather.NWS_API}/alerts/": {"features": [{"properties": {"event": "Rip Current Statement"}}]},
         })
-        with mock.patch("weather._get_json", api):
+        with mock.patch("mesh_contingency.weather._get_json", api):
             wx = weather.fetch_weather(" 33101 ")
         self.assertEqual(wx["zipcode"], "33101")
         self.assertEqual(wx["place"], "Miami, FL")

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mesh-contingency"
-version = "0.1.0"
-description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands"
+version = "0.2.0"
+description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands, with pluggable third-party commands"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -17,11 +17,20 @@ dependencies = ["meshcore>=2.3"]
 Repository = "https://github.com/DJSnitker/mesh-contingency"
 
 [project.scripts]
-mesh-contingency = "mesh_contingency:run"
+mesh-contingency = "mesh_contingency.bot:run"
 
-[tool.setuptools]
-py-modules = ["mesh_contingency", "weather", "contacts"]
-packages = ["commands", "bible"]
+# Built-in commands, registered the same way a third-party package would.
+[project.entry-points."mesh_contingency.commands"]
+help = "mesh_contingency.commands.help:HelpCommand"
+wx = "mesh_contingency.commands.wx:WxCommand"
+verse = "mesh_contingency.commands.verse:VerseCommand"
+quickim = "mesh_contingency.commands.quickim:QuickImCommand"
+emailall = "mesh_contingency.commands.emailall:EmailAllCommand"
+email = "mesh_contingency.commands.email:EmailCommand"
+advert = "mesh_contingency.commands.advert:AdvertCommand"
+
+[tool.setuptools.packages.find]
+include = ["mesh_contingency*"]
 
 [tool.setuptools.package-data]
-bible = ["bsb.json.gz"]
+"mesh_contingency.bible" = ["bsb.json.gz"]

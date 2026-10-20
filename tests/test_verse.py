@@ -1,10 +1,11 @@
 import datetime
 import unittest
 
-from bible import Bible, default_bible
-from bible.votd import reference_for
-from commands.base import MAX_REPLY_LEN, PUBLIC, CommandError, Sender
-from commands.verse import MAX_PARTS, VerseCommand
+from mesh_contingency.bible import Bible, default_bible
+from mesh_contingency.bible.votd import reference_for
+from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
+from mesh_contingency.commands.verse import MAX_PARTS, VerseCommand
+from mesh_contingency.testing import make_context
 
 DANA = Sender("Dana", "d0d0d0d0d0d0")
 TODAY = datetime.date(2026, 10, 19)
@@ -12,11 +13,10 @@ TODAY = datetime.date(2026, 10, 19)
 
 class VerseCommandTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.cmd = VerseCommand(today=lambda: TODAY)
+        self.cmd = VerseCommand(make_context("verse"), today=lambda: TODAY)
 
-    def test_is_public(self):
-        self.assertEqual(VerseCommand.permission, PUBLIC)
-        self.assertEqual(VerseCommand.name, "verse")
+    def test_name(self):
+        self.assertEqual(self.cmd.usage, "verse [book chapter:verse[-verse]]")
 
     async def test_short_verse_is_one_message(self):
         result = await self.cmd.execute("phil 4:13", DANA)
@@ -65,13 +65,13 @@ class VerseCommandTest(unittest.IsolatedAsyncioTestCase):
             calls.append(1)
             return Bible(data)
 
-        cmd = VerseCommand(load=load)
+        cmd = VerseCommand(make_context("verse"), load=load)
         self.assertEqual(calls, [])
         self.assertEqual((await cmd.execute("gen 1:1", DANA)).reply, ["Genesis 1:1 Hi."])
         self.assertEqual(calls, [1])
 
     def test_defaults(self):
-        cmd = VerseCommand()
+        cmd = VerseCommand(make_context("verse"))
         self.assertIs(cmd.load, default_bible)
         self.assertEqual(cmd.today, datetime.date.today)
 

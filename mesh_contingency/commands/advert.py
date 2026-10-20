@@ -1,17 +1,17 @@
-"""advert [flood]: make the radio send an advert (admin only)."""
+"""advert [flood]: make the radio send an advert."""
 
 from meshcore import EventType
 
-from .base import ADMIN, Command, CommandError, CommandResult
+from ..api import Command, CommandError, CommandResult
 
 
 class AdvertCommand(Command):
-    name = "advert"
-    usage = "advert [flood]"
-    permission = ADMIN
+    args = "[flood]"
+    summary = "Make the radio advertise itself (flood: across the whole mesh)"
 
-    def __init__(self, radio):
-        self.radio = radio  # connected MeshCore instance
+    def __init__(self, ctx):
+        super().__init__(ctx)
+        self.radio = ctx.radio  # connected MeshCore instance
 
     async def execute(self, text, sender):
         mode = text.lower()
