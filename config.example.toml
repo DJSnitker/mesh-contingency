@@ -30,6 +30,25 @@ emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
 reload = { permission = "admin" }
+ok = { permission = "public" }
+status = { permission = "public" }
+clearstatus = { permission = "admin" }
+roster = { permission = "user" }
+msg = { permission = "user" }
+inbox = { permission = "user" }
+clearinbox = { permission = "user" }
+alert = { permission = "admin" }
+join = { permission = "public" }
+approve = { permission = "admin" }
+deny = { permission = "admin" }
+setquickim = { permission = "user" }
+addgroup = { permission = "user" }
+cleargroup = { permission = "user" }
+
+# alert posts to a public hashtag channel (added to the radio if missing):
+# [commands.alert]
+# permission = "admin"
+# channel = "#contingency-wx"
 
 # A command from an installed package (pip install <package>) needs only a
 # permission. Your own code, packaged or not, can be named with handler =

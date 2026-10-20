@@ -2,6 +2,11 @@
 # Copy config.example.toml and users.example.toml instead.
 config.toml
 users.toml
+# What the bot saves while running: check-ins, mailbox messages, join requests.
+status.json
+mailbox.json
+requests.json
+*.json.tmp
 
 # Python
 __pycache__/

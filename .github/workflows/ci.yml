@@ -89,7 +89,9 @@ jobs:
           from mesh_contingency.registry import Registry, discover
 
           found = discover()
-          missing = {"help", "wx", "verse", "quickim", "emailall", "email", "advert", "reload", "roll", "flip"} - set(found)
+          missing = {"help", "wx", "verse", "quickim", "emailall", "email", "advert", "reload",
+                     "ok", "status", "clearstatus", "roster", "msg", "inbox", "clearinbox", "alert",
+                     "join", "approve", "deny", "setquickim", "addgroup", "cleargroup", "roll", "flip"} - set(found)
           assert not missing, f"commands not discovered: {missing}"
 
           config = {"commands": {"verse": {"permission": "public"}, "roll": {"permission": "public"}}}

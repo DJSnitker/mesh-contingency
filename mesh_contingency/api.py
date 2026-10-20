@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from .directory import Directory
+from .state import State
 
 # Standard MeshCore text message limit for one message.
 MAX_REPLY_LEN = 133
@@ -61,6 +62,10 @@ def is_authorized(command, sender, users, admins):
     return False
 
 
+def _not_sent(public_key, text):
+    """Context.send when there is no radio to send with."""
+
+
 @dataclass
 class Context:
     """What a command is given when it is created."""
@@ -70,6 +75,10 @@ class Context:
     directory: Directory = field(default_factory=Directory)  # the users file, reloaded while running
     radio: object = None  # the connected meshcore.MeshCore
     commands: dict = field(default_factory=dict)  # every loaded command by name, complete once all are built
+    state: State = field(default_factory=State)  # senders seen and saved state, shared by all commands
+    # send(public key, text): queue a direct message to a contact, sent in the
+    # background (so it can't hold up the reply) and logged by the bot.
+    send: object = _not_sent
 
     # Read these when they are needed; don't keep a copy. Editing the users
     # file replaces them while the bot runs.
@@ -82,6 +91,15 @@ class Context:
     def admins(self):
         """The public keys in [admin] keys, as of now."""
         return self.directory.admins
+
+    def tell_admins(self, text):
+        """Send text to every admin, in the background."""
+        for key in sorted(self.admins):
+            self.send(key, text)
+
+    def name_of(self, sender):
+        """The sender's name from the users file, or the name their node advertises."""
+        return self.users.get(sender.public_key, {}).get("name") or sender.name
 
     def allowed(self, command, sender):
         """Return True if the sender may run the command."""
@@ -167,6 +185,13 @@ class Command(ABC):
     @property
     def usage(self):
         return f"{self.name} {self.args}".strip()
+
+    async def start(self):
+        """Called once at startup, after the radio connects and before any
+        message is handled, for setup that needs the radio. Return a line to
+        print, or None. If it raises, a warning is printed and the command
+        still runs."""
+        return None
 
     @abstractmethod
     async def execute(self, text, sender):

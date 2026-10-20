@@ -5,6 +5,10 @@
 #
 # Keys are full public keys (64 hex characters), shown in the MeshCore app.
 # The shorter 12-character prefix is not accepted.
+#
+# The bot writes to this file too: approve adds a user, and setquickim,
+# addgroup and cleargroup change a user's addresses. It rewrites only that
+# user's section, dropping comments inside it.
 
 # Admins may run admin commands.
 [admin]

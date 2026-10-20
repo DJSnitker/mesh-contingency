@@ -5,7 +5,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from mesh_contingency.directory import Directory, DirectoryError, parse, summarize
+from mesh_contingency.directory import Directory, DirectoryError, parse, summarize, toml_value, with_user
 
 ALICE = "a1" * 32
 BOB = "b0" * 32
@@ -189,6 +189,83 @@ class FileTest(unittest.TestCase):
         self.directory.check()
         self.assertEqual(self.directory.check(), "added Alice; admin added adadadadadad")
 
+
+class TomlValueTest(unittest.TestCase):
+    def test_round_trip(self):
+        for value in ["plain", 'quote " back\\slash', "new\nline\ttab\x7fdel\x01", "émoji 😀", True, 3, 2.5,
+                      ["a", "b"], [], {"x": 1, "two words": ["y"]}]:
+            with self.subTest(value=value):
+                self.assertEqual(tomllib.loads(f"v = {toml_value(value)}")["v"], value)
+
+    def test_unsupported(self):
+        with self.assertRaises(ValueError):
+            toml_value(None)
+
+
+class WithUserTest(unittest.TestCase):
+    def test_replaces_only_that_section(self):
+        text = (f"# top\n[admin]\nkeys = []\n\n# Alice's settings\n[users.{ALICE}]  # comment\nname = 'Alice'\n"
+                f"quickim = [\n  'a@example.com',\n]\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
+        new = with_user(text, ALICE, {"name": "Alice", "quickim": "new@example.com"})
+        self.assertEqual(new, f"# top\n[admin]\nkeys = []\n\n# Alice's settings\n[users.{ALICE}]\nname = \"Alice\"\n"
+                              f"quickim = \"new@example.com\"\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
+
+    def test_finds_upper_case_and_quoted_headers(self):
+        for header in (f"[users.{ALICE.upper()}]", f'[ users . "{ALICE}" ]'):
+            with self.subTest(header=header):
+                new = with_user(f"{header}\nname = 'A'\n", ALICE, {"name": "B"})
+                self.assertEqual(new, f'[users.{ALICE}]\nname = "B"\n')
+
+    def test_adds_a_new_user_at_the_end(self):
+        self.assertEqual(with_user("[admin]\nkeys = []\n\n\n", BOB, {"name": "Bob"}),
+                         f'[admin]\nkeys = []\n\n[users.{BOB}]\nname = "Bob"\n')
+        self.assertEqual(with_user("", BOB, {}), f"[users.{BOB}]\n")
+
+
+class SaveUserTest(unittest.TestCase):
+    def setUp(self):
+        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.path = self.folder / "users.toml"
+        self.path.write_text("# my notes\n" + USERS)
+        self.path.chmod(0o640)
+        self.directory = Directory(path=self.path)
+        self.directory.load()
+
+    def test_add_a_user(self):
+        self.assertEqual(self.directory.save_user(BOB, {"name": "Bob"}), "added Bob")
+        self.assertEqual(self.directory.users[BOB], {"name": "Bob"})
+        self.assertTrue(self.path.read_text().startswith("# my notes\n"))
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o640)  # permissions kept
+        self.assertEqual(sorted(p.name for p in self.folder.iterdir()), ["users.toml"])
+
+    def test_change_a_user(self):
+        self.assertEqual(self.directory.save_user(ALICE, {"name": "Alice", "quickim": "b@example.com"}),
+                         "changed Alice")
+        self.assertEqual(parse_text(self.path.read_text())[0][ALICE]["quickim"], "b@example.com")
+
+    def test_new_file(self):
+        self.path.unlink()
+        self.directory.save_user(BOB, {"name": "Bob"})
+        self.assertEqual(self.path.read_text(), f'[users.{BOB}]\nname = "Bob"\n')
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
+
+    def test_bad_file_is_not_touched(self):
+        self.path.write_text("[users")
+        with self.assertRaisesRegex(DirectoryError, "not valid TOML.*fix it first"):
+            self.directory.save_user(BOB, {"name": "Bob"})
+        self.assertEqual(self.path.read_text(), "[users")
+
+    def test_section_it_cannot_rewrite_is_not_touched(self):
+        text = f"[users.{ALICE}]\nname = 'Alice'\n[users.{ALICE}.extra]\nx = 1\n"
+        self.path.write_text(text)
+        with self.assertRaisesRegex(DirectoryError, "edit Alice's section by hand"):
+            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "quickim": "a@example.com"})
+        self.assertEqual(self.path.read_text(), text)
+
+    def test_in_memory(self):
+        directory = Directory({ALICE: {"name": "Alice"}})
+        self.assertEqual(directory.save_user(BOB, {"name": "Bob"}), "added Bob")
+        self.assertEqual(set(directory.users), {ALICE, BOB})
 
 class WatchTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
