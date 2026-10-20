@@ -4,6 +4,7 @@ The radio is put in manual-add mode, so instead of storing every node it
 hears it reports each new one as a NEW_CONTACT event; we add only the types
 listed in config. This keeps repeaters, rooms and sensors from filling the
 radio's contact table, which would block new people from messaging us.
+Each node added can be announced to the admins.
 """
 
 from meshcore import EventType
@@ -25,8 +26,20 @@ def load_auto_add(config):
     return {NODE_TYPES[t] for t in contacts["auto_add"]}
 
 
-async def setup_auto_add(mc, types):
-    """Switch the radio to manual-add mode and add new nodes of the given types."""
+def load_notify_admins(config):
+    """Return whether new contacts should be announced to the admins
+    ([contacts] notify_admins, default true)."""
+    value = config.get("contacts", {}).get("notify_admins", True)
+    if not isinstance(value, bool):
+        raise SystemExit(f"[contacts] notify_admins must be true or false, not {value!r}")
+    return value
+
+
+async def setup_auto_add(mc, types, on_added=None):
+    """Switch the radio to manual-add mode and add new nodes of the given types.
+
+    on_added(key, name, type_name), if given, is called for each node added.
+    """
     if not mc.self_info.get("manual_add_contacts"):
         res = await mc.commands.set_manual_add_contacts(True)
         if res.type == EventType.ERROR:
@@ -51,5 +64,7 @@ async def setup_auto_add(mc, types):
         # Refresh our copy so the new contact can be named and replied to.
         await mc.commands.get_contacts()
         print(f"+ contact {label}", flush=True)
+        if on_added is not None:
+            on_added(c["public_key"][:12], c.get("adv_name") or "", TYPE_NAMES.get(c["type"], str(c["type"])))
 
     mc.subscribe(EventType.NEW_CONTACT, on_new_contact)

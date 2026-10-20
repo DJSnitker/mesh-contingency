@@ -4,7 +4,7 @@ import unittest
 
 from meshcore import EventType
 
-from mesh_contingency.contacts import NODE_TYPES, load_auto_add, setup_auto_add
+from mesh_contingency.contacts import NODE_TYPES, load_auto_add, load_notify_admins, setup_auto_add
 from mesh_contingency.testing import FakeMeshCore, event, make_contact
 
 
@@ -23,12 +23,28 @@ class LoadAutoAddTest(unittest.TestCase):
             load_auto_add({"contacts": {"auto_add": ["chat", "robot"]}})
 
 
+class LoadNotifyAdminsTest(unittest.TestCase):
+    def test_default_on(self):
+        self.assertTrue(load_notify_admins({}))
+        self.assertTrue(load_notify_admins({"contacts": {"auto_add": ["chat"]}}))
+
+    def test_setting(self):
+        self.assertTrue(load_notify_admins({"contacts": {"notify_admins": True}}))
+        self.assertFalse(load_notify_admins({"contacts": {"notify_admins": False}}))
+
+    def test_must_be_boolean(self):
+        for value in ("no", 0, "false"):
+            with self.subTest(value=value), self.assertRaisesRegex(SystemExit, "must be true or false"):
+                load_notify_admins({"contacts": {"notify_admins": value}})
+
+
 class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
     async def setup(self, types=frozenset({1}), manual=False):
         radio = FakeMeshCore(manual_add_contacts=manual)
+        self.added = []  # on_added calls
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            await setup_auto_add(radio, set(types))
+            await setup_auto_add(radio, set(types), on_added=lambda *args: self.added.append(args))
         return radio, out.getvalue()
 
     async def new_contact(self, radio, contact):
@@ -62,6 +78,19 @@ class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(radio.get_contacts_calls, 1)
         self.assertIsNotNone(radio.get_contact_by_key_prefix("a1a1a1a1a1a1"))
         self.assertIn("+ contact a1a1a1a1a1a1 Alice (chat)", out)
+        self.assertEqual(self.added, [("a1a1a1a1a1a1", "Alice", "chat")])
+
+    async def test_on_added_with_unnamed_node(self):
+        radio, _ = await self.setup({1, 3})
+        await self.new_contact(radio, make_contact("a1a1a1a1a1a1", "", 3))
+        self.assertEqual(self.added, [("a1a1a1a1a1a1", "", "room")])
+
+    async def test_on_added_is_optional(self):
+        radio = FakeMeshCore()
+        with contextlib.redirect_stdout(io.StringIO()):
+            await setup_auto_add(radio, {1})
+        await self.new_contact(radio, make_contact("a1a1a1a1a1a1", "Alice", 1))
+        self.assertEqual(len(radio.added), 1)
 
     async def test_skips_unlisted_types(self):
         radio, _ = await self.setup({1})
@@ -70,6 +99,7 @@ class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(radio.added, [])
         self.assertIn("skipped new contact b2b2b2b2b2b2 Hilltop (repeater)", out)
         self.assertIn("skipped new contact e5e5e5e5e5e5 Odd (9)", out)
+        self.assertEqual(self.added, [])  # nothing announced for skipped nodes
 
     async def test_empty_list_adds_nothing(self):
         radio, out = await self.setup(set())
@@ -83,6 +113,7 @@ class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
         out = await self.new_contact(radio, make_contact("a1a1a1a1a1a1", "Alice", 1))
         self.assertIn("could not add contact a1a1a1a1a1a1 Alice (chat)", out)
         self.assertEqual(radio.get_contacts_calls, 0)
+        self.assertEqual(self.added, [])  # nor for nodes the radio refused
 
 
 if __name__ == "__main__":

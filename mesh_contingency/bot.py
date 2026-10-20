@@ -24,7 +24,7 @@ from .api import (
     is_authorized,
     to_messages,
 )
-from .contacts import load_auto_add, setup_auto_add
+from .contacts import load_auto_add, load_notify_admins, setup_auto_add
 from .registry import Registry, load_admins, load_users
 
 # config.toml in the project folder (the parent of this package).
@@ -79,6 +79,7 @@ async def main():
     users = load_users(config)
     admins = load_admins(config)
     auto_add = load_auto_add(config)
+    notify_admins = load_notify_admins(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -97,8 +98,47 @@ async def main():
     await mc.ensure_contacts()
     mc.auto_update_contacts = True
     print(f"Connected to {mc.self_info.get('name')}. {len(mc.contacts)} contacts.")
+
+    # One message at a time: the radio matches each ack to the message it
+    # just sent, so overlapping sends could confuse delivery tracking.
+    send_lock = asyncio.Lock()
+
+    async def send_dm(prefix, text, what="reply"):
+        """Send a direct message to a contact by pubkey prefix, retrying until
+        the radio reports an ack, and log whether it was delivered."""
+        if len(text) > MAX_REPLY_LEN:
+            # Error text can echo the sender's input; never exceed the mesh limit.
+            text = text[: MAX_REPLY_LEN - 3] + "..."
+        contact = mc.get_contact_by_key_prefix(prefix)
+        if contact is None:
+            # The radio may have learned this node after we loaded contacts.
+            await mc.commands.get_contacts()
+            contact = mc.get_contact_by_key_prefix(prefix)
+        if contact is None:
+            print(f"  (no contact {prefix} to send {what} to; is it in the radio's contacts?)", flush=True)
+            return
+        async with send_lock:
+            result = await mc.commands.send_msg_with_retry(contact, text)
+        if result is None:
+            print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
+        else:
+            print(f"  ({what} to {prefix} delivered)", flush=True)
+
+    background = set()  # running notice tasks, kept so they aren't garbage collected
+
+    def announce_new_contact(key, name, type_name):
+        """Tell every admin about a contact the bot just added, without
+        holding up the radio's event handling while the messages go out."""
+        text = f"New contact: {name or '?'} ({key}, {type_name})"
+        for admin in sorted(admins):
+            task = asyncio.create_task(send_dm(admin, text, what="new-contact notice"))
+            background.add(task)
+            task.add_done_callback(background.discard)
+
     if auto_add is not None:
-        await setup_auto_add(mc, auto_add)
+        await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None)
+        if notify_admins and admins:
+            print(f"New contacts are announced to {len(admins)} admin(s).")
 
     commands = registry.build(users, admins, mc)
     for level, who in [(PUBLIC, "anyone"), (USER, f"{len(users)} user(s)"), (ADMIN, f"{len(admins)} admin(s)")]:
@@ -114,25 +154,8 @@ async def main():
     print("Listening for direct messages (Ctrl+C to quit)...")
 
     async def reply(msg, text):
-        """Send text back to the sender of a direct message, retrying until the
-        radio reports an ack, and log whether it was delivered."""
-        if len(text) > MAX_REPLY_LEN:
-            # Error text can echo the sender's input; never exceed the mesh limit.
-            text = text[: MAX_REPLY_LEN - 3] + "..."
-        prefix = msg.get("pubkey_prefix", "")
-        contact = mc.get_contact_by_key_prefix(prefix)
-        if contact is None:
-            # The radio may have learned this node after we loaded contacts.
-            await mc.commands.get_contacts()
-            contact = mc.get_contact_by_key_prefix(prefix)
-        if contact is None:
-            print(f"  (no contact {prefix} to reply to; is the sender in the radio's contacts?)", flush=True)
-            return
-        result = await mc.commands.send_msg_with_retry(contact, text)
-        if result is None:
-            print(f"  (reply to {prefix} not acknowledged after retries)", flush=True)
-        else:
-            print(f"  (reply to {prefix} delivered)", flush=True)
+        """Send text back to the sender of a direct message."""
+        await send_dm(msg.get("pubkey_prefix", ""), text)
 
     def get_sender(msg):
         """Return the Sender of a direct message."""

@@ -11,7 +11,7 @@ from meshcore import EventType
 
 from mesh_contingency import bot
 from mesh_contingency.api import ADMIN, DISABLED, MAX_PARTS, MAX_REPLY_LEN, PUBLIC, USER, CommandResult, Sender
-from mesh_contingency.testing import FakeMeshCore
+from mesh_contingency.testing import FakeMeshCore, make_contact
 
 
 async def echo(text, sender, ctx):
@@ -212,6 +212,73 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(SystemExit, r"\[commands.wx\] has unknown permission 'everyone'"):
             await bot.main()
         connect.assert_not_called()
+
+    # --- new contacts announced to admins
+
+    AUTO_ADD = '\n[contacts]\nauto_add = ["chat"]\n'
+
+    async def settle(self):
+        """Let background notice tasks finish."""
+        for _ in range(10):
+            await asyncio.sleep(0)
+
+    async def test_new_contact_announced_to_admins(self):
+        await self.start(CONFIG + self.AUTO_ADD)
+        self.assertIn("New contacts are announced to 1 admin(s).", self.out.getvalue())
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "Alice", 1))
+        await self.settle()
+        self.assertEqual(self.radio.sent, [("Admin", "New contact: Alice (a1a1a1a1a1a1, chat)")])
+        self.assertIn(f"(new-contact notice to {ADMIN_KEY} delivered)", self.out.getvalue())
+
+    async def test_every_admin_told_once(self):
+        config = (CONFIG + self.AUTO_ADD).replace(f'keys = ["{ADMIN_KEY}"]', f'keys = ["{ADMIN_KEY}", "{DANA}"]')
+        await self.start(config)
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "", 1))
+        await self.settle()
+        self.assertEqual(sorted(self.radio.sent), [("Admin", "New contact: ? (a1a1a1a1a1a1, chat)"),
+                                                   ("Dana", "New contact: ? (a1a1a1a1a1a1, chat)")])
+
+    async def test_skipped_node_not_announced(self):
+        await self.start(CONFIG + self.AUTO_ADD)
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact("b2b2b2b2b2b2", "Hilltop", 2))
+        await self.settle()
+        self.assertEqual(self.radio.sent, [])
+
+    async def test_announcements_can_be_turned_off(self):
+        await self.start(CONFIG + self.AUTO_ADD + "notify_admins = false\n")
+        self.assertNotIn("announced", self.out.getvalue())
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "Alice", 1))
+        await self.settle()
+        self.assertEqual(self.radio.added[0]["adv_name"], "Alice")  # still added
+        self.assertEqual(self.radio.sent, [])
+
+    async def test_admin_not_in_contacts(self):
+        await self.start(CONFIG + self.AUTO_ADD, contacts={DANA: "Dana"})
+        await self.radio.deliver(EventType.NEW_CONTACT, make_contact("a1a1a1a1a1a1", "Alice", 1))
+        await self.settle()
+        self.assertEqual(self.radio.sent, [])
+        self.assertIn(f"(no contact {ADMIN_KEY} to send new-contact notice to", self.out.getvalue())
+
+    async def test_messages_never_overlap(self):
+        await self.start(CONFIG + self.AUTO_ADD)
+        active, peak = 0, 0
+        original = self.radio.commands.send_msg_with_retry
+
+        async def slow_send(contact, text):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            return await original(contact, text)
+
+        self.radio.commands.send_msg_with_retry = slow_send
+        for key in ("a1a1a1a1a1a1", "a2a2a2a2a2a2", "a3a3a3a3a3a3"):
+            await self.radio.deliver(EventType.NEW_CONTACT, make_contact(key, "N", 1))
+        await self.radio.dm(STRANGER, "hello")  # a reply while notices are going out
+        while len(self.radio.sent) < 4:
+            await asyncio.sleep(0.01)
+        self.assertEqual(peak, 1)
 
     async def test_shutdown_disconnects(self):
         await self.start()
@@ -429,7 +496,7 @@ permission = "public"
         await self.start()
         await self.radio.dm("c0ffeec0ffee", "hello")
         self.assertEqual(self.radio.sent, [])
-        self.assertIn("(no contact c0ffeec0ffee to reply to", self.out.getvalue())
+        self.assertIn("(no contact c0ffeec0ffee to send reply to", self.out.getvalue())
 
 
 if __name__ == "__main__":

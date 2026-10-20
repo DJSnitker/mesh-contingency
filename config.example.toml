@@ -8,6 +8,9 @@
 # radio). Remove this section to leave the radio's own behavior alone.
 [contacts]
 auto_add = ["chat"]
+# Send each admin a direct message when a contact is added, e.g.
+# "New contact: Alice (a1b2c3d4e5f6, chat)". On by default.
+notify_admins = true
 
 # Which commands run, and who may use each:
 #   "public"   anyone who can direct-message the node
