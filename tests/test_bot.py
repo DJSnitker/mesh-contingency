@@ -727,13 +727,14 @@ permission = "public"
         await self.start()
         await self.radio.dm(STRANGER, "join Sam")
         await self.settle()
-        self.assertEqual(self.radio.sent, [
+        # The reply and the background notice may go out in either order.
+        self.assertCountEqual(self.radio.sent, [
             ("Stranger", "join: request sent to the admins"),
             ("Admin", "Join request: Sam (ffeeddccbbaa). Reply approve ffeeddccbbaa or deny ffeeddccbbaa")])
         self.radio.sent.clear()
         await self.radio.dm(ADMIN_KEY, "approve ffeeddccbbaa")
         await self.settle()
-        self.assertEqual(self.radio.sent, [
+        self.assertCountEqual(self.radio.sent, [
             ("Admin", "approve: Sam added to users.toml"),
             ("Stranger", "Welcome, Sam: you're now a user. Send help for your commands.")])
         self.assertIn("users.toml reloaded: added Sam", self.out.getvalue())
