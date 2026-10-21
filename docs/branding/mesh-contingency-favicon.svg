@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="220" viewBox="0 0 200 220" role="img" aria-label="mesh-contingency">
+<title>mesh-contingency</title>
+<path d="M100 12 L176 40 V108 C176 160 142 194 100 210 C58 194 24 160 24 108 V40 Z" fill="#FF5F1F"/>
+<polyline points="62,148 62,68 100,112 138,68 138,148" fill="none" stroke="#0D1117" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

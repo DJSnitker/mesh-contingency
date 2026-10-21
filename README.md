@@ -1,6 +1,32 @@
-# mesh-contingency
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/mesh-contingency-lockup.svg">
+    <img src="docs/branding/mesh-contingency-lockup-dark.svg" alt="Mesh Contingency" width="560">
+  </picture>
+</p>
 
-[![CI](https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml/badge.svg)](https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml)
+<p align="center">
+  <strong>A contingency link over MeshCore.</strong><br>
+  Weather, check-ins, private messages and email, from nothing but a mesh radio.
+</p>
+
+<p align="center">
+  <a href="https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml"><img src="https://github.com/DJSnitker/mesh-contingency/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-38BDF8?logo=python&logoColor=white" alt="Python 3.11+">
+  <a href="https://github.com/meshcore-dev/MeshCore"><img src="https://img.shields.io/badge/radio-MeshCore-FF5F1F" alt="MeshCore"></a>
+  <a href="https://github.com/DJSnitker/mesh-contingency/wiki"><img src="https://img.shields.io/badge/docs-wiki-151B23" alt="Docs: wiki"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/DJSnitker/mesh-contingency/wiki/User-Guide"><b>User Guide</b></a> ·
+  <a href="https://github.com/DJSnitker/mesh-contingency/wiki/Admin-Guide"><b>Admin Guide</b></a> ·
+  <a href="https://github.com/DJSnitker/mesh-contingency/wiki/Commands"><b>Commands (A–Z)</b></a> ·
+  <a href="https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux"><b>Run as a service</b></a>
+</p>
+
+---
+
+## About
 
 A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore) companion
 radio connected over USB serial. It listens for **direct messages** sent to the
@@ -596,7 +622,7 @@ mesh_contingency/
     build.py          rebuilds bsb.json.gz
     votd.py           verse-of-the-day list
   commands/           built-in commands, one module each
-    help.py, wx.py, verse.py, advert.py, reload.py, roster.py
+    help.py, wx.py, verse.py, advert.py, reload.py, roster.py, contacts.py, health.py, history.py
     status.py         ok, status and clearstatus
     mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          posting alerts to a channel
@@ -612,6 +638,9 @@ config.example.toml   example configuration
 users.example.toml    example users file
 deploy/
   mesh-contingency.service  systemd user unit (see "As a service")
+docs/
+  branding/           the logo: lockups (light and dark), mark, app icons, favicon
+  plans/              design plans and what was decided
 tests/                unit tests (python -m unittest)
 ```
 
