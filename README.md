@@ -49,40 +49,43 @@ Full usage, examples and how-to guides are in the
 - [User Guide](https://github.com/DJSnitker/mesh-contingency/wiki/User-Guide): joining, check-ins, messages, passphrases, email
 - [Admin Guide](https://github.com/DJSnitker/mesh-contingency/wiki/Admin-Guide): adding and managing users, adverts, alerts, troubleshooting
 
+Grouped by who can run them in the example config (admins, anyone, users),
+then A–Z; see [Permissions](#permissions) to change who may run what.
+
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
-| `addgroup <address>` | users | Add an address to your emailall group; alone, list it |
 | `advert [flood]` | admins | Make the radio advertise itself (see [While it runs](#while-it-runs)) |
 | `alert <zipcode>` | admins | Post weather alerts to `#contingency-wx` |
 | `approve [name or key]` | admins | Approve a join request; alone, list them |
-| `cleargroup` | users | Empty your emailall group |
-| `clearinbox [all]` | users | Delete the messages you've read, or all of them |
 | `clearstatus` | admins | Delete every check-in |
 | `contacts [name or key] [page]` | admins | List the radio's contacts |
 | `deny <name or key>` | admins | Turn down a join request |
-| `email <address> <message>` | users | Email any address |
-| `emailall <message>` | users | Email your group |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
-| `help [command]` | anyone | List your commands, or how to use one |
 | `history [page]` | admins | What admins have done (approve, remove, resetpass...), newest first |
-| `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
-| `join` | anyone | Ask to become a user, under your radio's name |
-| `leave` | users | Stop being a user |
-| `msg <name> <message>` | users | Leave a message for another user |
-| `ok [status]` | anyone | Check in: tell others you're ok |
-| `qm <message>` | users | Quick message: email your preset contact |
 | `reload` | admins | Re-read the [users file](#users-file) now |
 | `remove <name or key>` | admins | Remove a user and their messages |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
+| `users [page]` | admins | List the users and what each has set |
+| `whois <name or key>` | admins | What the node knows about a user |
+| `help [command]` | anyone | List your commands, or how to use one |
+| `join` | anyone | Ask to become a user, under your radio's name |
+| `ok [status]` | anyone | Check in: tell others you're ok |
+| `status <name or key>` | anyone | See someone's last check-in |
+| `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
+| `wx <zipcode>` | anyone | Weather and alerts for a US zipcode |
+| `addgroup <address>` | users | Add an address to your emailall group; alone, list it |
+| `cleargroup` | users | Empty your emailall group |
+| `clearinbox [all]` | users | Delete the messages you've read, or all of them |
+| `email <address> <message>` | users | Email any address |
+| `emailall <message>` | users | Email your group |
+| `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
+| `leave` | users | Stop being a user |
+| `msg <name> <message>` | users | Leave a message for another user |
+| `qm <message>` | users | Quick message: email your preset contact |
 | `setpass <passphrase>` | users | Seal your messages with a passphrase |
 | `setqm <address>` | users | Set your qm address; alone, show it |
-| `status <name or key>` | anyone | See someone's last check-in |
-| `users [page]` | admins | List the users and what each has set |
-| `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
 | `whoami` | users | What the node knows about you |
-| `whois <name or key>` | admins | What the node knows about a user |
-| `wx <zipcode>` | anyone | Weather and alerts for a US zipcode |
 
 Command names are case-insensitive. Everything after the command name is
 passed through as typed. Replies too long for one 133-character message are
