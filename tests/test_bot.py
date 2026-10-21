@@ -61,6 +61,7 @@ quickim = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
+contacts = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -245,8 +246,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): quickim, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setquickim, addgroup, cleargroup, whoami, leave\n", out)
-        self.assertIn("admin commands (1 admin(s)): advert, reload, clearstatus, alert, approve, deny, users, whois, "
-                      "remove, rename, resetpass\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, alert, approve, deny, "
+                      "users, whois, remove, rename, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -467,6 +468,39 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.edit_users(USERS.replace('name = "Dana"', 'name = "Dee"'))
         os.kill(os.getpid(), signal.SIGHUP)
         await self.wait_for_output("users.toml reloaded: changed Dee")
+
+    async def test_sigusr1_sends_a_flood_advert(self):
+        await self.start()
+        os.kill(os.getpid(), signal.SIGUSR1)
+        await self.wait_for_output("Sent flood advert (SIGUSR1)")
+        self.assertEqual(self.radio.adverts, [True])
+
+    async def test_advert_at_startup_counts_toward_the_schedule(self):
+        await self.start(CONFIG + "\n[advert]\nat_startup = true\nevery_hours = 12\nflood = false\n")
+        self.assertEqual(self.radio.adverts, [False])
+        out = self.out.getvalue()
+        self.assertIn("Sent zero-hop advert (at startup)", out)
+        self.assertIn("Sending a zero-hop advert every 12 hour(s); next in 12 h.", out)
+        self.assertIn("last_zero_hop", (self.users_file.parent / "adverts.json").read_text())
+
+    async def test_advert_command_counts_toward_the_schedule(self):
+        await self.start()
+        await self.radio.dm(ADMIN_KEY, "advert flood")
+        self.assertIn("last_flood", (self.users_file.parent / "adverts.json").read_text())
+
+    async def test_first_scheduled_advert_goes_out_at_once(self):
+        await self.start(CONFIG + "\n[advert]\nevery_hours = 12\n")
+        self.assertIn("Sending a flood advert every 12 hour(s); next now.", self.out.getvalue())
+        await self.wait_for_output("Sent flood advert (scheduled)")
+        self.assertEqual(self.radio.adverts, [True])
+
+    async def test_no_adverts_unless_configured(self):
+        await self.start()
+        self.assertEqual(self.radio.adverts, [])
+        self.assertNotIn("advert every", self.out.getvalue())
+
+    async def test_bad_advert_section_stops_startup(self):
+        await self.main_exits(CONFIG + "\n[advert]\nevery_hours = -1\n", USERS, "every_hours must be")
 
     async def test_missing_users_file(self):
         await self.start(users=None)
@@ -695,7 +729,7 @@ permission = "public"
         self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in two.
-        self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, reload, ok, status, "
+        self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, "
                                                    "clearstatus, alert, join, approve, deny, users, whois, remove, "
                                                    "rename, resetpass, echo, slow, secret. "
                                                    "Send help <command> for usage"))

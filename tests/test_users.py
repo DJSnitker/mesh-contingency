@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from mesh_contingency.api import CONFIRM_SECONDS, MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender
+from mesh_contingency.api import CONFIRM_SECONDS, MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender, pack
 from mesh_contingency.commands.mailbox import MsgCommand, SetPassCommand
 from mesh_contingency.commands.users import (
     LeaveCommand,
@@ -14,7 +14,6 @@ from mesh_contingency.commands.users import (
     UsersCommand,
     WhoAmICommand,
     WhoisCommand,
-    pack,
 )
 from mesh_contingency.directory import Directory
 from mesh_contingency.state import State

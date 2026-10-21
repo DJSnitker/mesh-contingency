@@ -1,4 +1,5 @@
 import sys
+import tomllib
 import unittest
 from importlib.metadata import EntryPoint
 from pathlib import Path
@@ -17,6 +18,7 @@ from mesh_contingency.api import (
 )
 from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.commands.alert import AlertCommand
+from mesh_contingency.commands.contacts import ContactsCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.help import HelpCommand
@@ -45,7 +47,7 @@ FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "quickim": QuickImCommand, "emailall": EmailAllCommand,
-            "email": EmailCommand, "advert": AdvertCommand, "reload": ReloadCommand,
+            "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
             "roster": RosterCommand, "msg": MsgCommand, "inbox": InboxCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
@@ -210,6 +212,14 @@ class RegistryConfigTest(unittest.TestCase):
     def test_discovers_by_default(self):
         r = Registry(commands_config(wx={"permission": "public"}))
         self.assertEqual(set(r.disabled), set(BUILT_IN) - {"wx"})
+
+
+class ExampleConfigTest(unittest.TestCase):
+    def test_example_config_loads_every_built_in_command(self):
+        with open(Path(__file__).resolve().parent.parent / "config.example.toml", "rb") as f:
+            registry = Registry(tomllib.load(f))
+        self.assertEqual(set(registry.specs), set(BUILT_IN))
+        self.assertEqual(registry.warnings, [])
 
 
 class RegistryBuildTest(unittest.TestCase):
