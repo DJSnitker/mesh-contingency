@@ -143,9 +143,15 @@ class IsAuthorizedTest(unittest.TestCase):
 
 class RunTest(unittest.TestCase):
     def test_runs_main(self):
-        with mock.patch("mesh_contingency.bot.main", mock.AsyncMock()) as main:
+        with mock.patch("mesh_contingency.bot.main", mock.AsyncMock(return_value=0)) as main:
             bot.run()
         main.assert_awaited_once()
+
+    def test_a_lost_radio_exits_with_an_error(self):
+        with mock.patch("mesh_contingency.bot.main", mock.AsyncMock(return_value=1)):
+            with self.assertRaises(SystemExit) as stopped:
+                bot.run()
+        self.assertEqual(stopped.exception.code, 1)
 
     def test_ctrl_c_stops_cleanly(self):
         out = io.StringIO()
@@ -240,7 +246,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_startup(self):
         await self.start()
-        self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV})  # no channel messages
+        # No channel messages
+        self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV, EventType.DISCONNECTED})
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
@@ -468,6 +475,27 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.edit_users(USERS.replace('name = "Dana"', 'name = "Dee"'))
         os.kill(os.getpid(), signal.SIGHUP)
         await self.wait_for_output("users.toml reloaded: changed Dee")
+
+    async def test_a_lost_radio_stops_the_bot_with_an_error(self):
+        await self.start()
+        await self.radio.deliver(EventType.DISCONNECTED, {"reason": "reconnect_failed"})
+        self.assertEqual(await self.task, 1)
+        self.assertIn("Lost the radio (reconnect_failed); stopping.", self.out.getvalue())
+        self.assertNotIn("Stopped.", self.out.getvalue())
+        self.assertTrue(self.radio.disconnected)
+
+    async def test_our_own_disconnect_isnt_a_lost_radio(self):
+        await self.start()
+        await self.radio.deliver(EventType.DISCONNECTED, {"reason": "manual_disconnect"})
+        await asyncio.sleep(0)
+        self.assertFalse(self.task.done())
+
+    async def test_sigterm_stops_cleanly(self):
+        await self.start()
+        os.kill(os.getpid(), signal.SIGTERM)
+        self.assertEqual(await self.task, 0)
+        self.assertTrue(self.out.getvalue().endswith("Stopped.\n"))
+        self.assertTrue(self.radio.disconnected)
 
     async def test_sigusr1_sends_a_flood_advert(self):
         await self.start()
