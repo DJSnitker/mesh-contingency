@@ -5,7 +5,13 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (while below 1.0, a minor version
 may change how the bot is configured).
 
-## [Unreleased]
+## [0.4.0] - 2026-10-21
+
+Weather alerts no longer need an admin: the bot watches a list of counties
+and posts each new National Weather Service alert to the alert channel by
+itself, and tests the channel every week. `alert` becomes the admins' way to
+post their own message there. Pull requests #26 and #27. Tested on one node
+and radio, with the first weekly test posted on 2026-10-21.
 
 ### Added
 
@@ -30,6 +36,41 @@ may change how the bot is configured).
 - **`alert <message>`** posts an admin's own message to the alert channel,
   instead of a zipcode's NWS alerts (the automatic alerts do that now, and
   `wx <zipcode>` shows a zipcode's alerts to anyone).
+
+### Removed
+
+- `weather.fetch_alerts`, which only the old `alert` used. A plugin calling
+  it can use `weather.county_alerts`, or `fetch_weather(zipcode)["alerts"]`.
+
+### Upgrading from 0.3.0
+
+1. Stop the bot, then update and reinstall, which registers the new
+   commands:
+   ```sh
+   git pull
+   .venv/bin/python -m pip install -e .
+   ```
+2. **Turn on the new commands** under `[commands]` in `config.toml`, or the
+   bot names them as disabled at startup:
+   ```toml
+   alertmap = { permission = "admin" }
+   testalert = { permission = "admin" }
+   ```
+3. **`alert` now takes a message.** `alert 79601` would post the text
+   "79601" to the channel. Tell your admins; for a zipcode's alerts, use
+   `wx 79601`.
+4. Optionally, **watch counties** for automatic alerts, and **test the
+   channel weekly** (see `config.example.toml`):
+   ```toml
+   [alerts]
+   counties = ["Taylor, TX", "Jones, TX"]
+
+   [alert_test]
+   weekly = "Wednesday 17:00"
+   timezone = "America/Chicago"
+   ```
+   The bot keeps what it has looked up and posted in `alerts.json` next to
+   `config.toml`.
 
 ## [0.3.0] - 2026-10-21
 
@@ -145,5 +186,5 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
-[Unreleased]: https://github.com/DJSnitker/mesh-contingency/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.3.0

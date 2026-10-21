@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–2 done; field testing paused · Written 2026-10-21 · Updated 2026-10-21
+Status: items 1, 2 and 2a done (v0.4.0); field testing paused · Written 2026-10-21 · Updated 2026-10-21 (after PR #27)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -13,6 +13,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 |---|---|---|---|---|
 | 1 | Release 0.3.0 with a changelog | release | small | done (v0.3.0) |
 | 2 | Automatic weather alerts | feature | medium | done (channel only) |
+| 2a | Release 0.4.0 | release | small | done (v0.4.0) |
 | 3 | Admin broadcast to every user | feature | small | to do |
 | 4 | Roll call of check-ins | feature | small | to do |
 | 5 | Queue emails while the internet is down | feature | medium | to do |
@@ -21,10 +22,43 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 8 | Does the radio restart when the bot connects? | check, docs | small | to do |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: items 3–8 can follow in any order; 3 and 4 are
+Recommended order: items 3–8 in any order; 3 and 4 are
 quick wins, 5 and 6 matter most when things go wrong, and 8 needs only the one
 radio. Field testing (9) waits for more radio equipment; it was started
 2026-10-21 and its results so far are kept below.
+
+## Resume here (next session)
+
+Where things stood on 2026-10-21, evening:
+
+- **Merged since 0.3.0:** #26 (automatic NWS alerts by county, `alertmap`,
+  `alert <message>` posting an admin's own text) and #27 (weekly alert test
+  in `[alert_test]`, `testalert`, a one-list `alertmap` reply). The wiki is
+  published for both.
+- **The node** runs `main`: the 19 counties of Texas RACES District 7 (from
+  keycityarc.org/races; the user confirmed the list), checked every 10
+  minutes, and a weekly test on Wednesdays at 17:00 `America/Chicago`.
+  `alertmap` was tried from the user's radio, and both reply messages were
+  delivered.
+- **0.4.0** is prepared in the PR that adds this section (version, changelog
+  entry with "Upgrading from 0.3.0"); tag `v0.4.0` and publish the GitHub
+  release once it merges.
+- **The first weekly test went out** on Wednesday 2026-10-21 at 17:00:02
+  CDT, all three messages (the test, then the counties in two parts), with no
+  errors. `history` has it as by "auto". The next is Wednesday 2026-10-28,
+  5:00 PM CDT.
+
+Steps, in order:
+
+1. If the computer was restarted, check the service came back:
+   `systemctl --user status mesh-contingency`. The journal should show
+   `Watching NWS alerts for 19 counties` and
+   `Weekly alert test: ... next Wed 5:00PM CDT`. After the next Wednesday,
+   check the test with
+   `journalctl --user -u mesh-contingency --since "Wed 16:55" | grep -A3 "Weekly alert test"`.
+2. If `v0.4.0` isn't tagged yet (`git tag -l`), tag the merge commit and
+   `gh release create v0.4.0` with the changelog entry, as for 0.3.0.
+3. Then item 3 (broadcast) or 4 (roll call); both are small.
 
 ---
 
