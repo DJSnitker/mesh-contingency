@@ -30,7 +30,7 @@ one exception is outgoing: `alert` posts weather alerts to a public channel.
 | `ok [status]` | anyone | Checks in: saves the sender's name, key and status (plain `ok` if none given), replacing their last one. |
 | `status <name or key>` | anyone | Shows the last check-in of anyone whose name matches (exactly, else in part) or whose key starts with the given hex (4+ characters), e.g. `Bob: at the shelter (2h ago)`. Plain `status` shows your own. |
 | `clearstatus` | admins | Deletes every check-in. |
-| `roster` | users | The node names (as their radios advertise them) of everyone who has direct-messaged the node since the bot started, most recent first. |
+| `roster` | admins | The node names (as their radios advertise them) of everyone who has direct-messaged the node since the bot started, most recent first. |
 | `msg <name> <message>` | users | Leaves a message for a user (by their name in the users file, or key prefix). Up to 20 are kept per person. |
 | `inbox [passphrase] [page]` | users | Sends you your messages, oldest first. They stay until you clear them; if they don't fit in one reply (8 messages), `inbox 2` shows the next page. With a passphrase set, plain `inbox` only says who left messages and when; `inbox <passphrase>` (and `inbox <passphrase> 2`) shows them. |
 | `clearinbox [all]` | users | Deletes the messages `inbox` has shown you; any that arrived since are kept. `clearinbox all` deletes every message, unread and sealed ones too. |
@@ -256,7 +256,7 @@ reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
 clearstatus = { permission = "admin" }
-roster = { permission = "user" }
+roster = { permission = "admin" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }
