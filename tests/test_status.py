@@ -64,6 +64,11 @@ class StatusTest(unittest.IsolatedAsyncioTestCase):
         await self.ok.execute("", Sender("Bobby", "b2" * 32))
         self.assertEqual((await self.status.execute("bob", ALICE)).reply, "Bob: ok (just now)")
 
+    async def test_radio_name_with_spaces_plain_or_in_brackets(self):
+        await self.ok.execute("at the shelter", Sender("Ridge Base 1", "b3" * 32))
+        for text in ["ridge base 1", "«Ridge Base 1»", "Ridge"]:
+            self.assertEqual((await self.status.execute(text, ALICE)).reply, "Ridge Base 1: at the shelter (just now)")
+
     async def test_no_status(self):
         with self.assertRaisesRegex(CommandError, "^status: no status for carol$"):
             await self.status.execute("carol", BOB)

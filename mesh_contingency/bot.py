@@ -38,8 +38,9 @@ from .console import (
     watch_console,
 )
 from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
-from .directory import Directory, describe, possessive
+from .directory import Directory, DirectoryError, describe, possessive
 from .limits import RateLimiter, describe_rate, wait_text
+from .names import name_problem
 from .output import SafeOutput
 from .registry import Registry
 from .state import State
@@ -358,8 +359,42 @@ async def _main():
                 check_shared_prefixes()  # tell the admins if it's a user's or admin's prefix
             return Sender(prefix, None)
         contact = matches[0]
+        sync_names([contact])
         return Sender(contact.get("adv_name") or prefix, contact["public_key"].lower())
 
+    unsaved_names = set()  # (key, name) the users file couldn't take, so it isn't retried each message
+
+    def sync_names(contacts):
+        """Keep each user's name in the users file the same as their radio's
+        name, which is what everyone on the mesh sees."""
+        changes = {}
+        for contact in contacts:
+            key = contact.get("public_key", "").lower()
+            name = contact.get("adv_name") or ""
+            user = directory.users.get(key)
+            if user is None or not name or user.get("name") == name or (key, name) in unsaved_names:
+                continue
+            if name_problem(name):  # what join would refuse
+                unsaved_names.add((key, name))
+                print(f"Warning: {possessive(describe(key, directory.users))} radio is now called {name!r}, "
+                      f"which can't be used; keeping {describe(key, directory.users)}", flush=True)
+                continue
+            changes[key] = {"name": name, **user}
+            changes[key]["name"] = name
+        if not changes:
+            return
+        old = {key: describe(key, directory.users) for key in changes}
+        try:
+            directory.save_users(changes)
+        except DirectoryError as e:
+            unsaved_names.update((key, settings["name"]) for key, settings in changes.items())
+            print(f"Warning: radio names not saved: {directory.name} {e}", flush=True)
+            return
+        for key, settings in changes.items():
+            print(f"{old[key]} ({key[:12]}) is now {settings['name']}, the radio's name", flush=True)
+            state.record("radio", f"{old[key]} ({key[:12]}) is now {settings['name']}")
+
+    sync_names(mc.contacts.values())
     check_shared_prefixes()
 
     last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY

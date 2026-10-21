@@ -1,15 +1,17 @@
-"""Joining the users: join [name] asks, an admin answers with approve or deny.
+"""Joining the users: join asks, an admin answers with approve or deny.
 
-Requests wait in requests.json next to config.toml. Approving adds the
-person's section to the users file, which then reloads, and tells them.
+People join under their radio's name, which can't be chosen here: what the
+radio advertises is what everyone sees. Requests wait in requests.json next
+to config.toml. Approving adds the person's section to the users file, which
+then reloads, and tells them.
 """
 
 import re
 import time
 
 from ..api import Command, CommandError, CommandResult
-from ..directory import DirectoryError
-from ..names import check_name, suggest
+from ..directory import DirectoryError, unquote
+from ..names import name_problem
 from ..state import ago
 
 FILENAME = "requests.json"
@@ -32,9 +34,11 @@ class RequestsBase(Command):
         return self.store.data
 
     def find(self, text):
-        """The key of the one request whose name is text, or whose key starts
-        with it. Raises CommandError if none or several match."""
-        wanted = text.strip().lower()
+        """The key of the one request whose name is text (optionally in « »),
+        or whose key starts with it. Raises CommandError if none or several
+        match."""
+        quoted = unquote(text)
+        wanted = (quoted[0] if quoted and not quoted[1] else text).strip().lower()
         keys = [k for k, r in self.requests.items() if r["name"].lower() == wanted]
         if not keys and KEY_PREFIX_RE.fullmatch(wanted):
             keys = [k for k in self.requests if k.startswith(wanted)]
@@ -47,23 +51,19 @@ class RequestsBase(Command):
 
 
 class JoinCommand(RequestsBase):
-    args = "[name]"
-    summary = "Ask the admins to make you a user, under a one-word name"
+    summary = "Ask the admins to make you a user, under your radio's name"
 
     async def execute(self, text, sender):
         if sender.public_key is None:
             raise CommandError(f"{self.name}: can't tell who you are; send an advert and try again")
         if sender.public_key in self.ctx.users:
             raise CommandError(f"{self.name}: you're already a user")
-        name = text.strip()
-        if not name:
-            # The radio's name, kept to one word of letters and numbers: "KE5OWL R1" is KE5OWLR1.
-            name = suggest(sender.name)
-            if not name:
-                raise CommandError(f"{self.name}: your radio's name can't be used; send {self.name} <name>")
-        check_name(self.name, name)
-        changed = not text.strip() and name != sender.name
         key = sender.public_key
+        # A contact without a name is known by its key prefix.
+        name = "" if sender.name == key[:12] else sender.name
+        problem = name_problem(name)
+        if problem:
+            raise CommandError(f"{self.name}: {problem}")
         new = key not in self.requests
         if new and len(self.requests) >= MAX_REQUESTS:
             raise CommandError(f"{self.name}: too many requests waiting; try again later")
@@ -71,9 +71,11 @@ class JoinCommand(RequestsBase):
         self.store.save()
         if new:
             self.ctx.tell_admins(f"Join request: {name} ({key[:12]}). Reply approve {key[:12]} or deny {key[:12]}")
+        # Names were once chosen with join <name>; say what happens now.
+        ignored = f"; you're listed under your radio's name, not {text.strip()}" if text.strip() else ""
         return CommandResult(console=f"Join request from {name} ({key[:12]})",
-                             reply=f"{self.name}: request {'sent to the admins' if new else 'updated'}"
-                                   + (f" as {name}; send {self.name} <name> to choose another" if changed else ""))
+                             reply=f"{self.name}: request {'sent to the admins' if new else 'updated'} "
+                                   f"as {name}{ignored}")
 
 
 class ApproveCommand(RequestsBase):

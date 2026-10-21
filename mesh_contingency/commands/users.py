@@ -1,7 +1,8 @@
 """Managing users over the mesh.
 
 Admins: users lists them, whois shows one, remove takes someone out of the
-users file, rename changes a name, resetpass clears a forgotten passphrase.
+users file, resetpass clears a forgotten passphrase. Names are radios' names,
+kept up to date by the bot, so there is nothing to rename.
 Users: whoami shows what the bot knows about you, leave takes you out.
 
 remove, resetpass and leave can't be undone, so each only says what it would
@@ -10,8 +11,7 @@ made an admin over the mesh: [admin] keys is only changed by editing the file.
 """
 
 from ..api import CONFIRM_SECONDS, Command, CommandError, CommandResult, Confirmations, pack, page
-from ..directory import DirectoryError, describe, find_user, possessive
-from ..names import check_name
+from ..directory import AmbiguousUser, DirectoryError, describe, find_user, possessive
 from .mailbox import FILENAME as MAILBOX
 from .mailbox import INBOX_KEY
 
@@ -29,7 +29,10 @@ class UsersBase(Command):
         CommandError if it doesn't."""
         if not text:
             raise CommandError(f"usage: {self.usage}")
-        found = find_user(self.ctx.users, text)
+        try:
+            found = find_user(self.ctx.users, text)
+        except AmbiguousUser as e:
+            raise CommandError(f"{self.name}: {e}") from None
         if found is None:
             raise CommandError(f"{self.name}: no user {text}")
         return found
@@ -139,25 +142,6 @@ class RemoveCommand(UsersBase):
         still = "; still an admin (edit [admin] keys to change that)" if key in self.ctx.admins else ""
         reply = f"{self.name}: {name} removed, {deleted} message(s) deleted{still}"
         self.ctx.state.record(self.ctx.name_of(sender), f"removed {name} ({key[:12]}), {deleted} message(s) deleted")
-        return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
-
-
-class RenameCommand(UsersBase):
-    args = "<name or key> <new name>"
-    summary = "Change a user's name (one word)"
-
-    async def execute(self, text, sender):
-        key, new = self.find(text)
-        if not new:
-            raise CommandError(f"usage: {self.usage}")
-        check_name(self.name, new)
-        taken = [k for k, user in self.ctx.users.items() if k != key and user.get("name", "").lower() == new.lower()]
-        if taken:
-            raise CommandError(f"{self.name}: {new} is already {taken[0][:12]}'s name")
-        old = describe(key, self.ctx.users)
-        self.save(key, {**self.ctx.users[key], "name": new})
-        reply = f"{self.name}: {old} is now {new}"
-        self.ctx.state.record(self.ctx.name_of(sender), f"renamed {old} to {new} ({key[:12]})")
         return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
 
 

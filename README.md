@@ -63,17 +63,16 @@ Full usage, examples and how-to guides are in the
 | `email <address> <message>` | users | Email any address |
 | `emailall <message>` | users | Email your group |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
-| `history [page]` | admins | What admins have done (approve, remove, rename...), newest first |
+| `history [page]` | admins | What admins have done (approve, remove, resetpass...), newest first |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
-| `join [name]` | anyone | Ask to become a user, under a one-word name |
+| `join` | anyone | Ask to become a user, under your radio's name |
 | `leave` | users | Stop being a user |
 | `msg <name> <message>` | users | Leave a message for another user |
 | `ok [status]` | anyone | Check in: tell others you're ok |
 | `quickim <message>` | users | Email your preset contact |
 | `reload` | admins | Re-read the [users file](#users-file) now |
 | `remove <name or key>` | admins | Remove a user and their messages |
-| `rename <name or key> <new name>` | admins | Change a user's name (one word, letters and numbers) |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
 | `setpass <passphrase>` | users | Seal your messages with a passphrase |
@@ -143,11 +142,11 @@ that (0 keeps them until cleared).
 `remove`, `resetpass` and `leave` can't be undone, so the first time each only
 says what it would do, e.g. `remove: this removes Bob (b0b0b0b0b0b0) and their
 2 message(s). Send it again within 5 min to confirm.` Users are
-named by their name in the users file (`AnnLee`) or a key prefix of at least
+named by their radio's name (see [Names](#names)) or a key prefix of at least
 4 hex characters. Nobody can be made an admin over the mesh; that takes an
 edit of `[admin] keys`, so a lost admin radio can't create more admins.
 
-`approve`, `rename`, `remove`, `setquickim`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
+`approve`, `remove`, `setquickim`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
 and reload it at once. They rewrite only that person's `[users.<key>]` section
 (comments inside it are dropped); the rest of the file is kept as it is. The
 result is checked before it's saved, so if a section can't be rewritten
@@ -157,9 +156,9 @@ saved in a `backups` folder next to it (e.g.
 `backups/users-20261020-221500.toml`, as private as the file); the newest 5
 are kept. To undo a change, copy a backup back over `users.toml`.
 
-`approve`, `deny`, `remove`, `rename`, `resetpass`, `clearstatus` and `alert`
+`approve`, `deny`, `remove`, `resetpass`, `clearstatus` and `alert`
 are recorded in `history.json` next to `config.toml`, with who did them and
-when, as is a user's `leave`; admins read it with `history`. The newest 200
+when, as are a user's `leave` and a radio's change of name; admins read it with `history`. The newest 200
 are kept.
 
 Join requests wait in `requests.json` next to
@@ -318,7 +317,6 @@ cleargroup = { permission = "user" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }
-rename = { permission = "admin" }
 resetpass = { permission = "admin" }
 whoami = { permission = "user" }
 leave = { permission = "user" }
@@ -391,7 +389,7 @@ Users and admins are in `users.toml`, next to `config.toml` (see
 keys = ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
 
 [users.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2]
-name = "Alice"  # used in reload messages
+name = "Alice T-Deck"  # the radio's name; the bot keeps it up to date
 quickim = "someone@example.com"
 emailall = ["someone@example.com", "someone.else@example.com"]
 ```
@@ -400,14 +398,31 @@ Keys are full public keys (64 hex characters); the 12-character prefix is not
 accepted. Each user's settings are read by the commands: `quickim` and
 `emailall` take one address or a list.
 
-A `name` is one word of ASCII letters and digits, up to 32, so commands can
-always tell a name from what follows it and every radio can show it. If
-desired, nicknames are acceptable (`Sparky`); for a first and last name, use
-CamelCase (`AnnLee`). A plain `join` uses the radio's name with spaces and
-symbols taken out (`Ann T-1000` becomes `AnnT1000`). `join` and `rename` refuse
-anything else, and profane names (see `mesh_contingency/names.py` for the
-list). A name typed into the file by hand isn't checked; it still loads and
-works, but keep to the same rule.
+### Names
+
+A user's `name` is always their radio's name, exactly as the radio advertises
+it, spaces and punctuation included (`Ridge Base 1`), so the name in every reply
+is the one people see on their own radios. Nobody picks it with a command:
+
+- `join` uses the radio's name. It refuses a radio with no name, one with
+  control characters or `«` `»` in it, or a profane one (see
+  `mesh_contingency/names.py` for the list); the person renames the radio and
+  sends `join` again.
+- The bot keeps the file up to date. At startup it compares each user's name
+  with the radio's contacts, and whenever a user's message arrives under a new
+  name it writes the new one, logs `Dana (d0d0d0d0d0d0) is now Ridge Base 1, the
+  radio's name` and records it in `history`. A new name `join` would refuse
+  is logged and not taken.
+- A name typed into the file by hand is replaced by the radio's name the next
+  time the bot sees the radio.
+
+Commands that name a user take the name as it is, in any case:
+`msg ridge base 1 see you at noon`. When the longest matching name is wrong,
+or a name ends in something that looks like the rest of the message, put it in
+French quotation marks (guillemets): `msg «Ridge Base 1» see you at noon`. On
+most phone keyboards, hold down the `"` key to find `«` and `»`. If two users'
+radios have the same name, the command lists their key prefixes; use one of
+those instead.
 
 The bot checks the file every 5 seconds and applies changes without a restart,
 logging what changed, e.g. `users.toml reloaded: added Bob; changed Alice`. A
@@ -610,7 +625,7 @@ mesh_contingency/
   state.py            senders seen since startup; status.json and mailbox.json
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
-  names.py            checking chosen names: letters and numbers, profanity
+  names.py            checking radios' names at join: control characters, profanity
   output.py           escaping terminal control codes in everything printed
   console.py          commands typed into the bot's terminal, scheduled adverts
   bot.py              entry point: radio connection, permissions, dispatch, replies
@@ -629,7 +644,7 @@ mesh_contingency/
     alert.py          posting alerts to a channel
     join.py           join, approve and deny
     settings.py       setquickim, addgroup and cleargroup
-    users.py          users, whois, remove, rename, resetpass, whoami and leave
+    users.py          users, whois, remove, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
     quickim.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package

@@ -21,7 +21,7 @@ import asyncio
 import time
 
 from ..api import CONFIRM_SECONDS, MAX_PARTS, Command, CommandError, CommandResult, split_reply
-from ..directory import DirectoryError, describe, find_user, possessive
+from ..directory import AmbiguousUser, DirectoryError, describe, find_user, possessive, unquote
 from ..sealing import MIN_LENGTH, SealError, check_passphrase, new_inbox_key, open_sealed, seal, unlock
 from ..state import ago
 
@@ -111,9 +111,14 @@ class MsgCommand(MailboxBase):
     async def execute(self, text, sender):
         if not text:
             raise CommandError(f"usage: {self.usage}")
-        found = find_user(self.ctx.users, text)
+        try:
+            found = find_user(self.ctx.users, text)
+        except AmbiguousUser as e:
+            raise CommandError(f"{self.name}: {e}") from None
         if found is None:
-            raise CommandError(f"{self.name}: no user {text.split()[0]}")
+            quoted = unquote(text)
+            raise CommandError(f"{self.name}: no user {quoted[0] if quoted else text.split()[0]}; "
+                               f"put a name with spaces in « »")
         key, message = found
         name = describe(key, self.ctx.users)
         if not message:
