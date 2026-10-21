@@ -1,16 +1,17 @@
 # Roadmap: after the user-management plan
 
-Status: proposed, nothing started · Written 2026-10-21 · Updated 2026-10-21 (after PR #20)
+Status: item 1 under way · Written 2026-10-21 · Updated 2026-10-21 (after PR #23)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
-since then names come from the radios (#18) and `quickim` is `qm` (#20). This
+since then names come from the radios (#18), `quickim` is `qm` (#20) and names
+with spaces go in parentheses (#23). This
 lists what to do next, in the recommended order. Each item is its own branch
 and PR, with tests, README and wiki updates, like the earlier work.
 
 | # | What | Kind | Size | Status |
 |---|---|---|---|---|
-| 1 | Field testing on real radios | testing, no code | small | to do |
+| 1 | Field testing on real radios | testing, no code | small | in progress |
 | 2 | Release 0.3.0 with a changelog | release | small | to do |
 | 3 | Automatic weather alerts | feature | medium | to do |
 | 4 | Admin broadcast to every user | feature | small | to do |
@@ -27,9 +28,33 @@ and 5 are quick wins, 6 and 7 matter most when things go wrong.
 
 ## 1. Field testing on real radios
 
-Everything below has passed unit tests but hasn't been tried end to end on
-radios. Watch the journal (`journalctl --user -u mesh-contingency -f`) during
-each; anything that fails becomes a bug fix before item 2.
+Everything below has passed unit tests; each check is marked once it has
+been tried end to end on radios. Watch the journal (`journalctl --user -u
+mesh-contingency -f`) during each; anything that fails becomes a bug fix
+before item 2.
+
+### Results so far
+
+**2026-10-21, from one radio (the admin's, also a user), journal checked:**
+
+- *Passed:* `setpass`; `msg (<own radio name>) ...` with the name in
+  parentheses was accepted and sealed (`sealed message for ...` in the log);
+  plain `inbox` said how many were waiting without showing them;
+  `inbox <passphrase>` showed the text; `inbox <wrong passphrase>` was refused;
+  `clearinbox` and `clearinbox all` deleted them. Every reply was delivered,
+  and the log showed only `(private)` for commands carrying message text or a
+  passphrase.
+- *Noticed:* messages sealed under an earlier passphrase couldn't be opened
+  (as designed); the fix was `clearinbox all` and a new `setpass`. Typing
+  `resetpassword` got `unrecognized user or function`; the admin command is
+  `resetpass <name or key>`. Possible follow-up: suggest the nearest command
+  to users and admins (not to strangers).
+- *Still to do in these two checks:* a message from **another** user's radio;
+  `mailbox.json` inspected while a sealed message is waiting (it was empty
+  after `clearinbox`); `msg` with a plain name with spaces, `whois` and
+  `status` with parentheses.
+
+### Checks
 
 - **Service, reboot:** reboot without logging in; `help` from another radio
   gets an answer.
@@ -37,7 +62,8 @@ each; anything that fails becomes a bug fix before item 2.
   back in. Expect `Lost the radio (...); stopping.`, a restart about 30 s
   later, then `Connected to ...`. While unplugged, the log should show
   `No serial device found` every 30 s.
-- **Sealed messages:** `setpass <12-16 chars>`; another user sends `msg`;
+- **Sealed messages** (mostly passed 2026-10-21; see above):
+  `setpass <12-16 chars>`; another user sends `msg`;
   `inbox` shows only who and when; `inbox <passphrase>` shows the text;
   `inbox <wrong>` is refused; `clearinbox`. Check `mailbox.json` holds
   `sealed`, not the text.
@@ -45,7 +71,8 @@ each; anything that fails becomes a bug fix before item 2.
   with a space (e.g. `Sam T-Deck`) asks under exactly that name; `join` from a
   radio with a profane name, or one with parentheses, is refused;
   `approve (Sam T-Deck)` works.
-- **Names with spaces:** `msg sam t-deck hi` and `msg (Sam T-Deck) hi` both
+- **Names with spaces** (`msg (name)` passed 2026-10-21):
+  `msg sam t-deck hi` and `msg (Sam T-Deck) hi` both
   reach the user; `whois (Sam T-Deck)` shows them; `status sam` finds their
   check-in.
 - **Renamed radio:** rename a user's radio in the app, send the node any
