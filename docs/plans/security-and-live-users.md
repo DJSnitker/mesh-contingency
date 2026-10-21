@@ -151,6 +151,9 @@ prefixes in the radio block privileged commands; replies go to the right key.
 
 ## Phase 3: rate limits
 
+*Status: done, as section 3 of `user-management-and-robustness.md`* (limits
+are set as `public_rate`/`user_rate`/`admin_rate` in `[limits]`).
+
 - Per command, in its `[commands]` entry: `rate = "5/hour"` (also `/minute`,
   `/day`). Counted per sender per command with a sliding window, in memory
   (resets on restart; noted in the README).
@@ -170,6 +173,9 @@ all three commands; bot-wide cap.
 ---
 
 ## Phase 4: contact flood controls
+
+*Status: done, as section 3 of `user-management-and-robustness.md`, without
+pruning or a separate pending-notice limit.*
 
 - `[contacts] max_new_per_hour = 20`: beyond this, new nodes are skipped (they
   are picked up when they advertise again later). Users and admins in the
@@ -192,6 +198,8 @@ text; queue never grows past its limit; pruning respects protected contacts.
 
 ## Phase 5: safe console output
 
+*Status: moved to section 5 of `user-management-and-robustness.md`.*
+
 - One helper, `printable(text)`, that replaces control characters (except
   newline in multi-line command output) with visible escapes like `\x1b`.
 - Applied to everything that came from the mesh before it is printed: message
@@ -203,6 +211,8 @@ accents and emoji are unchanged.
 ---
 
 ## Phase 6: hardening
+
+*Status: moved to section 5 of `user-management-and-robustness.md`.*
 
 - `ADDRESS_RE`: the first character must be a letter or digit (no leading `+`
   or `%`).

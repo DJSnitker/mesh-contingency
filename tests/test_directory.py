@@ -5,7 +5,16 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from mesh_contingency.directory import Directory, DirectoryError, parse, summarize, toml_value, with_user
+from mesh_contingency.directory import (
+    Directory,
+    DirectoryError,
+    find_user,
+    parse,
+    possessive,
+    summarize,
+    toml_value,
+    with_user,
+)
 
 ALICE = "a1" * 32
 BOB = "b0" * 32
@@ -309,6 +318,55 @@ class WatchTest(unittest.IsolatedAsyncioTestCase):
         self.wake.set()
         await self.wait_for(lambda: not directory.users)
 
+
+class FindUserTest(unittest.TestCase):
+    USERS = {ALICE: {"name": "Ann"}, BOB: {"name": "Ann Lee"}, ADMIN: {}}
+
+    def test_names(self):
+        self.assertEqual(find_user(self.USERS, "ann lee hi there"), (BOB, "hi there"))
+        self.assertEqual(find_user(self.USERS, "ANN hi"), (ALICE, "hi"))
+        self.assertEqual(find_user(self.USERS, "Ann"), (ALICE, ""))
+        self.assertIsNone(find_user(self.USERS, "Annie hi"))
+
+    def test_key_prefixes(self):
+        self.assertEqual(find_user(self.USERS, "ADAD hello"), (ADMIN, "hello"))
+        self.assertIsNone(find_user(self.USERS, "ada hello"))  # too short
+        self.assertIsNone(find_user({ALICE: {}, "a1a1" + "00" * 30: {}}, "a1a1 hi"))  # not unique
+
+
+class PossessiveTest(unittest.TestCase):
+    def test_possessive(self):
+        self.assertEqual(possessive("Alice"), "Alice's")
+        self.assertEqual(possessive("fourbirds"), "fourbirds'")
+        self.assertEqual(possessive("JAMES"), "JAMES'")
+
+
+class RemoveUserTest(unittest.TestCase):
+    def setUp(self):
+        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.path = self.folder / "users.toml"
+        self.path.write_text("# my notes\n" + USERS + f'\n# Bob next\n[users.{BOB}]\nname = "Bob"\n')
+        self.directory = Directory(path=self.path)
+        self.directory.load()
+
+    def test_remove(self):
+        self.assertEqual(self.directory.remove_user(ALICE), "removed Alice")
+        self.assertEqual(set(self.directory.users), {BOB})
+        text = self.path.read_text()
+        self.assertNotIn(ALICE + "]", text)
+        self.assertIn("# my notes", text)
+        self.assertIn("# Bob next", text)
+        self.assertEqual(parse_text(text), ({BOB: {"name": "Bob"}}, frozenset({ADMIN})))
+
+    def test_remove_someone_not_there(self):
+        before = self.path.read_text()
+        self.assertEqual(self.directory.remove_user("cc" * 32), "no changes")
+        self.assertEqual(self.path.read_text(), before)
+
+    def test_in_memory(self):
+        directory = Directory({ALICE: {"name": "Alice"}, BOB: {}})
+        self.assertEqual(directory.remove_user(ALICE), "removed Alice")
+        self.assertEqual(set(directory.users), {BOB})
 
 if __name__ == "__main__":
     unittest.main()

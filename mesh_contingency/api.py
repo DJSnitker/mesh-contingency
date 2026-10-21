@@ -9,10 +9,12 @@ README.
 import asyncio
 import inspect
 import textwrap
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from .directory import Directory
+from .limits import Limits
 from .state import State
 
 # Standard MeshCore text message limit for one message.
@@ -22,6 +24,8 @@ MAX_PARTS = 8
 # Seconds a command may run before the bot gives up on it, unless its config
 # section sets `timeout`.
 DEFAULT_TIMEOUT = 60
+# Seconds a destructive command waits to be sent again as confirmation.
+CONFIRM_SECONDS = 300
 
 # Who may run a command, set per command in the config's [commands.<name>]
 # sections. Only direct messages are handled, so every sender is identified by
@@ -62,6 +66,26 @@ def is_authorized(command, sender, users, admins):
     return False
 
 
+class Confirmations:
+    """Asking before something that can't be undone: the first time someone
+    sends a command it only says what would happen, and it acts if they send
+    the same thing again within CONFIRM_SECONDS."""
+
+    def __init__(self):
+        self._waiting = {}  # who -> (what, time.monotonic())
+
+    def confirmed(self, who, what):
+        """Return True if `who` asked for `what` (any comparable value)
+        within CONFIRM_SECONDS; otherwise remember this request and return
+        False. Asking for anything else starts over."""
+        now = time.monotonic()
+        previous = self._waiting.pop(who, None)
+        if previous is not None and previous[0] == what and now - previous[1] < CONFIRM_SECONDS:
+            return True
+        self._waiting[who] = (what, now)
+        return False
+
+
 def _not_sent(public_key, text):
     """Context.send when there is no radio to send with."""
 
@@ -79,6 +103,7 @@ class Context:
     # send(public key, text): queue a direct message to a contact, sent in the
     # background (so it can't hold up the reply) and logged by the bot.
     send: object = _not_sent
+    limits: Limits = field(default_factory=Limits)  # the [limits] settings
 
     # Read these when they are needed; don't keep a copy. Editing the users
     # file replaces them while the bot runs.
@@ -173,6 +198,12 @@ class Command(ABC):
     summary = ""
     # Set False (e.g. as a property) when required config is missing.
     enabled = True
+    # Set True when what senders write or get back must stay off the console
+    # (messages, passphrases): the bot then logs only the command and sender.
+    private = False
+    # Uses allowed per sender, as (count, seconds), or None for no limit; set
+    # from the config when the command is loaded.
+    rate = None
     # One of LEVELS, and the time limit; both set from the config when the
     # command is loaded.
     permission = DISABLED

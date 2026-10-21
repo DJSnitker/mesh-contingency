@@ -28,6 +28,8 @@ DEFAULT_FILE = "users.toml"
 DEFAULT_RELOAD_SECONDS = 5
 DIRECTORY_KEYS = {"file", "reload_seconds"}
 PUBLIC_KEY_RE = re.compile(r"[0-9a-f]{64}")
+# A key prefix naming a user: at least 4 hex characters.
+KEY_PREFIX_RE = re.compile(r"[0-9a-f]{4,64}")
 _NOTHING = object()  # no change waiting (a missing file's signature is None)
 
 
@@ -83,6 +85,29 @@ def describe(key, users):
     return users.get(key, {}).get("name") or key[:12]
 
 
+def possessive(name):
+    """ "Alice's", but "fourbirds'" for a name ending in s."""
+    return f"{name}'" if name.lower().endswith("s") else f"{name}'s"
+
+
+def find_user(users, text):
+    """Return (public key, rest of text) for text starting with a user's name
+    or key prefix, or None. The longest name wins, so "Ann Lee hi" isn't for
+    "Ann"; a key prefix must match exactly one user."""
+    lowered = text.lower()
+    named = [(key, user["name"]) for key, user in users.items() if user.get("name")]
+    for key, name in sorted(named, key=lambda kn: -len(kn[1])):
+        rest = text[len(name):]
+        if lowered.startswith(name.lower()) and (not rest or rest[0].isspace()):
+            return key, rest.strip()
+    first, _, rest = text.partition(" ")
+    if KEY_PREFIX_RE.fullmatch(first.lower()):
+        keys = [key for key in users if key.startswith(first.lower())]
+        if len(keys) == 1:
+            return keys[0], rest.strip()
+    return None
+
+
 def summarize(old_users, old_admins, new_users, new_admins):
     """Describe what a reload changed, e.g. "added Bob; removed Carol"."""
     def names(keys, users):
@@ -130,13 +155,17 @@ def toml_key(key):
 
 def with_user(text, key, settings):
     """Return the users file text with [users.<key>] replaced by settings, or
-    added at the end if it isn't there. Comments and blank lines after the
-    section's last setting stay, since they usually describe what follows."""
-    section = [f"[users.{key}]\n"] + [f"{toml_key(k)} = {toml_value(v)}\n" for k, v in settings.items()]
+    added at the end if it isn't there; settings None removes the section.
+    Comments and blank lines after the section's last setting stay, since
+    they usually describe what follows."""
+    section = [] if settings is None else (
+        [f"[users.{key}]\n"] + [f"{toml_key(k)} = {toml_value(v)}\n" for k, v in settings.items()])
     header = re.compile(rf"\s*\[\s*users\s*\.\s*\"?{key}\"?\s*\]\s*(#.*)?", re.IGNORECASE)
     lines = text.splitlines(keepends=True)
     start = next((i for i, line in enumerate(lines) if header.fullmatch(line.rstrip("\r\n"))), None)
     if start is None:
+        if settings is None:
+            return text
         text = text.rstrip("\n")
         return (text + "\n\n" if text else "") + "".join(section)
     end = next((i for i in range(start + 1, len(lines)) if TABLE_RE.match(lines[i])), len(lines))
@@ -257,10 +286,21 @@ class Directory:
         bot can't rewrite cleanly), nothing is written and DirectoryError
         says to edit the file by hand.
         """
-        settings = dict(settings)
+        return self._write(key, dict(settings))
+
+    def remove_user(self, key):
+        """Remove one user's section from the users file and reload it.
+        Returns the reload summary. Checked like save_user."""
+        return self._write(key, None)
+
+    def _write(self, key, settings):
+        """save_user, or remove_user if settings is None."""
+        def changed(users):
+            return {k: v for k, v in users.items() if k != key} if settings is None else {**users, key: settings}
+
         if self.path is None:  # not kept in a file (tests)
             old = self._users
-            self._users = {**old, key: settings}
+            self._users = changed(old)
             summary = summarize(old, self._admins, self._users, self._admins)
             for listener in self.on_change:
                 listener(summary)
@@ -280,8 +320,9 @@ class Directory:
             written = parse(tomllib.loads(new_text))
         except (ValueError, DirectoryError):  # TOMLDecodeError is a ValueError
             written = None
-        if written != ({**users, key: settings}, admins):
-            raise DirectoryError(f"can't be changed automatically; edit {describe(key, users)}'s section by hand")
+        if written != (changed(users), admins):
+            raise DirectoryError(f"can't be changed automatically; edit {possessive(describe(key, users))} "
+                                 f"section by hand")
         # Replace the file in one step, keeping its permissions.
         mode = self.path.stat().st_mode & 0o777 if text else 0o600
         temp = self.path.with_name(self.path.name + ".tmp")

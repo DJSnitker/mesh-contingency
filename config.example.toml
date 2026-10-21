@@ -11,6 +11,24 @@ auto_add = ["chat"]
 # Send each admin a direct message when a contact is added, e.g.
 # "New contact: Alice (a1b2c3d4e5f6, chat)". On by default.
 notify_admins = true
+# At most this many new nodes are added per hour (users and admins always
+# are), and this many new-contact notices sent one by one; the rest come in
+# one summary per hour. 0 means no limit.
+max_new_per_hour = 20
+notices_per_hour = 5
+
+# How often each sender may use each command (per minute, hour or day, or
+# "none"), unless the command's entry sets rate = "...". Over 24 hours,
+# emails_per_day caps each sender's quickim, emailall and email commands (one
+# each, however many addresses), and emails_per_day_total the addresses
+# emailed by everyone; 0 for no cap.
+# These are the defaults.
+[limits]
+public_rate = "10/hour"
+user_rate = "30/hour"
+admin_rate = "none"
+emails_per_day = 50
+emails_per_day_total = 200
 
 # Which commands run, and who may use each:
 #   "public"   anyone who can direct-message the node
@@ -20,7 +38,8 @@ notify_admins = true
 #   "disabled" nobody
 # An installed command with no entry here is disabled (with a warning at
 # startup). An unknown command or level stops startup. Optional per command:
-# timeout = <seconds> (default 60); any other key is passed to the command.
+# timeout = <seconds> (default 60), rate = "5/hour"; any other key is passed
+# to the command.
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
@@ -37,6 +56,7 @@ roster = { permission = "user" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }
+setpass = { permission = "user" }
 alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
@@ -44,6 +64,20 @@ deny = { permission = "admin" }
 setquickim = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+users = { permission = "admin" }
+whois = { permission = "admin" }
+remove = { permission = "admin" }
+rename = { permission = "admin" }
+resetpass = { permission = "admin" }
+whoami = { permission = "user" }
+leave = { permission = "user" }
+users = { permission = "admin" }
+whois = { permission = "admin" }
+remove = { permission = "admin" }
+rename = { permission = "admin" }
+resetpass = { permission = "admin" }
+whoami = { permission = "user" }
+leave = { permission = "user" }
 
 # alert posts to a public hashtag channel (added to the radio if missing):
 # [commands.alert]

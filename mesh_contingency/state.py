@@ -10,6 +10,8 @@ import os
 import time
 from pathlib import Path
 
+from .limits import EmailLog
+
 
 class StoreError(Exception):
     """A state file can't be read; the message says why."""
@@ -61,6 +63,7 @@ class State:
         # key (or the key prefix, for a sender who couldn't be identified) ->
         # (name, time last seen), least recently seen first
         self.seen = {}
+        self.emails = EmailLog()  # for the email caps, shared by every email command
         self._stores = {}
 
     def saw(self, key, name):

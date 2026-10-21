@@ -23,11 +23,12 @@ from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 
 from .api import DEFAULT_TIMEOUT, DISABLED, LEVELS, Command, Context, FunctionCommand
+from .limits import Limits, parse_rate
 from .state import State
 
 ENTRY_POINT_GROUP = "mesh_contingency.commands"
 # Keys of a [commands.<name>] section that are for the bot, not the command.
-RESERVED_KEYS = {"permission", "handler", "timeout"}
+RESERVED_KEYS = {"permission", "handler", "timeout", "rate"}
 NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 HANDLER_RE = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*")
 
@@ -71,6 +72,7 @@ class CommandSpec:
     permission: str
     timeout: float
     options: dict = field(default_factory=dict)
+    rate: tuple | None = None  # (count, seconds) per sender, or None for no limit
 
 
 class Registry:
@@ -90,6 +92,7 @@ class Registry:
                              "per command, e.g. [commands.wx] permission = \"public\"; "
                              "see config.example.toml.")
         available = discover() if available is None else available
+        self.limits = Limits.from_config(config)
         sections = config.get("commands", {})
         self.specs = {}  # name -> CommandSpec, enabled commands only
         self.disabled = []  # names of commands nobody may run
@@ -97,7 +100,7 @@ class Registry:
         self.factories = {}  # name -> imported Command subclass or function
 
         for name, section in sections.items():
-            spec = self._check(name, section, available)
+            spec = self._check(name, section, available, self.limits)
             if spec is None:
                 self.disabled.append(name)
             else:
@@ -115,7 +118,7 @@ class Registry:
                 self.warnings.append(f"Could not load {name} ({spec.handler}): {e}; skipped.")
 
     @staticmethod
-    def _check(name, section, available):
+    def _check(name, section, available, limits):
         """Return the CommandSpec for a config section, or None if disabled."""
         where = f"[commands.{name}]"
         if not NAME_RE.fullmatch(name):
@@ -139,8 +142,9 @@ class Registry:
             raise SystemExit(f"{where} timeout must be a positive number of seconds, not {timeout!r}.")
         if permission == DISABLED:
             return None
+        rate = parse_rate(section["rate"], where) if "rate" in section else limits.rates[permission]
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
-        return CommandSpec(name, handler, permission, timeout, options)
+        return CommandSpec(name, handler, permission, timeout, options, rate)
 
     def build(self, directory, radio, state=None, send=None):
         """Create the enabled commands, sharing one State, and return them as
@@ -153,7 +157,7 @@ class Registry:
         for name, spec in self.specs.items():
             factory = self.factories[name]
             ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands,
-                          state=state, **({"send": send} if send else {}))
+                          state=state, limits=self.limits, **({"send": send} if send else {}))
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:
@@ -161,5 +165,6 @@ class Registry:
                 continue
             cmd.permission = spec.permission
             cmd.timeout = spec.timeout
+            cmd.rate = spec.rate
             commands[name] = cmd
         return commands

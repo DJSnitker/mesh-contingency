@@ -21,12 +21,21 @@ from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.help import HelpCommand
 from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
-from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand
+from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
 from mesh_contingency.commands.quickim import QuickImCommand
 from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
 from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQuickImCommand
 from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
+from mesh_contingency.commands.users import (
+    LeaveCommand,
+    RemoveCommand,
+    RenameCommand,
+    ResetPassCommand,
+    UsersCommand,
+    WhoAmICommand,
+    WhoisCommand,
+)
 from mesh_contingency.commands.verse import VerseCommand
 from mesh_contingency.commands.wx import WxCommand
 from mesh_contingency.directory import Directory
@@ -39,9 +48,11 @@ BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "email": EmailCommand, "advert": AdvertCommand, "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
             "roster": RosterCommand, "msg": MsgCommand, "inbox": InboxCommand,
-            "clearinbox": ClearInboxCommand, "alert": AlertCommand,
+            "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setquickim": SetQuickImCommand,
-            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand}
+            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
+            "whois": WhoisCommand, "remove": RemoveCommand, "rename": RenameCommand, "resetpass": ResetPassCommand,
+            "whoami": WhoAmICommand, "leave": LeaveCommand}
 EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"
 
 
