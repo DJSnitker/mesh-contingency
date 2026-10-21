@@ -34,7 +34,7 @@ class RequestsBase(Command):
         return self.store.data
 
     def find(self, text):
-        """The key of the one request whose name is text (optionally in « »),
+        """The key of the one request whose name is text (optionally in ( )),
         or whose key starts with it. Raises CommandError if none or several
         match."""
         quoted = unquote(text)

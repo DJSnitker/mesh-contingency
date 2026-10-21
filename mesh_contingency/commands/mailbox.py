@@ -117,8 +117,9 @@ class MsgCommand(MailboxBase):
             raise CommandError(f"{self.name}: {e}") from None
         if found is None:
             quoted = unquote(text)
-            raise CommandError(f"{self.name}: no user {quoted[0] if quoted else text.split()[0]}; "
-                               f"put a name with spaces in « »")
+            if quoted:
+                raise CommandError(f"{self.name}: no user {quoted[0]}")
+            raise CommandError(f"{self.name}: no user {text.split()[0]}; put a name with spaces in ( )")
         key, message = found
         name = describe(key, self.ctx.users)
         if not message:

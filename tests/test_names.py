@@ -5,7 +5,7 @@ from mesh_contingency.names import is_profane, name_problem
 
 class NameTest(unittest.TestCase):
     def test_radio_names_with_spaces_and_punctuation(self):
-        for name in ["Ridge Base 1", "Sam's T-Deck", "Base #2 (north)", "José", "x" * 40, "\U0001f525 Fire"]:
+        for name in ["Ridge Base 1", "Sam's T-Deck", "Base #2 North", "José", "x" * 40, "\U0001f525 Fire"]:
             self.assertIsNone(name_problem(name), name)
 
     def test_unusable_radio_names(self):
@@ -13,8 +13,8 @@ class NameTest(unittest.TestCase):
         self.assertIn("has no name", name_problem("   "))
         for name in ["two\nlines", "bell\x07", "esc\x1b[2J", "c1\x9b"]:
             self.assertIn("control characters", name_problem(name), repr(name))
-        for name in ["«Sam»", "Sam » x"]:
-            self.assertIn("« or »", name_problem(name), name)
+        for name in ["(Sam)", "Base (north)", "Sam ) x"]:
+            self.assertIn("( or )", name_problem(name), name)
         self.assertIn("isn't allowed", name_problem("Big Ass"))
 
     def test_profanity(self):

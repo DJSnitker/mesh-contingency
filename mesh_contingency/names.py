@@ -47,8 +47,8 @@ def name_problem(name):
         return "your radio has no name; set one on the radio, send an advert and try again"
     if any(ord(c) < 0x20 or 0x7f <= ord(c) < 0xa0 for c in name):
         return "your radio's name has control characters; change it on the radio and try again"
-    if "«" in name or "»" in name:
-        return "your radio's name can't contain « or »; change it on the radio and try again"
+    if "(" in name or ")" in name:  # they mark where a name ends in commands
+        return "your radio's name can't contain ( or ); change it on the radio and try again"
     if is_profane(name):
         return "your radio's name isn't allowed; change it on the radio and try again"
     return None

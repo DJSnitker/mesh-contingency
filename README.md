@@ -413,7 +413,7 @@ it, spaces and punctuation included (`Ridge Base 1`), so the name in every reply
 is the one people see on their own radios. Nobody picks it with a command:
 
 - `join` uses the radio's name. It refuses a radio with no name, one with
-  control characters or `«` `»` in it, or a profane one (see
+  control characters or parentheses in it, or a profane one (see
   `mesh_contingency/names.py` for the list); the person renames the radio and
   sends `join` again.
 - The bot keeps the file up to date. At startup it compares each user's name
@@ -427,10 +427,10 @@ is the one people see on their own radios. Nobody picks it with a command:
 Commands that name a user take the name as it is, in any case:
 `msg ridge base 1 see you at noon`. When the longest matching name is wrong,
 or a name ends in something that looks like the rest of the message, put it in
-French quotation marks (guillemets): `msg «Ridge Base 1» see you at noon`. On
-most phone keyboards, hold down the `"` key to find `«` and `»`. If two users'
-radios have the same name, the command lists their key prefixes; use one of
-those instead.
+parentheses: `msg (Ridge Base 1) see you at noon`. Every keyboard has them,
+including the small ones on mesh devices, which is why radio names can't
+contain them. If two users' radios have the same name, the command lists their
+key prefixes; use one of those instead.
 
 The bot checks the file every 5 seconds and applies changes without a restart,
 logging what changed, e.g. `users.toml reloaded: added Bob; changed Alice`. A

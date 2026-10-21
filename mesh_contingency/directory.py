@@ -18,8 +18,9 @@ that section is rewritten; the rest of the file, comments included, is kept.
 
 A user's name is always their radio's name: the bot writes it when they join
 and updates it when it sees the radio go by another name. Commands that name
-a user accept it as typed ("msg Ridge Base 1 hi") or in « » ("msg «Ridge Base 1»
-hi"), which marks where a name with spaces or punctuation ends.
+a user accept it as typed ("msg Ridge Base 1 hi") or in parentheses ("msg
+(Ridge Base 1) hi"), which marks where a name with spaces or punctuation ends;
+every keyboard has them, and radio names can't contain them.
 """
 
 import asyncio
@@ -101,12 +102,12 @@ def possessive(name):
 
 
 def unquote(text):
-    """(name, rest) for text starting with a name in « », e.g. "«Ridge Base 1» hi";
-    None if it doesn't start with «."""
+    """(name, rest) for text starting with a name in parentheses, e.g.
+    "(Ridge Base 1) hi"; None if it doesn't start with one."""
     text = text.lstrip()
-    if not text.startswith("«") or "»" not in text:
+    if not text.startswith("(") or ")" not in text:
         return None
-    name, _, rest = text[1:].partition("»")
+    name, _, rest = text[1:].partition(")")
     return name.strip(), rest.strip()
 
 
@@ -116,7 +117,7 @@ class AmbiguousUser(LookupError):
 
 def find_user(users, text):
     """Return (public key, rest of text) for text starting with a user's name
-    or key prefix, or None. A name may be in « ». Otherwise the longest name
+    or key prefix, or None. A name may be in ( ). Otherwise the longest name
     wins, so "Ann Lee hi" isn't for "Ann"; a key prefix must match exactly one
     user. Raises AmbiguousUser if several users have the name."""
     def only(keys, name):

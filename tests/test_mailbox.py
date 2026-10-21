@@ -84,7 +84,7 @@ class MailboxTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.inbox.execute("", ANN)).reply, ["Alice just now: hi"])
 
     async def test_name_must_be_a_whole_word(self):
-        with self.assertRaisesRegex(CommandError, "^msg: no user Annie; put a name with spaces in « »$"):
+        with self.assertRaisesRegex(CommandError, "^msg: no user Annie; put a name with spaces in \\( \\)$"):
             await self.msg.execute("Annie hello", ALICE)
 
     async def test_by_key_prefix(self):
@@ -96,8 +96,10 @@ class MailboxTest(unittest.IsolatedAsyncioTestCase):
             await self.msg.execute("a1a hello", ALICE)
 
     async def test_only_users_can_be_written_to(self):
-        with self.assertRaisesRegex(CommandError, "^msg: no user Bob; put a name with spaces in « »$"):
+        with self.assertRaisesRegex(CommandError, "^msg: no user Bob; put a name with spaces in \\( \\)$"):
             await self.msg.execute("Bob hello", ALICE)
+        with self.assertRaisesRegex(CommandError, "^msg: no user Bob Smith$"):
+            await self.msg.execute("(Bob Smith) hi", ALICE)
 
     async def test_usage(self):
         for text in ("", "Alice", "Alice   "):
