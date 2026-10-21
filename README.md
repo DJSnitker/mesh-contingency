@@ -71,6 +71,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `remove <name or key>` | admins | Remove a user and their messages |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
+| `testalert` | admins | Post the [test message](#weekly-alert-test) to the alert channel now |
 | `users [page]` | admins | List the users and what each has set |
 | `whois <name or key>` | admins | What the node knows about a user |
 | `help [command]` | anyone | List your commands, or how to use one |
@@ -165,10 +166,10 @@ saved in a `backups` folder next to it (e.g.
 are kept. To undo a change, copy a backup back over `users.toml`.
 
 `approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` (with the
-message) and `alertmap` are recorded in `history.json` next to `config.toml`,
-with who did them and when, as are a user's `leave`, a radio's change of name
-and the weather alerts the bot posts by itself (as "auto"); admins read it
-with `history`. The newest 200 are kept.
+message), `alertmap` and `testalert` are recorded in `history.json` next to
+`config.toml`, with who did them and when, as are a user's `leave`, a radio's
+change of name, and the weather alerts and weekly tests the bot posts by
+itself (as "auto"); admins read it with `history`. The newest 200 are kept.
 
 Join requests wait in `requests.json` next to
 `config.toml` until approved or denied, at most 20 at a time.
@@ -220,6 +221,27 @@ keeps trying every round. Each post is in `history` as by "auto", and
 `health` shows `auto alerts 2 counties, checked 3m ago`. Posting goes only to
 the channel; nobody is sent a direct message. For anyone to look up a
 zipcode's alerts themselves, there is `wx <zipcode>`.
+
+### Weekly alert test
+
+So people know the alert channel works, the bot can post a test message to it
+every week, followed by the counties it watches (names only, in as few
+messages as fit, numbered `(1/2)` and so on when there are several), and
+`testalert` posts it on request:
+
+```toml
+[alert_test]
+weekly = "Wednesday 17:00"     # or "Wed 5:00PM"; empty (the default) for no weekly test
+timezone = "America/Chicago"   # defaults to the computer's time zone
+# message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
+```
+
+The time is in the time zone given, daylight saving included: 17:00 in
+`America/Chicago` is 5PM CDT in summer and 5PM CST in winter. If the bot isn't
+running at that time, that week's test is skipped, not sent late. Each test
+is in `history` (as "auto" when scheduled), and `health` shows
+`next alert test Wed 5:00PM CDT`. The message must fit in one channel message
+from the node; the bot won't start if it doesn't.
 
 Example `wx` reply:
 
@@ -682,7 +704,7 @@ mesh_contingency/
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
-  alerts.py           posting weather alerts to a channel; the automatic alert watcher
+  alerts.py           the alert channel; the automatic weather alerts and the weekly test
   bible/
     __init__.py       reference parsing and verse lookup
     bsb.json.gz       the bundled Berean Standard Bible
@@ -692,7 +714,9 @@ mesh_contingency/
     help.py, wx.py, verse.py, advert.py, reload.py, roster.py, contacts.py, health.py, history.py
     status.py         ok, status and clearstatus
     mailbox.py        msg, inbox, clearinbox and setpass
-    alert.py          posting alerts to a channel on request
+    alert.py          an admin's message to the alert channel
+    alertmap.py       looking up the watched counties' NWS codes again
+    testalert.py      posting the alert test now
     join.py           join, approve and deny
     settings.py       setqm, addgroup and cleargroup
     users.py          users, whois, remove, resetpass, whoami and leave

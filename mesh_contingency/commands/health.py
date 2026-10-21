@@ -12,7 +12,7 @@ import time
 
 from meshcore import EventType
 
-from ..alerts import plural_counties
+from ..alerts import plural_counties, when_text
 from ..api import Command, CommandError, CommandResult, pack
 from ..console import ADVERTS_FILE
 from ..state import ago
@@ -95,6 +95,9 @@ class HealthCommand(Command):
             if watcher.unmapped:
                 checked += f", not looked up: {'; '.join(watcher.unmapped)}"
             items.append(f"auto alerts {plural_counties(len(watcher.settings.counties))}, {checked}")
+        test = state.alert_test
+        if test and test.settings.weekly:
+            items.append(f"next alert test {when_text(test.next_time(), test.settings.zone)}")
         last = state.store(ADVERTS_FILE).data.get("last_flood")
         items.append(f"last flood advert {ago(last)}" if last else "no flood advert yet")
         directory = self.ctx.directory

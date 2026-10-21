@@ -11,17 +11,21 @@ minutes asks the National Weather Service for the alerts in all the counties
 in a single request, and posts each alert it hasn't posted before, once, even
 if several counties share it. The codes and what it has posted are kept in
 alerts.json next to config.toml, so a restart doesn't post anything again.
+
+[alert_test] posts a test message to the same channel every week, and the
+testalert command posts it on request, so people know the channel works.
 """
 
 import asyncio
 import datetime
 import time
+import zoneinfo
 from dataclasses import dataclass
 from hashlib import sha256
 
 from meshcore import EventType
 
-from .api import MAX_PARTS, MAX_REPLY_LEN, fit_reply
+from .api import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
 from .weather import STATE_FIPS, alert_counties, county_alerts, county_code
 
 DEFAULT_CHANNEL = "#contingency-wx"
@@ -140,6 +144,24 @@ def parse_county(text):
     if len(name) > 1 and name[-1].lower() in ("county", "parish", "borough"):
         name = name[:-1]
     return f"{' '.join(name)}, {words[-1].upper()}"
+
+
+def county_name(county):
+    """"Taylor" from "Taylor, TX"."""
+    return county.rsplit(", ", 1)[0]
+
+
+def county_lines(counties, limit, intro="Counties watched for alerts: "):
+    """The county names (no states) in as few channel messages as fit in
+    limit, numbered if more than one, without splitting a name."""
+    names = [county_name(c) for c in counties]
+    if not names:
+        return []
+    lines = pack([intro + names[0]] + names[1:], limit, ", ")
+    if len(lines) > 1:  # channel messages can arrive out of order
+        lines = pack([intro + names[0]] + names[1:], limit - len(f"({len(lines)}/{len(lines)}) ") - 1, ", ")
+        lines = [f"({i}/{len(lines)}) {line}" for i, line in enumerate(lines, 1)]
+    return lines
 
 
 def plural_counties(n):
@@ -331,3 +353,157 @@ class AlertWatcher:
                 print(f"Auto alerts: {e}; trying again in {self.settings.every_minutes:g} min", flush=True)
                 self.state.error("auto alerts failed")
             await asyncio.sleep(self.settings.every_minutes * 60)
+
+
+TEST_KEYS = {"weekly", "timezone", "message"}
+DEFAULT_TEST_MESSAGE = "TEST: this is a test of the {channel} alert channel. No action needed."
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+# The longest a scheduled task sleeps before looking at the clock again, so a
+# clock change or a suspended computer doesn't throw the time off (seconds).
+MAX_SLEEP = 3600
+
+
+def parse_weekly(text):
+    """(weekday 0-6 from Monday, hour, minute) from "Wednesday 17:00",
+    "wed 5:00pm" or "Wed 5PM". Raises ValueError."""
+    words = text.lower().replace(".", "").split()
+    if len(words) == 3 and words[2] in ("am", "pm"):  # "wed 5:00 pm"
+        words = [words[0], words[1] + words[2]]
+    problem = ValueError(f"{text!r} isn't a day and time, e.g. \"Wednesday 17:00\" or \"Wed 5:00PM\"")
+    if len(words) != 2:
+        raise problem
+    days = [d for d in DAYS if len(words[0]) >= 3 and d.startswith(words[0])]
+    if len(days) != 1:
+        raise problem
+    clock, half = words[1], None
+    if clock.endswith(("am", "pm")):
+        clock, half = clock[:-2], clock[-2:]
+    hour, _, minute = clock.partition(":")
+    if not hour.isdigit() or not (minute.isdigit() and len(minute) == 2 or minute == "" and half):
+        raise problem
+    hour, minute = int(hour), int(minute or 0)
+    if half:
+        if not 1 <= hour <= 12:
+            raise problem
+        hour = hour % 12 + (12 if half == "pm" else 0)
+    if hour > 23 or minute > 59:
+        raise problem
+    return DAYS.index(days[0]), hour, minute
+
+
+@dataclass(frozen=True)
+class TestSettings:
+    channel: str = DEFAULT_CHANNEL
+    message: str = DEFAULT_TEST_MESSAGE.format(channel=DEFAULT_CHANNEL)
+    weekly: tuple = None  # (weekday, hour, minute), or None for no weekly test
+    zone: zoneinfo.ZoneInfo = None  # None for the computer's own time zone
+
+
+def load_alert_test(config, channel):
+    """TestSettings from [alert_test] in config.toml, posting to channel (the
+    alerts' channel). Exits on a mistake."""
+    section = config.get("alert_test", {})
+    if not isinstance(section, dict) or set(section) - TEST_KEYS:
+        raise SystemExit(f"[alert_test] may only set {', '.join(sorted(TEST_KEYS))}.")
+    message = section.get("message", DEFAULT_TEST_MESSAGE.format(channel=channel))
+    if not isinstance(message, str) or not message.strip() or len(message.strip()) > MAX_REPLY_LEN:
+        raise SystemExit(f"[alert_test] message must be some text, at most {MAX_REPLY_LEN} characters.")
+    weekly = section.get("weekly", "")
+    if not isinstance(weekly, str):
+        raise SystemExit('[alert_test] weekly must be a day and time, e.g. "Wednesday 17:00".')
+    try:
+        weekly = parse_weekly(weekly) if weekly.strip() else None
+    except ValueError as e:
+        raise SystemExit(f"[alert_test] weekly: {e}.") from None
+    zone = section.get("timezone")
+    if zone is not None:
+        try:
+            zone = zoneinfo.ZoneInfo(zone)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError, TypeError):
+            raise SystemExit(f"[alert_test] timezone {zone!r} isn't a time zone, e.g. \"America/Chicago\" "
+                             "(on Windows, also pip install tzdata).") from None
+    return TestSettings(channel, message.strip(), weekly, zone)
+
+
+def next_weekly(weekly, zone=None, now=None):
+    """The time.time() of the next (weekday, hour, minute) after now, in the
+    time zone (the computer's own if None), daylight saving included."""
+    now = time.time() if now is None else now
+    day, hour, minute = weekly
+    today = datetime.datetime.fromtimestamp(now, zone).date()
+    for ahead in range(8):
+        date = today + datetime.timedelta(days=ahead)
+        if date.weekday() != day:
+            continue
+        when = datetime.datetime.combine(date, datetime.time(hour, minute), zone).timestamp()
+        if when > now:
+            return when
+    raise AssertionError("unreachable: a weekday comes round within 8 days")
+
+
+def when_text(timestamp, zone=None):
+    """"Wed 5:00PM CDT" for a time.time()."""
+    t = datetime.datetime.fromtimestamp(timestamp, zone).astimezone(zone)
+    return f"{t:%a} {t.hour % 12 or 12}:{t:%M}{'AM' if t.hour < 12 else 'PM'} {t:%Z}".strip()
+
+
+class AlertTest:
+    """Posts the test message to the alert channel: on request, and weekly if set."""
+
+    def __init__(self, radio, settings, state, counties=()):
+        self.radio = radio
+        self.settings = settings
+        self.state = state
+        self.counties = counties  # the counties [alerts] watches, listed after the message
+        self.store = state.store(ALERTS_FILE)  # "last_test": time.time() of the last test
+
+    def problem(self):
+        """Why the test message can't go out from this radio, or None."""
+        limit = message_limit(self.radio)
+        if len(self.settings.message) > limit:
+            return (f"[alert_test] message is {len(self.settings.message)} characters; a channel message from "
+                    f"this node has room for {limit}")
+        return None
+
+    def messages(self):
+        """The test message, then the watched counties, as channel messages."""
+        return [self.settings.message] + county_lines(self.counties, message_limit(self.radio))
+
+    def next_time(self):
+        """time.time() of the next weekly test, or None if there is none."""
+        return next_weekly(self.settings.weekly, self.settings.zone) if self.settings.weekly else None
+
+    def describe(self):
+        day, hour, minute = self.settings.weekly
+        zone = f" {self.settings.zone.key}" if self.settings.zone else ""
+        return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {self.settings.channel}; "
+                f"next {when_text(self.next_time(), self.settings.zone)}")
+
+    async def send(self, by):
+        """Post the test message now; by is who asked ("auto" for the
+        schedule). Returns (slot, added, the messages posted)."""
+        slot, added = await channel_slot(self.radio, self.settings.channel)
+        messages = self.messages()
+        await post(self.radio, slot, messages)
+        self.store.data["last_test"] = time.time()
+        self.store.save()
+        self.state.record(by, f"posted the alert test to {self.settings.channel}")
+        return slot, added, messages
+
+    async def run(self):
+        """Post the test every week until cancelled; a failure is logged and
+        the next week's test still goes out."""
+        while True:
+            due = self.next_time()
+            while (wait := due - time.time()) > 0:
+                await asyncio.sleep(min(wait, MAX_SLEEP))
+            try:
+                _, _, messages = await self.send("auto")
+                print(f"Weekly alert test posted to {self.settings.channel}:", flush=True)
+                for message in messages:
+                    print(f"  {message}", flush=True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # e.g. no free channel slot, or the radio refused the message
+                print(f"Weekly alert test failed: {e}", flush=True)
+                self.state.error("weekly alert test failed")

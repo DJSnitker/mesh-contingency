@@ -32,6 +32,7 @@ from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
 from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQmCommand
 from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
+from mesh_contingency.commands.testalert import TestAlertCommand
 from mesh_contingency.commands.users import (
     LeaveCommand,
     RemoveCommand,
@@ -54,7 +55,7 @@ BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,
             "msg": MsgCommand, "inbox": InboxCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
-            "alertmap": AlertMapCommand,
+            "alertmap": AlertMapCommand, "testalert": TestAlertCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setqm": SetQmCommand,
             "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
             "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,

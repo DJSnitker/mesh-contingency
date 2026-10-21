@@ -38,6 +38,13 @@ counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5
 # channel = "#contingency-wx"  # defaults to the alert command's channel
 
+# A test message on the alert channel (testalert sends it on request), and a
+# weekly time to send it by itself, so people know the channel works.
+[alert_test]
+weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty for never
+# timezone = "America/Chicago" # for weekly; defaults to the computer's
+# message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
+
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
 # emails_per_day caps each sender's qm, emailall and email commands (one
@@ -83,6 +90,7 @@ clearinbox = { permission = "user" }
 setpass = { permission = "user" }
 alert = { permission = "admin" }
 alertmap = { permission = "admin" }
+testalert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
