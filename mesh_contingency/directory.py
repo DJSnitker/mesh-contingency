@@ -21,6 +21,7 @@ import asyncio
 import json
 import os
 import re
+import time
 import tomllib
 from pathlib import Path
 
@@ -189,6 +190,8 @@ class Directory:
         self.on_change = []  # functions called with the summary after each reload
         self._seen = None  # signature of the file version last acted on
         self._pending = _NOTHING  # a changed signature waiting to be seen again
+        self.loaded = None  # time.time() of the last successful (re)load
+        self.problem = None  # (time.time(), reason) if the last reload failed
 
     @property
     def users(self):
@@ -244,6 +247,18 @@ class Directory:
         return st.st_mtime_ns, st.st_size, st.st_ino
 
     def check(self, force=False):
+        """Reload the file if it changed, returning a summary of the changes,
+        or None if there was nothing new to read. See _check."""
+        try:
+            summary = self._check(force)
+        except DirectoryError as e:
+            self.problem = (time.time(), str(e))
+            raise
+        if summary is not None:
+            self.loaded, self.problem = time.time(), None
+        return summary
+
+    def _check(self, force):
         """Reload the file if it changed, returning a summary of the changes,
         or None if there was nothing new to read.
 

@@ -1,6 +1,6 @@
 # Plan: user management and robustness
 
-Status: sections 1–3 built on `feature/private-mailbox` · Requested 2026-10-20
+Status: sections 1–3 merged (PR #5); section 4 in progress · Requested 2026-10-20
 
 Builds on the users file (`users.toml`, reloaded while running), the join
 flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
@@ -11,7 +11,7 @@ flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
 | 1 | Admin user management over the mesh | built |
 | 2 | Users' own commands and the new-message notice | built |
 | 3 | Abuse protection: rate limits, email caps, contact floods, mailbox expiry | built |
-| 4 | Keeping the bot running: service, log file, health, backups, history | future |
+| 4 | Keeping the bot running: service, log file, health, backups, history | service, log and health built |
 | 5 | Small hardening | future |
 
 ---
@@ -99,12 +99,20 @@ reliably enough to decide when to prune.
 Messages older than 30 days are deleted, read or not, sealed or not. Set
 `keep_days` in `[commands.msg]` (0 keeps them forever).
 
-## Section 4: keeping the bot running (future)
+## Section 4: keeping the bot running
 
-- A systemd unit with automatic restart, and instructions.
-- A log file with rotation (private commands stay out of it).
-- Admin `health`: uptime, radio connected, contacts against capacity, mailbox
-  size, last users-file reload and errors.
+- *Done (PR #12):* a systemd user unit with automatic restart
+  (`deploy/mesh-contingency.service`), and the wiki page "Running as a systemd
+  Service on Linux". The bot exits when the radio is lost for good, so the
+  service restarts it, and stops cleanly on SIGTERM.
+- *Done (PR #12):* the log is the systemd journal, which rotates itself
+  (private commands stay out of it), rather than a log file of our own.
+- *Done:* admin `health`: bot and radio uptime, radio model and firmware,
+  battery, contacts against capacity, users, join requests, messages waiting,
+  check-ins, messages and replies since start (undelivered counted), errors
+  and the last one, emails in 24 hours, last flood advert, and the last
+  users-file reload or why it failed. Radio queries time out after 5 s each
+  and are left out if unanswered.
 - A backup of `users.toml` before every write by the bot, keeping the last 5.
 - An audit trail of admin actions (approve, deny, remove, rename, resetpass),
   readable with an admin `history` command.
