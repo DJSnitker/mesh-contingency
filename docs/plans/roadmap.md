@@ -3,7 +3,7 @@
 Status: proposed, nothing started · Written 2026-10-21
 
 Every earlier plan is built (`security-and-live-users.md`,
-`private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16). This
+`private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#18). This
 lists what to do next, in the recommended order. Each item is its own branch
 and PR, with tests, README and wiki updates, like the earlier work.
 
@@ -40,12 +40,18 @@ each; anything that fails becomes a bug fix before item 2.
   `inbox` shows only who and when; `inbox <passphrase>` shows the text;
   `inbox <wrong>` is refused; `clearinbox`. Check `mailbox.json` holds
   `sealed`, not the text.
-- **Joining:** `join Sam Jones` is refused (one word), `join SamJones` works, a
-  plain `join` from a radio whose name has a space asks under the cleaned-up
-  name; `join BigAss` is refused.
-- **Admin tools:** `approve`, `rename`, then `history` lists both; `backups/`
-  holds the previous `users.toml`; `health` reflects the new user; `remove`
-  asks before acting.
+- **Joining (names are radios' names, PR #18):** `join` from a radio named
+  with a space (e.g. `Sam T-Deck`) asks under exactly that name; `join` from a
+  radio with a profane name is refused; `approve «Sam T-Deck»` works.
+- **Names with spaces:** `msg sam t-deck hi` and `msg «Sam T-Deck» hi` both
+  reach the user; `whois «Sam T-Deck»` shows them; `status sam` finds their
+  check-in.
+- **Renamed radio:** rename a user's radio in the app, send the node any
+  command from it; the log shows `... is now <new name>, the radio's name`,
+  `users.toml` has the new name, and `history` lists it as by `radio`.
+- **Admin tools:** `approve`, then `history` lists it; `backups/` holds the
+  previous `users.toml`; `health` reflects the new user; `remove` asks before
+  acting.
 - **Limits:** a burst of `wx` from a public sender gets one "limit reached"
   reply, then silence.
 
@@ -56,10 +62,12 @@ each; anything that fails becomes a bug fix before item 2.
 - Bump `version` to `0.3.0`.
 - New `CHANGELOG.md` (Keep a Changelog style): an entry for 0.3.0 summarising
   sealed mailboxes, user management, limits, adverts and `contacts`,
-  one-word names and the profanity filter, the systemd service, `health`,
+  names taken from the radios (with `« »` for names with spaces, and
+  `rename` removed) and the profanity filter, the systemd service, `health`,
   `history` and backups, the hardening, the wiki and logo. Note what existing
   nodes must do on upgrade: add the `[commands]` lines for new commands
-  (`health`, `history`, `contacts`, the user commands), `chmod 600` on
+  (`health`, `history`, `contacts`, the user commands), delete the
+  `rename` line (it only warns), `chmod 600` on
   `~/.mailrc`, re-run `pip install -e .`.
 - Tag `v0.3.0` and publish a GitHub release with the changelog entry
   (`gh release create v0.3.0 --notes-file ...`).
