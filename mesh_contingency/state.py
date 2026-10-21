@@ -75,6 +75,7 @@ class State:
         self.counts = Counter()
         self.last_error = None  # (time.time(), e.g. "wx failed")
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
+        self.alert_test = None  # the AlertTest, for testalert and the weekly test
         self._stores = {}
 
     def saw(self, key, name):

@@ -1,13 +1,15 @@
 import asyncio
+import datetime
 import tempfile
 import time
 import unittest
+import zoneinfo
 from pathlib import Path
 from unittest import mock
 
 from meshcore import EventType
 
-from mesh_contingency.alerts import AlertSettings, AlertWatcher
+from mesh_contingency.alerts import AlertSettings, AlertTest, AlertWatcher, TestSettings
 from mesh_contingency.api import MAX_REPLY_LEN, CommandError
 from mesh_contingency.commands import health
 from mesh_contingency.commands.health import HealthCommand, duration
@@ -78,6 +80,16 @@ class HealthTest(unittest.IsolatedAsyncioTestCase):
         watcher.unmapped["Jones, TX"] = "timed out"
         self.assertIn("auto alerts 2 counties, checked 3m ago, last check failed, not looked up: Jones, TX",
                       await self.reply())
+
+    async def test_next_alert_test(self):
+        self.state.alert_test = AlertTest(self.radio, TestSettings("#contingency-wx", "Test"), self.state)
+        self.assertNotIn("alert test", await self.reply())  # not weekly
+        chicago = zoneinfo.ZoneInfo("America/Chicago")
+        self.state.alert_test = AlertTest(self.radio, TestSettings("#contingency-wx", "Test", (2, 17, 0), chicago),
+                                          self.state)
+        tuesday = datetime.datetime(2026, 10, 20, 9, 0, tzinfo=chicago).timestamp()
+        with mock.patch("mesh_contingency.alerts.time.time", return_value=tuesday):
+            self.assertIn("next alert test Wed 5:00PM CDT", await self.reply())
 
     async def test_what_the_radio_doesnt_answer_is_left_out(self):
         self.radio.device_info = {}

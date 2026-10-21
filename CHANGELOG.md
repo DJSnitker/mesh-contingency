@@ -18,7 +18,12 @@ may change how the bot is configured).
   restart doesn't repost. Posts show in `history` as by "auto", and `health`
   shows when it last checked. Off unless counties are listed.
 - **`alertmap [county, ST]`** (admins): look up the NWS codes of the watched
-  counties again.
+  counties again; replies with one list of county names.
+- **Weekly alert test** (`[alert_test]` in `config.toml`): a test message on
+  the alert channel at a set day and time each week (`weekly = "Wednesday
+  17:00"`, in `timezone`, daylight saving included), followed by the watched
+  counties, and **`testalert`** (admins) to post it on request. `health`
+  shows the next one.
 
 ### Changed
 
