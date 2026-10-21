@@ -38,14 +38,14 @@ Full usage, examples and how-to guides are in the
 | `emailall <message>` | users | Email your group |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
-| `join [name]` | anyone | Ask to become a user |
+| `join [name]` | anyone | Ask to become a user, under a one-word name |
 | `leave` | users | Stop being a user |
 | `msg <name> <message>` | users | Leave a message for another user |
 | `ok [status]` | anyone | Check in: tell others you're ok |
 | `quickim <message>` | users | Email your preset contact |
 | `reload` | admins | Re-read the [users file](#users-file) now |
 | `remove <name or key>` | admins | Remove a user and their messages |
-| `rename <name or key> <new name>` | admins | Change a user's name |
+| `rename <name or key> <new name>` | admins | Change a user's name (one word, letters and numbers) |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
 | `setpass <passphrase>` | users | Seal your messages with a passphrase |
@@ -115,7 +115,7 @@ that (0 keeps them until cleared).
 `remove`, `resetpass` and `leave` can't be undone, so the first time each only
 says what it would do, e.g. `remove: this removes Bob (b0b0b0b0b0b0) and their
 2 message(s). Send it again within 5 min to confirm.` Users are
-named by their name in the users file (`Ann Lee`) or a key prefix of at least
+named by their name in the users file (`AnnLee`) or a key prefix of at least
 4 hex characters. Nobody can be made an admin over the mesh; that takes an
 edit of `[admin] keys`, so a lost admin radio can't create more admins.
 
@@ -360,6 +360,14 @@ Keys are full public keys (64 hex characters); the 12-character prefix is not
 accepted. Each user's settings are read by the commands: `quickim` and
 `emailall` take one address or a list.
 
+A `name` is one word of ASCII letters and digits, up to 32, so commands can
+always tell a name from what follows it and every radio can show it. If
+desired, nicknames are acceptable (`Sparky`); for a first and last name, use
+CamelCase (`AnnLee`). `join` and `rename` refuse anything else, and profane
+names (see `mesh_contingency/names.py` for the list). A name typed into the
+file by hand isn't checked; it still loads and works, but keep to the same
+rule.
+
 The bot checks the file every 5 seconds and applies changes without a restart,
 logging what changed, e.g. `users.toml reloaded: added Bob; changed Alice`. A
 change is used once the file has stopped changing, so it takes effect within
@@ -536,6 +544,7 @@ mesh_contingency/
   state.py            senders seen since startup; status.json and mailbox.json
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
+  names.py            checking chosen names: letters and numbers, profanity
   console.py          commands typed into the bot's terminal, scheduled adverts
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands

@@ -129,14 +129,17 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(ADMIN.public_key, self.directory.admins)
 
     async def test_rename(self):
-        self.assertEqual((await self.rename.execute("alice Alice Smith", ADMIN)).reply,
-                         "rename: Alice is now Alice Smith")
-        self.assertEqual(self.in_file()[ALICE.public_key], {"name": "Alice Smith", "quickim": "alice@example.com"})
-        self.assertEqual((await self.rename.execute("Alice Smith   Al", ADMIN)).reply, "rename: Alice Smith is now Al")
+        self.assertEqual((await self.rename.execute("alice AliceSmith", ADMIN)).reply,
+                         "rename: Alice is now AliceSmith")
+        self.assertEqual(self.in_file()[ALICE.public_key], {"name": "AliceSmith", "quickim": "alice@example.com"})
+        self.assertEqual((await self.rename.execute("AliceSmith   Al", ADMIN)).reply, "rename: AliceSmith is now Al")
         with self.assertRaisesRegex(CommandError, "^rename: bob is already b0b0b0b0b0b0's name$"):
             await self.rename.execute("Al bob", ADMIN)
-        with self.assertRaisesRegex(CommandError, "^rename: name must be up to 32 plain characters$"):
-            await self.rename.execute("Al " + "x" * 33, ADMIN)
+        for new in ["x" * 33, "Al Smith", "Al-Smith"]:
+            with self.assertRaisesRegex(CommandError, "^rename: name must be one word of letters and numbers"):
+                await self.rename.execute("Al " + new, ADMIN)
+        with self.assertRaisesRegex(CommandError, "^rename: that name isn't allowed; choose another$"):
+            await self.rename.execute("Al Sh1tHead", ADMIN)
         with self.assertRaisesRegex(CommandError, r"^usage: rename <name or key> <new name>$"):
             await self.rename.execute("Al", ADMIN)
 

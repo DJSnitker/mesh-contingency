@@ -9,12 +9,12 @@ import time
 
 from ..api import Command, CommandError, CommandResult
 from ..directory import DirectoryError
+from ..names import check_name, name_problem, suggest
 from ..state import ago
 
 FILENAME = "requests.json"
 # Requests waiting at most, so the admins can't be flooded.
 MAX_REQUESTS = 20
-MAX_NAME = 32
 # A key prefix naming a request: at least 4 hex characters.
 KEY_PREFIX_RE = re.compile(r"[0-9a-f]{4,64}")
 
@@ -48,16 +48,19 @@ class RequestsBase(Command):
 
 class JoinCommand(RequestsBase):
     args = "[name]"
-    summary = "Ask the admins to make you a user"
+    summary = "Ask the admins to make you a user, under a one-word name"
 
     async def execute(self, text, sender):
         if sender.public_key is None:
             raise CommandError(f"{self.name}: can't tell who you are; send an advert and try again")
         if sender.public_key in self.ctx.users:
             raise CommandError(f"{self.name}: you're already a user")
-        name = " ".join(text.split()) or sender.name
-        if len(name) > MAX_NAME or not name.isprintable():
-            raise CommandError(f"{self.name}: name must be up to {MAX_NAME} plain characters")
+        name = text.strip() or sender.name
+        if not text.strip() and name_problem(name):
+            hint = suggest(name)
+            raise CommandError(f"{self.name}: your radio's name can't be used; send {self.name} <name>"
+                               + (f", e.g. {self.name} {hint}" if hint else ""))
+        check_name(self.name, name)
         key = sender.public_key
         new = key not in self.requests
         if new and len(self.requests) >= MAX_REQUESTS:
