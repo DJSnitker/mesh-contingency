@@ -9,7 +9,7 @@ import time
 
 from ..api import Command, CommandError, CommandResult
 from ..directory import DirectoryError
-from ..names import check_name, name_problem, suggest
+from ..names import check_name, suggest
 from ..state import ago
 
 FILENAME = "requests.json"
@@ -55,12 +55,14 @@ class JoinCommand(RequestsBase):
             raise CommandError(f"{self.name}: can't tell who you are; send an advert and try again")
         if sender.public_key in self.ctx.users:
             raise CommandError(f"{self.name}: you're already a user")
-        name = text.strip() or sender.name
-        if not text.strip() and name_problem(name):
-            hint = suggest(name)
-            raise CommandError(f"{self.name}: your radio's name can't be used; send {self.name} <name>"
-                               + (f", e.g. {self.name} {hint}" if hint else ""))
+        name = text.strip()
+        if not name:
+            # The radio's name, kept to one word of letters and numbers: "KE5OWL R1" is KE5OWLR1.
+            name = suggest(sender.name)
+            if not name:
+                raise CommandError(f"{self.name}: your radio's name can't be used; send {self.name} <name>")
         check_name(self.name, name)
+        changed = not text.strip() and name != sender.name
         key = sender.public_key
         new = key not in self.requests
         if new and len(self.requests) >= MAX_REQUESTS:
@@ -70,7 +72,8 @@ class JoinCommand(RequestsBase):
         if new:
             self.ctx.tell_admins(f"Join request: {name} ({key[:12]}). Reply approve {key[:12]} or deny {key[:12]}")
         return CommandResult(console=f"Join request from {name} ({key[:12]})",
-                             reply=f"{self.name}: request {'sent to the admins' if new else 'updated'}")
+                             reply=f"{self.name}: request {'sent to the admins' if new else 'updated'}"
+                                   + (f" as {name}; send {self.name} <name> to choose another" if changed else ""))
 
 
 class ApproveCommand(RequestsBase):

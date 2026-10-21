@@ -49,14 +49,20 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
                 await self.join.execute(name, BOB)
         self.assertEqual(self.sent, [])
 
+    async def test_a_radio_name_is_kept_to_one_word(self):
+        result = await self.join.execute("", replace(BOB, name="Bob T-1000"))
+        self.assertEqual(result.reply,
+                         "join: request sent to the admins as BobT1000; send join <name> to choose another")
+        self.assertEqual(self.sent[0], (ADMIN.public_key, "Join request: BobT1000 (b0b0b0b0b0b0). "
+                                                          "Reply approve b0b0b0b0b0b0 or deny b0b0b0b0b0b0"))
+        self.assertEqual((await self.join.execute("Bob", BOB)).reply, "join: request updated")
+        self.assertIn("Bob (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
+
     async def test_a_radio_name_that_cant_be_used_needs_a_name(self):
-        with self.assertRaisesRegex(CommandError, "^join: your radio's name can't be used; send join <name>, "
-                                                  "e.g. join BobT1000$"):
-            await self.join.execute("", replace(BOB, name="Bob T-1000"))
-        with self.assertRaisesRegex(CommandError, "^join: your radio's name can't be used; send join <name>$"):
-            await self.join.execute("", replace(BOB, name="\U0001f525"))
-        self.assertEqual((await self.join.execute("Bob", replace(BOB, name="Bob T-1000"))).reply,
-                         "join: request sent to the admins")
+        for radio in ["\U0001f525", "Big Ass"]:
+            with self.assertRaisesRegex(CommandError, "^join: your radio's name can't be used; send join <name>$"):
+                await self.join.execute("", replace(BOB, name=radio))
+        self.assertEqual(self.sent, [])
 
     async def test_asking_again_updates_without_telling_the_admins_again(self):
         await self.join.execute("", BOB)
