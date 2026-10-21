@@ -724,4 +724,4 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 
 ## License
 
-[MIT](LICENSE) © 2026 Doug Snitker
+Proprietary. © 2026 Doug Snitker, all rights reserved; see [LICENSE](LICENSE).
