@@ -11,7 +11,7 @@ made an admin over the mesh: [admin] keys is only changed by editing the file.
 
 from ..api import CONFIRM_SECONDS, Command, CommandError, CommandResult, Confirmations, pack, page
 from ..directory import DirectoryError, describe, find_user, possessive
-from .join import MAX_NAME
+from ..names import check_name
 from .mailbox import FILENAME as MAILBOX
 from .mailbox import INBOX_KEY
 
@@ -143,15 +143,13 @@ class RemoveCommand(UsersBase):
 
 class RenameCommand(UsersBase):
     args = "<name or key> <new name>"
-    summary = "Change a user's name"
+    summary = "Change a user's name (one word)"
 
     async def execute(self, text, sender):
         key, new = self.find(text)
-        new = " ".join(new.split())
         if not new:
             raise CommandError(f"usage: {self.usage}")
-        if len(new) > MAX_NAME or not new.isprintable():
-            raise CommandError(f"{self.name}: name must be up to {MAX_NAME} plain characters")
+        check_name(self.name, new)
         taken = [k for k, user in self.ctx.users.items() if k != key and user.get("name", "").lower() == new.lower()]
         if taken:
             raise CommandError(f"{self.name}: {new} is already {taken[0][:12]}'s name")
