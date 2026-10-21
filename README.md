@@ -468,6 +468,30 @@ With the venv activated (`source .venv/bin/activate`), plain
 Options: `-p/--port`, `-b/--baud` (default 115200), `-c/--config`
 (default `config.toml` in the project folder), `--debug` for library logging.
 
+### As a service
+
+To start the bot at boot, restart it after a crash and keep its output in the
+journal, run it as a systemd user service with
+[`deploy/mesh-contingency.service`](deploy/mesh-contingency.service). Step-by-step
+setup, day-to-day commands and troubleshooting are in the wiki:
+[Running as a systemd Service on Linux](https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux).
+In short, from the project folder:
+
+```sh
+mkdir -p ~/.config/systemd/user
+sed "s|/path/to/mesh-contingency|$PWD|g" deploy/mesh-contingency.service \
+    > ~/.config/systemd/user/mesh-contingency.service
+loginctl enable-linger "$USER"     # start at boot without logging in
+systemctl --user daemon-reload
+systemctl --user enable --now mesh-contingency
+journalctl --user -u mesh-contingency -f
+```
+
+`systemctl stop` (SIGTERM) shuts the bot down cleanly. If the radio is lost
+and the library's reconnects fail, the bot logs `Lost the radio (...)` and
+exits with an error, so systemd starts it again (every 30 s) until the radio
+is back.
+
 At startup it checks the config and loads the enabled commands before
 connecting, prints which commands are available at each permission level, and
 warns about any that are disabled or failed to load. It then watches the
@@ -489,8 +513,9 @@ learns the node from its advert, and the node adds theirs when it hears it
   - `contacts [name]`: the radio's contacts (or those whose name or key starts
     with `name`), to check that the other radio has been added;
   - `help`: this list.
-- **From another shell**, when the bot has no terminal (e.g. running as a
-  service): `kill -USR1 <pid>` sends a flood advert.
+- **From another shell**, when the bot has no terminal: `kill -USR1 <pid>`
+  sends a flood advert (as a service:
+  `systemctl --user kill --kill-whom=main -s USR1 mesh-contingency`).
 - **By itself**, from `config.toml`:
 
   ```toml
@@ -571,6 +596,8 @@ examples/mesh-dice/   an example third-party command package
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
 config.example.toml   example configuration
 users.example.toml    example users file
+deploy/
+  mesh-contingency.service  systemd user unit (see "As a service")
 tests/                unit tests (python -m unittest)
 ```
 

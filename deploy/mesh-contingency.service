@@ -1,0 +1,36 @@
+# systemd user service for mesh-contingency: starts the bot at boot, restarts
+# it if it stops with an error, and sends its output to the journal.
+#
+# Setup is in the wiki, "Running as a systemd Service on Linux". In short, from
+# the project folder:
+#
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|/path/to/mesh-contingency|$PWD|g" deploy/mesh-contingency.service \
+#       > ~/.config/systemd/user/mesh-contingency.service
+#   loginctl enable-linger "$USER"
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now mesh-contingency
+#
+# /path/to/mesh-contingency is the project folder (holding config.toml and .venv).
+
+[Unit]
+Description=mesh-contingency MeshCore bot
+Documentation=https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux
+# Keep retrying while the radio is unplugged, however long that takes.
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=/path/to/mesh-contingency
+ExecStart=/path/to/mesh-contingency/.venv/bin/mesh-contingency
+# Print each line as it happens, so the journal is never behind.
+Environment=PYTHONUNBUFFERED=1
+# After a crash, a lost radio or a radio that isn't plugged in: wait 30 seconds
+# and start again. systemctl stop isn't a failure, so it stays stopped.
+Restart=on-failure
+RestartSec=30
+# systemctl stop sends SIGTERM; the bot disconnects from the radio and exits.
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

@@ -43,6 +43,8 @@ from .state import State
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
+# How long to wait for the radio when shutting down.
+DISCONNECT_SECONDS = 5
 
 # Sent for unknown commands and for commands the sender may not run.
 UNRECOGNIZED_REPLY = "unrecognized user or function"
@@ -394,12 +396,28 @@ async def main():
             await reply(msg, sender, text)
             print(f"  -> replied ({len(text)} chars)" + ("" if private else f": {text}"), flush=True)
 
+    # Stop on SIGTERM (systemctl stop) as on Ctrl+C, or when the radio is lost
+    # for good: the library's few quick reconnects failed, so exit with an
+    # error and let the service manager start the bot again.
+    stopping = asyncio.Event()
+    lost = []
+
+    async def on_disconnect(event):
+        reason = (event.payload or {}).get("reason", "unknown")
+        if reason != "manual_disconnect":
+            lost.append(reason)
+            print(f"Lost the radio ({reason}); stopping.", flush=True)
+            stopping.set()
+
+    with contextlib.suppress(NotImplementedError):  # not on Windows
+        loop.add_signal_handler(signal.SIGTERM, stopping.set)
+    mc.subscribe(EventType.DISCONNECTED, on_disconnect)
     # Only direct messages; channel messages are never subscribed to.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)
     await mc.start_auto_message_fetching()
 
     try:
-        await asyncio.Event().wait()
+        await stopping.wait()
     finally:
         watcher.cancel()
         summaries.cancel()
@@ -410,13 +428,23 @@ async def main():
         with contextlib.suppress(AttributeError, NotImplementedError):
             loop.remove_signal_handler(signal.SIGHUP)
             loop.remove_signal_handler(signal.SIGUSR1)
-        await mc.stop_auto_message_fetching()
-        await mc.disconnect()
+            loop.remove_signal_handler(signal.SIGTERM)
+        # A lost radio may not answer; don't hang on it.
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(mc.stop_auto_message_fetching(), DISCONNECT_SECONDS)
+            await asyncio.wait_for(mc.disconnect(), DISCONNECT_SECONDS)
+    if lost:
+        return 1
+    print("Stopped.")
+    return 0
 
 
 def run():
     """Entry point for the mesh-contingency command."""
     try:
-        asyncio.run(main())
+        code = asyncio.run(main())
     except KeyboardInterrupt:
         print("\nStopped.")
+        return
+    if code:
+        raise SystemExit(code)
