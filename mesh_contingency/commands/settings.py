@@ -1,12 +1,12 @@
 """Users changing their own email addresses, which are saved to their
 section of the users file:
 
-    setquickim <address>   the one address quickim sends to
+    setqm <address>   the one address qm sends to
     addgroup <address>     add an address to the list emailall sends to
     cleargroup             empty that list
 
 Each command reads and writes the key of the command it serves, set with
-`command = "<name>"` in its config entry (quickim or emailall by default).
+`command = "<name>"` in its config entry (qm or emailall by default).
 """
 
 from ..api import Command, CommandError, CommandResult
@@ -53,10 +53,10 @@ class SettingsCommand(Command):
         return text
 
 
-class SetQuickImCommand(SettingsCommand):
+class SetQmCommand(SettingsCommand):
     args = "<address>"
-    summary = "Set the address quickim sends to; alone, show it"
-    default_setting = "quickim"
+    summary = "Set the address qm sends to; alone, show it"
+    default_setting = "qm"
 
     async def execute(self, text, sender):
         if not text:

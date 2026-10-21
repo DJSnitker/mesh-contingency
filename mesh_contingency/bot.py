@@ -42,7 +42,7 @@ from .directory import Directory, DirectoryError, describe, possessive
 from .limits import RateLimiter, describe_rate, wait_text
 from .names import name_problem
 from .output import SafeOutput
-from .registry import Registry
+from .registry import RENAMED, Registry
 from .state import State
 
 # config.toml in the project folder (the parent of this package).
@@ -264,8 +264,29 @@ async def _main():
             if not command.enabled and command.permission != DISABLED:
                 print(f"Warning: no user has {command.name} addresses in {directory.name}.", flush=True)
 
+    def convert_settings():
+        """Move addresses saved under an old command name (quickim) to the
+        new one (qm), keeping the order of each user's settings."""
+        changes, moved = {}, set()
+        for key, user in directory.users.items():
+            for old, new in RENAMED.items():
+                if old in user and new not in user:
+                    user = changes[key] = {(new if k == old else k): v for k, v in user.items()}
+                    moved.add(old)
+        if not changes:
+            return
+        moved = sorted(moved)
+        try:
+            directory.save_users(changes)
+        except DirectoryError as e:
+            print(f"Warning: {', '.join(moved)} settings not converted: {directory.name} {e}", flush=True)
+            return
+        print(f"{directory.name}: {', '.join(f'{old} is now {RENAMED[old]}' for old in moved)} "
+              f"for {len(changes)} user(s)", flush=True)
+
     def on_users_reloaded(summary):
         print(f"{directory.name} reloaded: {summary}", flush=True)
+        convert_settings()
         if directory.path:
             warn_if_shared(directory.path)
         warn_unconfigured()
@@ -277,6 +298,7 @@ async def _main():
         print(f"Warning: {directory.name} not reloaded: {reason}; keeping the current users.", flush=True)
         tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
 
+    convert_settings()
     warn_unconfigured()
     directory.on_change.append(on_users_reloaded)
     # Watch the users file; SIGHUP (kill -HUP <pid>) reloads it straight away.

@@ -63,20 +63,20 @@ Full usage, examples and how-to guides are in the
 | `email <address> <message>` | users | Email any address |
 | `emailall <message>` | users | Email your group |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
-| `history [page]` | admins | What admins have done (approve, remove, resetpass...), newest first |
 | `help [command]` | anyone | List your commands, or how to use one |
+| `history [page]` | admins | What admins have done (approve, remove, resetpass...), newest first |
 | `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
 | `join` | anyone | Ask to become a user, under your radio's name |
 | `leave` | users | Stop being a user |
 | `msg <name> <message>` | users | Leave a message for another user |
 | `ok [status]` | anyone | Check in: tell others you're ok |
-| `quickim <message>` | users | Email your preset contact |
+| `qm <message>` | users | Quick message: email your preset contact |
 | `reload` | admins | Re-read the [users file](#users-file) now |
 | `remove <name or key>` | admins | Remove a user and their messages |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
 | `setpass <passphrase>` | users | Seal your messages with a passphrase |
-| `setquickim <address>` | users | Set your quickim address; alone, show it |
+| `setqm <address>` | users | Set your qm address; alone, show it |
 | `status <name or key>` | anyone | See someone's last check-in |
 | `users [page]` | admins | List the users and what each has set |
 | `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
@@ -105,11 +105,11 @@ so `mailbox.json` holds only who sent it and when. Nobody needs to handle keys:
 
 ```
 Alice → bot:  setpass blue-canoe-42x
-Bob → bot:    msg Alice meet at the shelter at 6
+Bob → bot:    msg Alice T-Deck meet at the shelter at 6
 Alice → bot:  inbox
-bot → Alice:  inbox: 1 message(s) from Bob 5m ago. Send inbox <passphrase> to read.
+bot → Alice:  inbox: 1 message(s) from Bob's Heltec 5m ago. Send inbox <passphrase> to read.
 Alice → bot:  inbox blue-canoe-42x
-bot → Alice:  Bob 6m ago: meet at the shelter at 6
+bot → Alice:  Bob's Heltec 6m ago: meet at the shelter at 6
 ```
 
 - The bot turns the passphrase into a key pair (scrypt, then X25519) and saves
@@ -146,7 +146,7 @@ named by their radio's name (see [Names](#names)) or a key prefix of at least
 4 hex characters. Nobody can be made an admin over the mesh; that takes an
 edit of `[admin] keys`, so a lost admin radio can't create more admins.
 
-`approve`, `remove`, `setquickim`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
+`approve`, `remove`, `setqm`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
 and reload it at once. They rewrite only that person's `[users.<key>]` section
 (comments inside it are dropped); the rest of the file is kept as it is. The
 result is checked before it's saved, so if a section can't be rewritten
@@ -259,7 +259,7 @@ them automatically.
 - Python 3.11+
 - A MeshCore companion radio on USB serial
 - The `mail` command (e.g. s-nail or mailutils) able to send through an SMTP
-  server, for the `quickim`, `emailall` and `email` commands
+  server, for the `qm`, `emailall` and `email` commands
 - Internet access for `wx` ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)
   and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys).
   `verse` works offline.
@@ -291,7 +291,7 @@ real email addresses and node keys. See `config.example.toml`:
 help = { permission = "public" }
 wx = { permission = "public" }
 verse = { permission = "public" }
-quickim = { permission = "user" }
+qm = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
@@ -311,7 +311,7 @@ alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
-setquickim = { permission = "user" }
+setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
 users = { permission = "admin" }
@@ -340,17 +340,22 @@ permission = "public"
 max_dice = 10
 ```
 
-The same code can run under several names. For example, a second quickim
+The same code can run under several names. For example, a second qm
 command whose addresses come from each user's `quickfam` key:
 
 ```toml
 [commands.quickfam]
-handler = "mesh_contingency.commands.quickim:QuickImCommand"
+handler = "mesh_contingency.commands.qm:QmCommand"
 permission = "user"
 ```
 
-Each user's `quickim` / `emailall` key may be a single address or a list.
-A user with no addresses can still use `email`. A `quickim` or `emailall`
+Each user's `qm` / `emailall` key may be a single address or a list.
+
+`qm` and `setqm` were called `quickim` and `setquickim` before 0.3. A config
+that still uses the old names works, with a warning at startup to rename them,
+and the bot renames users' `quickim` addresses in `users.toml` to `qm` by
+itself (with a backup), at startup and whenever the file reloads.
+A user with no addresses can still use `email`. A `qm` or `emailall`
 message that starts with an email address is refused with a pointer to
 `email`, so a message meant for someone else isn't sent to the preset
 contact by mistake.
@@ -373,7 +378,7 @@ These are the defaults when `[limits]` is left out. A command's own `rate`
 replaces its level's default. A sender who reaches a limit gets one reply,
 `wx: limit reached, try again in 23 min`, and no reply to that command after
 that until the limit frees up, so the limit itself can't make the node
-transmit. `emails_per_day` counts each `quickim`, `emailall` or `email` as
+transmit. `emails_per_day` counts each `qm`, `emailall` or `email` as
 one, however many addresses it goes to. `emails_per_day_total` counts
 addresses, so an `emailall` to 3 counts 3 there, since that's what the sending
 account's own limits count. Set a cap to 0 for no cap.
@@ -390,12 +395,12 @@ keys = ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
 
 [users.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2]
 name = "Alice T-Deck"  # the radio's name; the bot keeps it up to date
-quickim = "someone@example.com"
+qm = "someone@example.com"
 emailall = ["someone@example.com", "someone.else@example.com"]
 ```
 
 Keys are full public keys (64 hex characters); the 12-character prefix is not
-accepted. Each user's settings are read by the commands: `quickim` and
+accepted. Each user's settings are read by the commands: `qm` and
 `emailall` take one address or a list.
 
 ### Names
@@ -643,10 +648,10 @@ mesh_contingency/
     mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          posting alerts to a channel
     join.py           join, approve and deny
-    settings.py       setquickim, addgroup and cleargroup
+    settings.py       setqm, addgroup and cleargroup
     users.py          users, whois, remove, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
-    quickim.py, emailall.py, email.py
+    qm.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package
 .github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations

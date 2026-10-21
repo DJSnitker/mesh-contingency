@@ -1,13 +1,17 @@
-"""quickim <message>: email the sender's preconfigured contact."""
+"""qm <message>: a quick message, emailed to the sender's preset contact.
+
+Called quickim until 0.3; the bot reads an old config's [commands.quickim] as
+[commands.qm] and converts users' quickim addresses to qm.
+"""
 
 from ..api import CommandError, Sender
 from .email import EmailCommand
 from .mail import ADDRESS_RE, MailCommand
 
 
-class QuickImCommand(MailCommand):
+class QmCommand(MailCommand):
     args = "<message>"
-    summary = "Email your message to your preset contact"
+    summary = "Quick message: email your preset contact"
 
     @property
     def recipients(self):
