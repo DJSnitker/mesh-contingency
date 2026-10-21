@@ -1,9 +1,10 @@
 # Roadmap: after the user-management plan
 
-Status: proposed, nothing started · Written 2026-10-21
+Status: proposed, nothing started · Written 2026-10-21 · Updated 2026-10-21 (after PR #20)
 
 Every earlier plan is built (`security-and-live-users.md`,
-`private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#18). This
+`private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
+since then names come from the radios (#18) and `quickim` is `qm` (#20). This
 lists what to do next, in the recommended order. Each item is its own branch
 and PR, with tests, README and wiki updates, like the earlier work.
 
@@ -49,6 +50,10 @@ each; anything that fails becomes a bug fix before item 2.
 - **Renamed radio:** rename a user's radio in the app, send the node any
   command from it; the log shows `... is now <new name>, the radio's name`,
   `users.toml` has the new name, and `history` lists it as by `radio`.
+- **Quick message (renamed in PR #20):** `setqm` alone shows the address;
+  `setqm <address>` changes it; `qm <message>` arrives by email with the
+  sender's radio name in the subject; `quickim` now gets
+  `unrecognized user or function`.
 - **Admin tools:** `approve`, then `history` lists it; `backups/` holds the
   previous `users.toml`; `health` reflects the new user; `remove` asks before
   acting.
@@ -57,17 +62,20 @@ each; anything that fails becomes a bug fix before item 2.
 
 ## 2. Release 0.3.0 with a changelog
 
-`pyproject.toml` still says `0.2.0` although PRs #5–#16 added a lot.
+`pyproject.toml` still says `0.2.0` although PRs #5–#20 added a lot.
 
 - Bump `version` to `0.3.0`.
 - New `CHANGELOG.md` (Keep a Changelog style): an entry for 0.3.0 summarising
   sealed mailboxes, user management, limits, adverts and `contacts`,
   names taken from the radios (with `« »` for names with spaces, and
-  `rename` removed) and the profanity filter, the systemd service, `health`,
+  `rename` removed), `quickim` renamed `qm` (and `setquickim` `setqm`), and
+  the profanity filter, the systemd service, `health`,
   `history` and backups, the hardening, the wiki and logo. Note what existing
   nodes must do on upgrade: add the `[commands]` lines for new commands
   (`health`, `history`, `contacts`, the user commands), delete the
-  `rename` line (it only warns), `chmod 600` on
+  `rename` line (it only warns), rename `quickim` and `setquickim` to `qm`
+  and `setqm` under `[commands]` (until then the bot warns and uses the old
+  lines; users' addresses in `users.toml` convert themselves), `chmod 600` on
   `~/.mailrc`, re-run `pip install -e .`.
 - Tag `v0.3.0` and publish a GitHub release with the changelog entry
   (`gh release create v0.3.0 --notes-file ...`).
