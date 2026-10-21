@@ -193,6 +193,11 @@ class EmailTest(MailCommandTestCase):
         for good in ("a@example.com", "first.last+tag@mail.example.co.uk", "x_y%z@sub-domain.example.org"):
             self.assertTrue(ADDRESS_RE.fullmatch(good), good)
 
+    def test_address_must_start_with_a_letter_or_digit(self):
+        for bad in ("+tag@example.com", "%x@example.com", ".dot@example.com", "_x@example.com"):
+            self.assertIsNone(ADDRESS_RE.fullmatch(bad), bad)
+        self.assertTrue(ADDRESS_RE.fullmatch("7days@example.com"))
+
 
 class EmailCapsTest(MailCommandTestCase):
     def setUp(self):

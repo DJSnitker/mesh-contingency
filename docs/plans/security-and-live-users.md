@@ -1,6 +1,6 @@
 # Plan: security hardening and a live user directory
 
-Status: proposed · Branch: `feature/security-and-live-users` (from `main`)
+Status: done (PR #3, then sections 3 and 5 of `user-management-and-robustness.md`)
 
 ## Goals
 

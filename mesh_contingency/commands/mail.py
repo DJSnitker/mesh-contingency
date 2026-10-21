@@ -19,7 +19,7 @@ TIMEOUT = 30
 # Deliberately strict: the address comes from the mesh and is passed to `mail`
 # as an argument, where a leading "-" would be an option and "|" or "/" a pipe
 # or file target. Only plain user@domain.tld addresses get through.
-ADDRESS_RE = re.compile(r"[A-Za-z0-9._%+][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+ADDRESS_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 
 
 def send_email(to, subject, body):
