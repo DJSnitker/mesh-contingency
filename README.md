@@ -40,6 +40,9 @@ write one in a separate package and install it (see
 Channel messages are ignored entirely; only direct messages are acted on. The
 one exception is outgoing: `alert` posts weather alerts to a public channel.
 
+What changed in each release, and how to upgrade, is in
+[CHANGELOG.md](CHANGELOG.md).
+
 ## Commands
 
 Full usage, examples and how-to guides are in the
