@@ -9,7 +9,6 @@ from mesh_contingency.commands.mailbox import MsgCommand, SetPassCommand
 from mesh_contingency.commands.users import (
     LeaveCommand,
     RemoveCommand,
-    RenameCommand,
     ResetPassCommand,
     UsersCommand,
     WhoAmICommand,
@@ -59,11 +58,10 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
             return commands[name]
 
         self.msg, self.setpass = make(MsgCommand, "msg"), make(SetPassCommand, "setpass")
-        self.users, self.whois, self.remove, self.rename, self.resetpass, self.whoami, self.leave = (
+        self.users, self.whois, self.remove, self.resetpass, self.whoami, self.leave = (
             make(cls, name) for cls, name in [
                 (UsersCommand, "users"), (WhoisCommand, "whois"), (RemoveCommand, "remove"),
-                (RenameCommand, "rename"), (ResetPassCommand, "resetpass"), (WhoAmICommand, "whoami"),
-                (LeaveCommand, "leave")])
+                (ResetPassCommand, "resetpass"), (WhoAmICommand, "whoami"), (LeaveCommand, "leave")])
 
     def in_file(self):
         return tomllib.loads(self.path.read_text())["users"]
@@ -128,20 +126,17 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
                          "that)")
         self.assertIn(ADMIN.public_key, self.directory.admins)
 
-    async def test_rename(self):
-        self.assertEqual((await self.rename.execute("alice AliceSmith", ADMIN)).reply,
-                         "rename: Alice is now AliceSmith")
-        self.assertEqual(self.in_file()[ALICE.public_key], {"name": "AliceSmith", "quickim": "alice@example.com"})
-        self.assertEqual((await self.rename.execute("AliceSmith   Al", ADMIN)).reply, "rename: AliceSmith is now Al")
-        with self.assertRaisesRegex(CommandError, "^rename: bob is already b0b0b0b0b0b0's name$"):
-            await self.rename.execute("Al bob", ADMIN)
-        for new in ["x" * 33, "Al Smith", "Al-Smith"]:
-            with self.assertRaisesRegex(CommandError, "^rename: name must be one word of letters and numbers"):
-                await self.rename.execute("Al " + new, ADMIN)
-        with self.assertRaisesRegex(CommandError, "^rename: that name isn't allowed; choose another$"):
-            await self.rename.execute("Al Sh1tHead", ADMIN)
-        with self.assertRaisesRegex(CommandError, r"^usage: rename <name or key> <new name>$"):
-            await self.rename.execute("Al", ADMIN)
+    async def test_names_with_spaces_and_shared_names(self):
+        self.directory.save_user(ALICE.public_key, {"name": "Ridge Base 1", "quickim": "alice@example.com"})
+        self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("ridge base 1", ADMIN)).reply)
+        self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("«Ridge Base 1»", ADMIN)).reply)
+        with self.assertRaisesRegex(CommandError, "^whois: no user «Ridge»"):
+            await self.whois.execute("«Ridge»", ADMIN)
+        self.directory.save_user(BOB.public_key, {"name": "ridge base 1"})
+        with self.assertRaisesRegex(CommandError, "^whois: 2 users are called Ridge Base 1; use the key prefix: "
+                                                  "a1a1a1a1a1a1, b0b0b0b0b0b0$"):
+            await self.whois.execute("«Ridge Base 1»", ADMIN)
+        self.assertIn("(b0b0b0b0b0b0)", (await self.whois.execute("b0b0", ADMIN)).reply)
 
     async def test_resetpass(self):
         await self.setpass.execute("blue-canoe-42x", ALICE)

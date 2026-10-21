@@ -80,7 +80,6 @@ cleargroup = { permission = "user" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }
-rename = { permission = "admin" }
 resetpass = { permission = "admin" }
 whoami = { permission = "user" }
 leave = { permission = "user" }

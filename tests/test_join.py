@@ -31,45 +31,40 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
             for cls, name in [(JoinCommand, "join"), (ApproveCommand, "approve"), (DenyCommand, "deny")])
 
     async def test_join_tells_the_admins(self):
-        result = await self.join.execute("BobSmith", BOB)
-        self.assertEqual(result.reply, "join: request sent to the admins")
-        notice = "Join request: BobSmith (b0b0b0b0b0b0). Reply approve b0b0b0b0b0b0 or deny b0b0b0b0b0b0"
+        result = await self.join.execute("", BOB)
+        self.assertEqual(result.reply, "join: request sent to the admins as BobNode")
+        notice = "Join request: BobNode (b0b0b0b0b0b0). Reply approve b0b0b0b0b0b0 or deny b0b0b0b0b0b0"
         self.assertEqual(self.sent, [(ADMIN.public_key, notice), (ADMIN2, notice)])
 
-    async def test_name_must_be_letters_and_numbers(self):
-        for name in ["Bob Smith", "Bob-Smith", "José", "x" * 33]:
-            with self.assertRaisesRegex(CommandError, "^join: name must be one word of letters and numbers, up to 32, "
-                                                      "e.g. SamJones$"):
-                await self.join.execute(name, BOB)
-        self.assertEqual(self.sent, [])
-
-    async def test_profane_names_are_refused(self):
-        for name in ["BigAss", "5h1t", "Fuckface"]:
-            with self.assertRaisesRegex(CommandError, "^join: that name isn't allowed; choose another$"):
-                await self.join.execute(name, BOB)
-        self.assertEqual(self.sent, [])
-
-    async def test_a_radio_name_is_kept_to_one_word(self):
-        result = await self.join.execute("", replace(BOB, name="Bob T-1000"))
-        self.assertEqual(result.reply,
-                         "join: request sent to the admins as BobT1000; send join <name> to choose another")
-        self.assertEqual(self.sent[0], (ADMIN.public_key, "Join request: BobT1000 (b0b0b0b0b0b0). "
+    async def test_the_radios_name_is_used_as_it_is(self):
+        result = await self.join.execute("", replace(BOB, name="Ridge Base 1"))
+        self.assertEqual(result.reply, "join: request sent to the admins as Ridge Base 1")
+        self.assertEqual(self.sent[0], (ADMIN.public_key, "Join request: Ridge Base 1 (b0b0b0b0b0b0). "
                                                           "Reply approve b0b0b0b0b0b0 or deny b0b0b0b0b0b0"))
-        self.assertEqual((await self.join.execute("Bob", BOB)).reply, "join: request updated")
-        self.assertIn("Bob (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
+        self.assertIn("Ridge Base 1 (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
 
-    async def test_a_radio_name_that_cant_be_used_needs_a_name(self):
-        for radio in ["\U0001f525", "Big Ass"]:
-            with self.assertRaisesRegex(CommandError, "^join: your radio's name can't be used; send join <name>$"):
+    async def test_a_name_given_to_join_is_ignored(self):
+        result = await self.join.execute("BobSmith", BOB)
+        self.assertEqual(result.reply,
+                         "join: request sent to the admins as BobNode; you're listed under your radio's name, "
+                         "not BobSmith")
+        self.assertIn("BobNode (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
+
+    async def test_radio_names_that_cant_be_used(self):
+        for radio, problem in [("Big Ass", "isn't allowed"), ("5h1t", "isn't allowed"),
+                               ("Bob\x1b[2J", "control characters"), ("«Bob»", "« or »"),
+                               ("b0b0b0b0b0b0", "has no name")]:  # no name: known by its key prefix
+            with self.subTest(radio=radio), self.assertRaisesRegex(CommandError, f"^join: your radio.*{problem}"):
                 await self.join.execute("", replace(BOB, name=radio))
         self.assertEqual(self.sent, [])
 
     async def test_asking_again_updates_without_telling_the_admins_again(self):
         await self.join.execute("", BOB)
         self.sent.clear()
-        self.assertEqual((await self.join.execute("Robert", BOB)).reply, "join: request updated")
+        reply = (await self.join.execute("", replace(BOB, name="Robert T-Deck"))).reply
+        self.assertEqual(reply, "join: request updated as Robert T-Deck")
         self.assertEqual(self.sent, [])
-        self.assertIn("Robert (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
+        self.assertIn("Robert T-Deck (b0b0b0b0b0b0)", (await self.approve.execute("", ADMIN)).reply)
 
     async def test_approve_writes_the_users_file(self):
         await self.join.execute("", BOB)  # the node's name
@@ -82,9 +77,17 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
                                       "Welcome, BobNode: you're now a user. Send help for your commands.")])
         self.assertEqual((await self.approve.execute("", ADMIN)).reply, "approve: no requests")
 
+    async def test_approve_by_name_with_spaces(self):
+        await self.join.execute("", replace(BOB, name="Ridge Base 1"))
+        await self.approve.execute("ridge base 1", ADMIN)
+        self.assertEqual(self.directory.users[BOB.public_key], {"name": "Ridge Base 1"})
+        await self.join.execute("", replace(CAROL, name="Base #2"))
+        await self.approve.execute("«Base #2»", ADMIN)
+        self.assertEqual(self.directory.users[CAROL.public_key], {"name": "Base #2"})
+
     async def test_list_and_choose_by_key_prefix(self):
-        await self.join.execute("Bob", BOB)
-        await self.join.execute("Bob", CAROL)
+        await self.join.execute("", replace(BOB, name="Bob"))
+        await self.join.execute("", replace(CAROL, name="Bob"))
         self.assertRegex((await self.approve.execute("", ADMIN)).reply,
                          r"^requests: Bob \(b0b0b0b0b0b0\) just now; Bob \(c0c0c0c0c0c0\) just now$")
         with self.assertRaisesRegex(CommandError, "2 requests match; use the key prefix: b0b0b0b0b0b0, c0c0c0c0c0c0"):
@@ -116,9 +119,6 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
             await self.join.execute("", DANA)
         with self.assertRaisesRegex(CommandError, "can't tell who you are"):
             await self.join.execute("", Sender("ffeeddccbbaa", None))
-        for name in ("x" * 33, "two\x00parts"):
-            with self.subTest(name=name), self.assertRaisesRegex(CommandError, "name must be"):
-                await self.join.execute(name, BOB)
         with self.assertRaisesRegex(CommandError, "^approve: no request from Zed$"):
             await self.approve.execute("Zed", ADMIN)
 
@@ -129,10 +129,12 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
             await self.join.execute("", BOB)
 
     async def test_names_that_could_break_the_file_are_refused(self):
-        for name in ['Bob"]\n[admin]', 'Bob"][admin]x=1']:
-            with self.assertRaisesRegex(CommandError, "letters and numbers"):
-                await self.join.execute(name, BOB)
-        self.assertEqual((await self.approve.execute("", ADMIN)).reply, "approve: no requests")
+        with self.assertRaisesRegex(CommandError, "control characters"):
+            await self.join.execute("", replace(BOB, name='Bob"]\n[admin]'))
+        # Quotes and brackets are written safely, as TOML text.
+        await self.join.execute("", replace(BOB, name='Bob"][admin]x=1'))
+        await self.approve.execute("b0b0", ADMIN)
+        self.assertEqual(self.directory.users[BOB.public_key], {"name": 'Bob"][admin]x=1'})
         self.assertEqual(self.directory.admins, {ADMIN.public_key, ADMIN2})
 
     async def test_user_added_by_hand_meanwhile(self):

@@ -1,6 +1,6 @@
 """history [page]: what admins have done, newest first.
 
-Approvals, refusals, removals, renames, cleared passphrases, cleared
+Approvals, refusals, removals, radio name changes, cleared passphrases, cleared
 check-ins and posted alerts, and users leaving, as recorded with
 State.record in history.json next to config.toml.
 """
@@ -11,7 +11,7 @@ from ..state import HISTORY_FILE, ago
 
 class HistoryCommand(Command):
     args = "[page]"
-    summary = "What admins have done (approve, remove, rename...), newest first"
+    summary = "What admins have done (approve, remove, resetpass...), newest first"
 
     def __init__(self, ctx):
         super().__init__(ctx)

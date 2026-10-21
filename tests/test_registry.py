@@ -34,7 +34,6 @@ from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, Stat
 from mesh_contingency.commands.users import (
     LeaveCommand,
     RemoveCommand,
-    RenameCommand,
     ResetPassCommand,
     UsersCommand,
     WhoAmICommand,
@@ -56,7 +55,7 @@ BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setquickim": SetQuickImCommand,
             "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
-            "whois": WhoisCommand, "remove": RemoveCommand, "rename": RenameCommand, "resetpass": ResetPassCommand,
+            "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,
             "whoami": WhoAmICommand, "leave": LeaveCommand}
 EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"
 

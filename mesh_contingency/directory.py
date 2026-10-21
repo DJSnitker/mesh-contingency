@@ -5,7 +5,7 @@
     keys = ["<64-hex public key>"]
 
     [users.<64-hex public key>]
-    name = "Alice"                    # for messages about the file; optional
+    name = "Alice T-Deck"             # the radio's name; kept up to date by the bot
     quickim = "someone@example.com"   # settings for the commands
 
 The bot checks the file every few seconds. A change is used only once the file
@@ -15,6 +15,11 @@ until the file is fixed.
 
 Commands can also write one user's section (approve, setquickim, ...). Only
 that section is rewritten; the rest of the file, comments included, is kept.
+
+A user's name is always their radio's name: the bot writes it when they join
+and updates it when it sees the radio go by another name. Commands that name
+a user accept it as typed ("msg Ridge Base 1 hi") or in « » ("msg «Ridge Base 1»
+hi"), which marks where a name with spaces or punctuation ends.
 """
 
 import asyncio
@@ -95,16 +100,43 @@ def possessive(name):
     return f"{name}'" if name.lower().endswith("s") else f"{name}'s"
 
 
+def unquote(text):
+    """(name, rest) for text starting with a name in « », e.g. "«Ridge Base 1» hi";
+    None if it doesn't start with «."""
+    text = text.lstrip()
+    if not text.startswith("«") or "»" not in text:
+        return None
+    name, _, rest = text[1:].partition("»")
+    return name.strip(), rest.strip()
+
+
+class AmbiguousUser(LookupError):
+    """Several users have the name; the message lists their key prefixes."""
+
+
 def find_user(users, text):
     """Return (public key, rest of text) for text starting with a user's name
-    or key prefix, or None. The longest name wins, so "Ann Lee hi" isn't for
-    "Ann"; a key prefix must match exactly one user."""
-    lowered = text.lower()
+    or key prefix, or None. A name may be in « ». Otherwise the longest name
+    wins, so "Ann Lee hi" isn't for "Ann"; a key prefix must match exactly one
+    user. Raises AmbiguousUser if several users have the name."""
+    def only(keys, name):
+        if len(keys) > 1:
+            raise AmbiguousUser(f"{len(keys)} users are called {name}; use the key prefix: "
+                                + ", ".join(sorted(k[:12] for k in keys)))
+        return keys[0]
+
     named = [(key, user["name"]) for key, user in users.items() if user.get("name")]
-    for key, name in sorted(named, key=lambda kn: -len(kn[1])):
+    quoted = unquote(text)
+    if quoted:
+        name, rest = quoted
+        keys = [key for key, n in named if n.lower() == name.lower()]
+        return (only(keys, name), rest) if keys else None
+    lowered = text.lower()
+    for _, name in sorted(named, key=lambda kn: -len(kn[1])):
         rest = text[len(name):]
         if lowered.startswith(name.lower()) and (not rest or rest[0].isspace()):
-            return key, rest.strip()
+            keys = [k for k, n in named if n.lower() == name.lower()]
+            return only(keys, name), rest.strip()
     first, _, rest = text.partition(" ")
     if KEY_PREFIX_RE.fullmatch(first.lower()):
         keys = [key for key in users if key.startswith(first.lower())]
@@ -305,17 +337,28 @@ class Directory:
         bot can't rewrite cleanly), nothing is written and DirectoryError
         says to edit the file by hand.
         """
-        return self._write(key, dict(settings))
+        return self._write({key: dict(settings)})
+
+    def save_users(self, changes):
+        """save_user for several users at once ({key: settings}), with one
+        backup and one reload."""
+        return self._write({key: dict(settings) for key, settings in changes.items()})
 
     def remove_user(self, key):
         """Remove one user's section from the users file and reload it.
         Returns the reload summary. Checked like save_user."""
-        return self._write(key, None)
+        return self._write({key: None})
 
-    def _write(self, key, settings):
-        """save_user, or remove_user if settings is None."""
+    def _write(self, changes):
+        """Write {key: settings, or None to remove the user} and reload."""
         def changed(users):
-            return {k: v for k, v in users.items() if k != key} if settings is None else {**users, key: settings}
+            users = dict(users)
+            for key, settings in changes.items():
+                if settings is None:
+                    users.pop(key, None)
+                else:
+                    users[key] = settings
+            return users
 
         if self.path is None:  # not kept in a file (tests)
             old = self._users
@@ -335,13 +378,15 @@ class Directory:
         except tomllib.TOMLDecodeError as e:
             raise DirectoryError(f"not valid TOML: {e}; fix it first") from None
         try:
-            new_text = with_user(text, key, settings)
+            new_text = text
+            for key, settings in changes.items():
+                new_text = with_user(new_text, key, settings)
             written = parse(tomllib.loads(new_text))
         except (ValueError, DirectoryError):  # TOMLDecodeError is a ValueError
             written = None
         if written != (changed(users), admins):
-            raise DirectoryError(f"can't be changed automatically; edit {possessive(describe(key, users))} "
-                                 f"section by hand")
+            who = ", ".join(possessive(describe(key, users)) for key in changes)
+            raise DirectoryError(f"can't be changed automatically; edit {who} section by hand")
         # Keep the version being replaced, then replace the file in one step,
         # keeping its permissions.
         mode = self.path.stat().st_mode & 0o777 if text else 0o600

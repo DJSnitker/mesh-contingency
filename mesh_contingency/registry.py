@@ -74,6 +74,12 @@ class CommandSpec:
     options: dict = field(default_factory=dict)
     rate: tuple | None = None  # (count, seconds) per sender, or None for no limit
 
+# Commands that used to exist, and why they went: a config that still lists
+# one gets a warning rather than failing to start.
+RETIRED = {
+    "rename": "names are now the radios' names, kept up to date by the bot",
+}
+
 
 class Registry:
     """The commands the config enables, checked before connecting to the radio."""
@@ -100,6 +106,10 @@ class Registry:
         self.factories = {}  # name -> imported Command subclass or function
 
         for name, section in sections.items():
+            if name in RETIRED and name not in available and not (isinstance(section, dict) and "handler" in section):
+                self.warnings.append(f"{name} no longer exists ({RETIRED[name]}); remove [commands.{name}] "
+                                     f"from the config.")
+                continue
             spec = self._check(name, section, available, self.limits)
             if spec is None:
                 self.disabled.append(name)

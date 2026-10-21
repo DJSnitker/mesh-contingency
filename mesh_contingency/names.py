@@ -1,17 +1,12 @@
-"""Checking the names people choose with join and rename.
+"""Checking a radio's name before its owner joins.
 
-A name is one word of ASCII letters and digits, so commands can always tell
-it from what follows, and every radio can show it. Names that are, or contain,
-profanity are refused. The list catches the obvious; an admin still approves
-every join.
+A user's name is always their radio's name, which they set on the radio, so
+it may have spaces and punctuation ("Ridge Base 1"). Names that are, or contain,
+profanity are refused at join; the list catches the obvious, and an admin
+still approves every join.
 """
 
 import re
-
-from .api import CommandError
-
-MAX_NAME = 32
-NAME_RE = re.compile(rf"[A-Za-z0-9]{{1,{MAX_NAME}}}")
 
 # Refused anywhere in a name, e.g. "BigShitHead". Rarely part of a real word.
 ANYWHERE = {
@@ -47,22 +42,13 @@ def is_profane(name):
 
 
 def name_problem(name):
-    """Why name can't be used, or None if it can."""
-    if not NAME_RE.fullmatch(name):
-        return f"name must be one word of letters and numbers, up to {MAX_NAME}, e.g. SamJones"
+    """Why a radio's name can't be used to join, or None if it can."""
+    if not name.strip():
+        return "your radio has no name; set one on the radio, send an advert and try again"
+    if any(ord(c) < 0x20 or 0x7f <= ord(c) < 0xa0 for c in name):
+        return "your radio's name has control characters; change it on the radio and try again"
+    if "«" in name or "»" in name:
+        return "your radio's name can't contain « or »; change it on the radio and try again"
     if is_profane(name):
-        return "that name isn't allowed; choose another"
+        return "your radio's name isn't allowed; change it on the radio and try again"
     return None
-
-
-def check_name(command, name):
-    """Raise CommandError if name can't be used."""
-    problem = name_problem(name)
-    if problem:
-        raise CommandError(f"{command}: {problem}")
-
-
-def suggest(name):
-    """A usable name made from name (a radio's name, say), or None."""
-    letters = re.sub(r"[^A-Za-z0-9]", "", name)[:MAX_NAME]
-    return letters if letters and not name_problem(letters) else None

@@ -5,6 +5,7 @@ import io
 import os
 import signal
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -83,7 +84,6 @@ cleargroup = { permission = "user" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }
-rename = { permission = "admin" }
 resetpass = { permission = "admin" }
 whoami = { permission = "user" }
 leave = { permission = "user" }
@@ -261,7 +261,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user commands (1 user(s)): quickim, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setquickim, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, health, history, alert, "
-                      "approve, deny, users, whois, remove, rename, resetpass\n", out)
+                      "approve, deny, users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -790,7 +790,7 @@ permission = "public"
         # Too long for one message, so it comes in two.
         self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, "
                                                    "clearstatus, health, history, alert, join, approve, deny, users, "
-                                                   "whois, remove, rename, resetpass, echo, slow, secret. "
+                                                   "whois, remove, resetpass, echo, slow, secret. "
                                                    "Send help <command> for usage"))
         self.assertEqual(replies[3], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
         self.assertEqual(replies[4], "help: no command secret")
@@ -859,27 +859,61 @@ permission = "public"
     # --- joining and users' own settings
 
     async def test_join_approve_and_use(self):
-        await self.start()
-        await self.radio.dm(STRANGER, "join Sam")
+        await self.start(contacts={DANA: "Dana", ADMIN_KEY: "Admin", STRANGER: "Sam T-Deck"})
+        await self.radio.dm(STRANGER, "join")
         await self.settle()
         # The reply and the background notice may go out in either order.
         self.assertCountEqual(self.radio.sent, [
-            ("Stranger", "join: request sent to the admins"),
-            ("Admin", "Join request: Sam (ffeeddccbbaa). Reply approve ffeeddccbbaa or deny ffeeddccbbaa")])
+            ("Sam T-Deck", "join: request sent to the admins as Sam T-Deck"),
+            ("Admin", "Join request: Sam T-Deck (ffeeddccbbaa). Reply approve ffeeddccbbaa or deny ffeeddccbbaa")])
         self.radio.sent.clear()
-        await self.radio.dm(ADMIN_KEY, "approve ffeeddccbbaa")
+        await self.radio.dm(ADMIN_KEY, "approve «Sam T-Deck»")
         await self.settle()
         self.assertCountEqual(self.radio.sent, [
-            ("Admin", "approve: Sam added to users.toml"),
-            ("Stranger", "Welcome, Sam: you're now a user. Send help for your commands.")])
-        self.assertIn("users.toml reloaded: added Sam", self.out.getvalue())
-        self.assertIn(f'[users.{full_key(STRANGER)}]\nname = "Sam"\n', self.users_file.read_text())
+            ("Admin", "approve: Sam T-Deck added to users.toml"),
+            ("Sam T-Deck", "Welcome, Sam T-Deck: you're now a user. Send help for your commands.")])
+        self.assertIn("users.toml reloaded: added Sam T-Deck", self.out.getvalue())
+        self.assertIn(f'[users.{full_key(STRANGER)}]\nname = "Sam T-Deck"\n', self.users_file.read_text())
+        await self.radio.dm(DANA, "msg Sam T-Deck see you at noon")
+        self.assertEqual(self.replies()[-1], "msg: saved for Sam T-Deck (1 in their inbox)")
         self.assertNotIn(full_key(STRANGER), self.out.getvalue())
         await self.radio.dm(STRANGER, "setquickim sam.home@example.com")
         self.assertEqual(self.replies()[-1], "quickim now sends to sam.home@example.com")
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
             await self.radio.dm(STRANGER, "quickim hello")
         self.assertEqual(send_email.call_args.args[0], ["sam.home@example.com"])
+
+    # --- names come from the radios
+
+    async def test_names_are_set_from_the_radios_at_startup(self):
+        await self.start(contacts={DANA: "Ridge Base 1", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
+        self.assertIn("Dana (d0d0d0d0d0d0) is now Ridge Base 1, the radio's name", self.out.getvalue())
+        self.assertEqual(tomllib.loads(self.users_file.read_text())["users"][full_key(DANA)],
+                         {"name": "Ridge Base 1", "quickim": "partner@example.com"})
+        self.assertEqual(len(list((self.users_file.parent / "backups").glob("users-*.toml"))), 1)
+        await self.radio.dm(ADMIN_KEY, "history")
+        self.assertIn("radio: Dana (d0d0d0d0d0d0) is now Ridge Base 1", self.replies()[-1])
+
+    async def test_a_new_radio_name_is_picked_up_from_a_message(self):
+        await self.start()
+        self.radio.known[DANA] = "Dana's T-Deck"
+        await self.radio.dm(DANA, "whoami")
+        self.assertTrue(self.replies()[-1].startswith("Dana's T-Deck (d0d0d0d0d0d0)"), self.replies()[-1])
+        self.assertIn('name = "Dana\'s T-Deck"', self.users_file.read_text())
+
+    async def test_a_radio_name_that_cant_be_used_is_not_taken(self):
+        await self.start()
+        self.radio.known[DANA] = "Big Ass"
+        await self.radio.dm(DANA, "whoami")
+        await self.radio.dm(DANA, "whoami")
+        warning = "Warning: Dana's radio is now called 'Big Ass', which can't be used; keeping Dana"
+        self.assertEqual(self.out.getvalue().count(warning), 1)
+        self.assertIn('name = "Dana"', self.users_file.read_text())
+
+    async def test_a_config_still_listing_rename_starts_with_a_warning(self):
+        await self.start(config=CONFIG + 'rename = { permission = "admin" }\n')
+        self.assertIn("rename no longer exists (names are now the radios' names, kept up to date by the bot); "
+                      "remove [commands.rename] from the config.", self.out.getvalue())
 
     # --- command failures
 

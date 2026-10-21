@@ -13,7 +13,7 @@ from mesh_contingency.commands.history import HistoryCommand
 from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
 from mesh_contingency.commands.mailbox import SetPassCommand
 from mesh_contingency.commands.status import ClearStatusCommand, OkCommand
-from mesh_contingency.commands.users import LeaveCommand, RemoveCommand, RenameCommand, ResetPassCommand
+from mesh_contingency.commands.users import LeaveCommand, RemoveCommand, ResetPassCommand
 from mesh_contingency.directory import Directory
 from mesh_contingency.state import HISTORY_FILE, MAX_HISTORY, State
 from mesh_contingency.testing import FakeMeshCore, make_context
@@ -48,9 +48,9 @@ class HistoryCommandTest(unittest.IsolatedAsyncioTestCase):
     async def test_newest_first(self):
         with mock.patch("mesh_contingency.state.time.time", return_value=time.time() - 7200):
             self.state.record("Admin", "approved Sam (5a3e1c7b9d20)")
-        self.state.record("Admin", "renamed Sam to SamJones (5a3e1c7b9d20)")
+        self.state.record("Admin", "removed Sam (5a3e1c7b9d20), 0 message(s) deleted")
         reply = (await self.history.execute("", ADMIN)).reply
-        self.assertEqual(reply, ["history (2): just now Admin: renamed Sam to SamJones (5a3e1c7b9d20); "
+        self.assertEqual(reply, ["history (2): just now Admin: removed Sam (5a3e1c7b9d20), 0 message(s) deleted; "
                                  "2h ago Admin: approved Sam (5a3e1c7b9d20)"])
 
     async def test_pages(self):
@@ -102,22 +102,19 @@ class RecordedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.recorded(), [("Admin", "approved BobNode (b0b0b0b0b0b0)"),
                                            ("Admin", "denied CarolNode (c0c0c0c0c0c0)")])
 
-    async def test_rename_resetpass_remove_leave(self):
-        rename, resetpass, remove, leave = (self.make(cls, name) for cls, name in [
-            (RenameCommand, "rename"), (ResetPassCommand, "resetpass"), (RemoveCommand, "remove"),
-            (LeaveCommand, "leave")])
+    async def test_resetpass_remove_leave(self):
+        resetpass, remove, leave = (self.make(cls, name) for cls, name in [
+            (ResetPassCommand, "resetpass"), (RemoveCommand, "remove"), (LeaveCommand, "leave")])
         await self.make(SetPassCommand, "setpass").execute("blue-canoe-42x", ALICE)
-        await rename.execute("alice Ally", ADMIN)
-        await resetpass.execute("ally", ADMIN)
-        await remove.execute("ally", ADMIN)
-        self.assertEqual(len(self.recorded()), 2)  # remove asks first
-        await remove.execute("ally", ADMIN)
+        await resetpass.execute("alice", ADMIN)
+        await remove.execute("alice", ADMIN)
+        self.assertEqual(len(self.recorded()), 1)  # remove asks first
+        await remove.execute("alice", ADMIN)
         await leave.execute("", ADMIN)
         await leave.execute("", ADMIN)
         self.assertEqual(self.recorded(), [
-            ("Admin", "renamed Alice to Ally (a1a1a1a1a1a1)"),
-            ("Admin", "cleared Ally's passphrase (a1a1a1a1a1a1), 0 sealed message(s) deleted"),
-            ("Admin", "removed Ally (a1a1a1a1a1a1), 0 message(s) deleted"),
+            ("Admin", "cleared Alice's passphrase (a1a1a1a1a1a1), 0 sealed message(s) deleted"),
+            ("Admin", "removed Alice (a1a1a1a1a1a1), 0 message(s) deleted"),
             ("Admin", "left the users (adadadadadad)"),
         ])
 

@@ -9,6 +9,7 @@ import re
 import time
 
 from ..api import Command, CommandError, CommandResult
+from ..directory import unquote
 from ..state import ago
 
 FILENAME = "status.json"
@@ -50,8 +51,10 @@ class StatusCommand(StatusBase):
 
     def find(self, text):
         """Keys of the statuses whose name matches text (exactly, or else as
-        part of the name), or else whose key starts with it."""
-        wanted = text.lower()
+        part of the name), or else whose key starts with it. The name may be
+        in « »."""
+        quoted = unquote(text)
+        wanted = (quoted[0] if quoted and not quoted[1] else text).lower()
         for match in (lambda key, entry: entry["name"].lower() == wanted,
                       lambda key, entry: wanted in entry["name"].lower(),
                       lambda key, entry: KEY_PREFIX_RE.fullmatch(wanted) and key.startswith(wanted)):

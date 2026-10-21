@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mesh_contingency.directory import (
     BACKUPS,
+    AmbiguousUser,
     Directory,
     DirectoryError,
     find_user,
@@ -14,6 +15,7 @@ from mesh_contingency.directory import (
     possessive,
     summarize,
     toml_value,
+    unquote,
     with_user,
 )
 
@@ -241,6 +243,12 @@ class SaveUserTest(unittest.TestCase):
         self.directory = Directory(path=self.path)
         self.directory.load()
 
+    def test_save_several_users_at_once(self):
+        changes = {ALICE: {"name": "Ridge Base 1", "quickim": "alice@example.com"}, BOB: {"name": "Bob's T-Deck"}}
+        self.assertEqual(self.directory.save_users(changes), "added Bob's T-Deck; changed Ridge Base 1")
+        self.assertEqual(self.directory.users[ALICE]["name"], "Ridge Base 1")
+        self.assertEqual(len(list((self.folder / "backups").iterdir())), 1)  # one backup for both
+
     def test_add_a_user(self):
         self.assertEqual(self.directory.save_user(BOB, {"name": "Bob"}), "added Bob")
         self.assertEqual(self.directory.users[BOB], {"name": "Bob"})
@@ -352,6 +360,30 @@ class FindUserTest(unittest.TestCase):
         self.assertEqual(find_user(self.USERS, "ANN hi"), (ALICE, "hi"))
         self.assertEqual(find_user(self.USERS, "Ann"), (ALICE, ""))
         self.assertIsNone(find_user(self.USERS, "Annie hi"))
+
+    def test_radio_names_with_spaces_and_punctuation(self):
+        users = {ALICE: {"name": "Ridge Base 1"}, BOB: {"name": "Base #2 (north)"}}
+        self.assertEqual(find_user(users, "ridge base 1 meet at 5"), (ALICE, "meet at 5"))
+        self.assertEqual(find_user(users, "Base #2 (north) ok"), (BOB, "ok"))
+        self.assertEqual(find_user(users, "«ridge base 1» meet at 5"), (ALICE, "meet at 5"))
+        self.assertEqual(find_user(users, "«Base #2 (north)»ok"), (BOB, "ok"))
+        self.assertEqual(find_user(users, "« Ridge Base 1 »"), (ALICE, ""))
+        self.assertIsNone(find_user(users, "«Ridge» R1 hi"))  # in « », the whole name
+
+    def test_shared_names(self):
+        users = {ALICE: {"name": "Heltec V3"}, BOB: {"name": "heltec v3"}, ADMIN: {"name": "Heltec V3 Base"}}
+        with self.assertRaisesRegex(AmbiguousUser, "^2 users are called Heltec V3; use the key prefix: "
+                                                   "a1a1a1a1a1a1, b0b0b0b0b0b0$"):
+            find_user(users, "Heltec V3 hi")
+        with self.assertRaises(AmbiguousUser):
+            find_user(users, "«heltec v3» hi")
+        self.assertEqual(find_user(users, "Heltec V3 Base hi"), (ADMIN, "hi"))
+        self.assertEqual(find_user(users, "b0b0 hi"), (BOB, "hi"))
+
+    def test_unquote(self):
+        self.assertEqual(unquote("«Sam T-Deck» hello"), ("Sam T-Deck", "hello"))
+        self.assertIsNone(unquote("Sam hello"))
+        self.assertIsNone(unquote("«Sam hello"))  # never closed
 
     def test_key_prefixes(self):
         self.assertEqual(find_user(self.USERS, "ADAD hello"), (ADMIN, "hello"))
