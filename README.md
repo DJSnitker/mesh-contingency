@@ -363,10 +363,11 @@ accepted. Each user's settings are read by the commands: `quickim` and
 A `name` is one word of ASCII letters and digits, up to 32, so commands can
 always tell a name from what follows it and every radio can show it. If
 desired, nicknames are acceptable (`Sparky`); for a first and last name, use
-CamelCase (`AnnLee`). `join` and `rename` refuse anything else, and profane
-names (see `mesh_contingency/names.py` for the list). A name typed into the
-file by hand isn't checked; it still loads and works, but keep to the same
-rule.
+CamelCase (`AnnLee`). A plain `join` uses the radio's name with spaces and
+symbols taken out (`Ann T-1000` becomes `AnnT1000`). `join` and `rename` refuse
+anything else, and profane names (see `mesh_contingency/names.py` for the
+list). A name typed into the file by hand isn't checked; it still loads and
+works, but keep to the same rule.
 
 The bot checks the file every 5 seconds and applies changes without a restart,
 logging what changed, e.g. `users.toml reloaded: added Bob; changed Alice`. A
