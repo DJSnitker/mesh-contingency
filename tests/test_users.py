@@ -129,13 +129,13 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
     async def test_names_with_spaces_and_shared_names(self):
         self.directory.save_user(ALICE.public_key, {"name": "Ridge Base 1", "qm": "alice@example.com"})
         self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("ridge base 1", ADMIN)).reply)
-        self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("«Ridge Base 1»", ADMIN)).reply)
-        with self.assertRaisesRegex(CommandError, "^whois: no user «Ridge»"):
-            await self.whois.execute("«Ridge»", ADMIN)
+        self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("(Ridge Base 1)", ADMIN)).reply)
+        with self.assertRaisesRegex(CommandError, r"^whois: no user \(Ridge\)"):
+            await self.whois.execute("(Ridge)", ADMIN)
         self.directory.save_user(BOB.public_key, {"name": "ridge base 1"})
         with self.assertRaisesRegex(CommandError, "^whois: 2 users are called Ridge Base 1; use the key prefix: "
                                                   "a1a1a1a1a1a1, b0b0b0b0b0b0$"):
-            await self.whois.execute("«Ridge Base 1»", ADMIN)
+            await self.whois.execute("(Ridge Base 1)", ADMIN)
         self.assertIn("(b0b0b0b0b0b0)", (await self.whois.execute("b0b0", ADMIN)).reply)
 
     async def test_resetpass(self):

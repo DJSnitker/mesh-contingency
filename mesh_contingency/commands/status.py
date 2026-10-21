@@ -52,7 +52,7 @@ class StatusCommand(StatusBase):
     def find(self, text):
         """Keys of the statuses whose name matches text (exactly, or else as
         part of the name), or else whose key starts with it. The name may be
-        in « »."""
+        in ( )."""
         quoted = unquote(text)
         wanted = (quoted[0] if quoted and not quoted[1] else text).lower()
         for match in (lambda key, entry: entry["name"].lower() == wanted,

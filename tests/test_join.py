@@ -52,7 +52,7 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_radio_names_that_cant_be_used(self):
         for radio, problem in [("Big Ass", "isn't allowed"), ("5h1t", "isn't allowed"),
-                               ("Bob\x1b[2J", "control characters"), ("«Bob»", "« or »"),
+                               ("Bob\x1b[2J", "control characters"), ("Bob (base)", r"\( or \)"),
                                ("b0b0b0b0b0b0", "has no name")]:  # no name: known by its key prefix
             with self.subTest(radio=radio), self.assertRaisesRegex(CommandError, f"^join: your radio.*{problem}"):
                 await self.join.execute("", replace(BOB, name=radio))
@@ -82,7 +82,7 @@ class JoinTest(unittest.IsolatedAsyncioTestCase):
         await self.approve.execute("ridge base 1", ADMIN)
         self.assertEqual(self.directory.users[BOB.public_key], {"name": "Ridge Base 1"})
         await self.join.execute("", replace(CAROL, name="Base #2"))
-        await self.approve.execute("«Base #2»", ADMIN)
+        await self.approve.execute("(Base #2)", ADMIN)
         self.assertEqual(self.directory.users[CAROL.public_key], {"name": "Base #2"})
 
     async def test_list_and_choose_by_key_prefix(self):

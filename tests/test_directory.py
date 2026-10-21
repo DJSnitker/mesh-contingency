@@ -362,13 +362,13 @@ class FindUserTest(unittest.TestCase):
         self.assertIsNone(find_user(self.USERS, "Annie hi"))
 
     def test_radio_names_with_spaces_and_punctuation(self):
-        users = {ALICE: {"name": "Ridge Base 1"}, BOB: {"name": "Base #2 (north)"}}
+        users = {ALICE: {"name": "Ridge Base 1"}, BOB: {"name": "Base #2 North"}}
         self.assertEqual(find_user(users, "ridge base 1 meet at 5"), (ALICE, "meet at 5"))
-        self.assertEqual(find_user(users, "Base #2 (north) ok"), (BOB, "ok"))
-        self.assertEqual(find_user(users, "«ridge base 1» meet at 5"), (ALICE, "meet at 5"))
-        self.assertEqual(find_user(users, "«Base #2 (north)»ok"), (BOB, "ok"))
-        self.assertEqual(find_user(users, "« Ridge Base 1 »"), (ALICE, ""))
-        self.assertIsNone(find_user(users, "«Ridge» R1 hi"))  # in « », the whole name
+        self.assertEqual(find_user(users, "Base #2 North ok"), (BOB, "ok"))
+        self.assertEqual(find_user(users, "(ridge base 1) meet at 5"), (ALICE, "meet at 5"))
+        self.assertEqual(find_user(users, "(Base #2 North)ok"), (BOB, "ok"))
+        self.assertEqual(find_user(users, "( Ridge Base 1 )"), (ALICE, ""))
+        self.assertIsNone(find_user(users, "(Ridge) R1 hi"))  # in ( ), the whole name
 
     def test_shared_names(self):
         users = {ALICE: {"name": "Heltec V3"}, BOB: {"name": "heltec v3"}, ADMIN: {"name": "Heltec V3 Base"}}
@@ -376,14 +376,14 @@ class FindUserTest(unittest.TestCase):
                                                    "a1a1a1a1a1a1, b0b0b0b0b0b0$"):
             find_user(users, "Heltec V3 hi")
         with self.assertRaises(AmbiguousUser):
-            find_user(users, "«heltec v3» hi")
+            find_user(users, "(heltec v3) hi")
         self.assertEqual(find_user(users, "Heltec V3 Base hi"), (ADMIN, "hi"))
         self.assertEqual(find_user(users, "b0b0 hi"), (BOB, "hi"))
 
     def test_unquote(self):
-        self.assertEqual(unquote("«Sam T-Deck» hello"), ("Sam T-Deck", "hello"))
+        self.assertEqual(unquote("(Sam T-Deck) hello"), ("Sam T-Deck", "hello"))
         self.assertIsNone(unquote("Sam hello"))
-        self.assertIsNone(unquote("«Sam hello"))  # never closed
+        self.assertIsNone(unquote("(Sam hello"))  # never closed
 
     def test_key_prefixes(self):
         self.assertEqual(find_user(self.USERS, "ADAD hello"), (ADMIN, "hello"))

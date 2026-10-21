@@ -43,9 +43,10 @@ each; anything that fails becomes a bug fix before item 2.
   `sealed`, not the text.
 - **Joining (names are radios' names, PR #18):** `join` from a radio named
   with a space (e.g. `Sam T-Deck`) asks under exactly that name; `join` from a
-  radio with a profane name is refused; `approve «Sam T-Deck»` works.
-- **Names with spaces:** `msg sam t-deck hi` and `msg «Sam T-Deck» hi` both
-  reach the user; `whois «Sam T-Deck»` shows them; `status sam` finds their
+  radio with a profane name, or one with parentheses, is refused;
+  `approve (Sam T-Deck)` works.
+- **Names with spaces:** `msg sam t-deck hi` and `msg (Sam T-Deck) hi` both
+  reach the user; `whois (Sam T-Deck)` shows them; `status sam` finds their
   check-in.
 - **Renamed radio:** rename a user's radio in the app, send the node any
   command from it; the log shows `... is now <new name>, the radio's name`,
@@ -67,7 +68,7 @@ each; anything that fails becomes a bug fix before item 2.
 - Bump `version` to `0.3.0`.
 - New `CHANGELOG.md` (Keep a Changelog style): an entry for 0.3.0 summarising
   sealed mailboxes, user management, limits, adverts and `contacts`,
-  names taken from the radios (with `« »` for names with spaces, and
+  names taken from the radios (with `( )` around names with spaces, and
   `rename` removed), `quickim` renamed `qm` (and `setquickim` `setqm`), and
   the profanity filter, the systemd service, `health`,
   `history` and backups, the hardening, the wiki and logo. Note what existing

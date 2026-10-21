@@ -867,7 +867,7 @@ permission = "public"
             ("Sam T-Deck", "join: request sent to the admins as Sam T-Deck"),
             ("Admin", "Join request: Sam T-Deck (ffeeddccbbaa). Reply approve ffeeddccbbaa or deny ffeeddccbbaa")])
         self.radio.sent.clear()
-        await self.radio.dm(ADMIN_KEY, "approve «Sam T-Deck»")
+        await self.radio.dm(ADMIN_KEY, "approve (Sam T-Deck)")
         await self.settle()
         self.assertCountEqual(self.radio.sent, [
             ("Admin", "approve: Sam T-Deck added to users.toml"),
