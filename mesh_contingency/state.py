@@ -74,6 +74,7 @@ class State:
         # "undelivered" (of those) and "errors" (commands that failed or timed out).
         self.counts = Counter()
         self.last_error = None  # (time.time(), e.g. "wx failed")
+        self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self._stores = {}
 
     def saw(self, key, name):

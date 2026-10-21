@@ -16,6 +16,7 @@ from pathlib import Path
 
 from meshcore import EventType, MeshCore
 
+from .alerts import AlertWatcher, load_alerts
 from .api import (
     ADMIN,
     DISABLED,
@@ -130,6 +131,7 @@ async def _main():
     notify_admins = load_notify_admins(config)
     max_new_per_hour, notices_per_hour = load_contact_limits(config)
     advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
+    alert_settings = load_alerts(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -322,6 +324,11 @@ async def _main():
         print(f"Sending a {'flood' if advert_flood else 'zero-hop'} advert every {advert_every_hours:g} hour(s); "
               f"next {'now' if not wait else 'in ' + wait_text(wait)}.")
         adverts = asyncio.create_task(advert_on_schedule(mc, advert_times, advert_every_hours, advert_flood))
+    auto_alerts = None
+    if alert_settings.counties:
+        alert_watcher = state.alert_watcher = AlertWatcher(mc, alert_settings, state)
+        print(f"Watching NWS alerts for {alert_watcher.describe()}.")
+        auto_alerts = asyncio.create_task(alert_watcher.run())
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
@@ -518,6 +525,8 @@ async def _main():
         summaries.cancel()
         if adverts:
             adverts.cancel()
+        if auto_alerts:
+            auto_alerts.cancel()
         if stop_console:
             stop_console()
         with contextlib.suppress(AttributeError, NotImplementedError):

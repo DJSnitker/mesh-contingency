@@ -5,6 +5,27 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (while below 1.0, a minor version
 may change how the bot is configured).
 
+## [Unreleased]
+
+### Added
+
+- **Automatic weather alerts** (`[alerts]` in `config.toml`): the bot checks
+  the National Weather Service for the listed `counties` (`"Taylor, TX"`)
+  every `every_minutes` (default 10) and posts each new alert to the alert
+  channel once, named by county, with no admin needed. Each county's NWS
+  code is looked up once and kept, so each round is a single request for
+  every county. Already-posted alerts are kept in `alerts.json` too, so a
+  restart doesn't repost. Posts show in `history` as by "auto", and `health`
+  shows when it last checked. Off unless counties are listed.
+- **`alertmap [county, ST]`** (admins): look up the NWS codes of the watched
+  counties again.
+
+### Changed
+
+- **`alert <message>`** posts an admin's own message to the alert channel,
+  instead of a zipcode's NWS alerts (the automatic alerts do that now, and
+  `wx <zipcode>` shows a zipcode's alerts to anyone).
+
 ## [0.3.0] - 2026-10-21
 
 The node becomes something a group can rely on in an emergency: people join
@@ -119,4 +140,5 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[Unreleased]: https://github.com/DJSnitker/mesh-contingency/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.3.0
