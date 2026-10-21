@@ -16,39 +16,46 @@ one exception is outgoing: `alert` posts weather alerts to a public channel.
 
 ## Commands
 
+Full usage, examples and how-to guides are in the
+[wiki](https://github.com/DJSnitker/mesh-contingency/wiki):
+
+- [Commands (A–Z)](https://github.com/DJSnitker/mesh-contingency/wiki/Commands): every command with usage, permissions and examples
+- [User Guide](https://github.com/DJSnitker/mesh-contingency/wiki/User-Guide): joining, check-ins, messages, passphrases, email
+- [Admin Guide](https://github.com/DJSnitker/mesh-contingency/wiki/Admin-Guide): adding and managing users, adverts, alerts, troubleshooting
+
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
-| `help [command]` | anyone | Lists the commands the sender may run, or shows how to use one. Commands the sender can't run aren't mentioned. |
-| `wx <zipcode>` | anyone | Current conditions, chance of precipitation and active NWS alerts for a US zipcode. Full report on the console; a ≤133-char summary is sent back, prioritizing alerts, then precipitation, then temperature and wind. |
-| `verse [reference]` | anyone | A Bible verse or short passage from the Berean Standard Bible, e.g. `verse john 3:16` or `verse ps 23:1-3`; plain `verse` gives the verse of the day. Works offline. |
-| `quickim <message>` | users | Emails the message to the sender's preset contact. |
-| `emailall <message>` | users | Emails the message to the sender's preset group of addresses. |
-| `email <address> <message>` | users | Emails the message to the given address. |
-| `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. To advert without the mesh, see [While it runs](#while-it-runs). |
-| `contacts [name or key] [page]` | admins | The radio's contacts with their key prefixes, marking users, admins and non-chat nodes, e.g. `Alice a1b2c3d4e5f6 (user)`; with a name or key start, only those that match. Long lists come in pages (`contacts 2`). |
-| `reload` | admins | Reads the [users file](#users-file) now and replies with what changed. |
-| `ok [status]` | anyone | Checks in: saves the sender's name, key and status (plain `ok` if none given), replacing their last one. |
-| `status <name or key>` | anyone | Shows the last check-in of anyone whose name matches (exactly, else in part) or whose key starts with the given hex (4+ characters), e.g. `Bob: at the shelter (2h ago)`. Plain `status` shows your own. |
-| `clearstatus` | admins | Deletes every check-in. |
-| `roster` | admins | The node names (as their radios advertise them) of everyone who has direct-messaged the node since the bot started, most recent first. |
-| `msg <name> <message>` | users | Leaves a message for a user (by their name in the users file, or key prefix). Up to 20 are kept per person. |
-| `inbox [passphrase] [page]` | users | Sends you your messages, oldest first. They stay until you clear them; if they don't fit in one reply (8 messages), `inbox 2` shows the next page. With a passphrase set, plain `inbox` only says who left messages and when; `inbox <passphrase>` (and `inbox <passphrase> 2`) shows them. |
-| `clearinbox [all]` | users | Deletes the messages `inbox` has shown you; any that arrived since are kept. `clearinbox all` deletes every message, unread and sealed ones too. |
-| `setpass <passphrase>` | users | Seals new messages to you with a passphrase of 12 to 16 characters, no spaces. See [Sealed messages](#sealed-messages). |
-| `join [name]` | anyone | Asks to become a user, under the given name or the node's own. Every admin gets a direct message about it. |
-| `approve [name or key]` | admins | Adds the person who asked to the [users file](#users-file) and welcomes them by direct message. Plain `approve` lists the waiting requests. |
-| `deny <name or key>` | admins | Removes a request to join. The person isn't told. |
-| `setquickim <address>` | users | Sets the address your `quickim` sends to. Plain `setquickim` shows it. |
-| `addgroup <address>` | users | Adds an address to the group your `emailall` sends to (up to 10). Plain `addgroup` lists them. |
-| `cleargroup` | users | Empties your `emailall` group. |
-| `whoami` | users | What the node knows about you: name, key prefix, passphrase set or not, your settings, messages waiting, admin or not. |
-| `leave` | users | Takes you out of the users file and deletes your messages, after you confirm. |
-| `users [page]` | admins | Lists the users with their key prefixes and what each has set, e.g. `Alice a1b2c3d4e5f6 (pass, quickim)`. |
-| `whois <name or key>` | admins | Shows one user, as `whoami` does. |
-| `remove <name or key>` | admins | Takes a user out of the users file and deletes their messages, after you confirm. Admin rights stay until `[admin] keys` is edited. |
-| `rename <name or key> <new name>` | admins | Changes a user's name (up to 32 characters, not already used by another user). |
-| `resetpass <name or key>` | admins | For a forgotten passphrase: clears the user's `inbox_key` and deletes their sealed messages, after you confirm, and tells the user. |
-| `alert <zipcode>` | admins | Posts the zipcode's active NWS alerts to the public channel `#contingency-wx`, one message each, or `No alerts active for <zipcode>`. |
+| `addgroup <address>` | users | Add an address to your emailall group; alone, list it |
+| `advert [flood]` | admins | Make the radio advertise itself (see [While it runs](#while-it-runs)) |
+| `alert <zipcode>` | admins | Post weather alerts to `#contingency-wx` |
+| `approve [name or key]` | admins | Approve a join request; alone, list them |
+| `cleargroup` | users | Empty your emailall group |
+| `clearinbox [all]` | users | Delete the messages you've read, or all of them |
+| `clearstatus` | admins | Delete every check-in |
+| `contacts [name or key] [page]` | admins | List the radio's contacts |
+| `deny <name or key>` | admins | Turn down a join request |
+| `email <address> <message>` | users | Email any address |
+| `emailall <message>` | users | Email your group |
+| `help [command]` | anyone | List your commands, or how to use one |
+| `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
+| `join [name]` | anyone | Ask to become a user |
+| `leave` | users | Stop being a user |
+| `msg <name> <message>` | users | Leave a message for another user |
+| `ok [status]` | anyone | Check in: tell others you're ok |
+| `quickim <message>` | users | Email your preset contact |
+| `reload` | admins | Re-read the [users file](#users-file) now |
+| `remove <name or key>` | admins | Remove a user and their messages |
+| `rename <name or key> <new name>` | admins | Change a user's name |
+| `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
+| `roster` | admins | Who has messaged the node since it started |
+| `setpass <passphrase>` | users | Seal your messages with a passphrase |
+| `setquickim <address>` | users | Set your quickim address; alone, show it |
+| `status <name or key>` | anyone | See someone's last check-in |
+| `users [page]` | admins | List the users and what each has set |
+| `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
+| `whoami` | users | What the node knows about you |
+| `whois <name or key>` | admins | What the node knows about a user |
+| `wx <zipcode>` | anyone | Weather and alerts for a US zipcode |
 
 Command names are case-insensitive. Everything after the command name is
 passed through as typed. Replies too long for one 133-character message are
