@@ -21,6 +21,7 @@ from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.contacts import ContactsCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
+from mesh_contingency.commands.health import HealthCommand
 from mesh_contingency.commands.help import HelpCommand
 from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
 from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
@@ -49,7 +50,7 @@ BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "quickim": QuickImCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
-            "roster": RosterCommand, "msg": MsgCommand, "inbox": InboxCommand,
+            "roster": RosterCommand, "health": HealthCommand, "msg": MsgCommand, "inbox": InboxCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setquickim": SetQuickImCommand,
             "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,

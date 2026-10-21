@@ -8,6 +8,7 @@ written readable only by their owner.
 import json
 import os
 import time
+from collections import Counter
 from pathlib import Path
 
 from .limits import EmailLog
@@ -64,12 +65,21 @@ class State:
         # (name, time last seen), least recently seen first
         self.seen = {}
         self.emails = EmailLog()  # for the email caps, shared by every email command
+        # Since startup, for health: "messages" in, "sent" (replies and notices),
+        # "undelivered" (of those) and "errors" (commands that failed or timed out).
+        self.counts = Counter()
+        self.last_error = None  # (time.time(), e.g. "wx failed")
         self._stores = {}
 
     def saw(self, key, name):
         """Record a direct message from this sender."""
         self.seen.pop(key, None)
         self.seen[key] = (name, time.time())
+
+    def error(self, what):
+        """Record a command that failed or timed out, e.g. "wx failed"."""
+        self.counts["errors"] += 1
+        self.last_error = (time.time(), what)
 
     def store(self, filename):
         """The Store for a file in data_dir, the same one for every command

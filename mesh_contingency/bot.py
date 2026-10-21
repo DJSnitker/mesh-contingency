@@ -138,12 +138,15 @@ async def main():
             # The radio may have learned this node after we loaded contacts.
             await mc.commands.get_contacts()
             contact = mc.get_contact_by_key_prefix(key)
+        state.counts["sent"] += 1
         if contact is None:
+            state.counts["undelivered"] += 1
             print(f"  (no contact {prefix} to send {what} to; is it in the radio's contacts?)", flush=True)
             return
         async with send_lock:
             result = await mc.commands.send_msg_with_retry(contact, text)
         if result is None:
+            state.counts["undelivered"] += 1
             print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
         else:
             print(f"  ({what} to {prefix} delivered)", flush=True)
@@ -343,6 +346,7 @@ async def main():
 
     async def on_message(event):
         msg = event.payload
+        state.counts["messages"] += 1
         sender = await get_sender(msg)
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
@@ -373,6 +377,7 @@ async def main():
             result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
         except TimeoutError:
             print(f"  {command.name} timed out after {command.timeout}s", flush=True)
+            state.error(f"{command.name} timed out")
             await reply(msg, sender, f"{command.name}: timed out")
             return
         except CommandError as e:
@@ -381,6 +386,7 @@ async def main():
             return
         except Exception as e:
             print(f"  {command.name} failed: {type(e).__name__ if private else e}", flush=True)
+            state.error(f"{command.name} failed")
             await reply(msg, sender, f"{command.name}: failed")
             return
         if not isinstance(result, CommandResult):

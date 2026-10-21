@@ -36,6 +36,7 @@ Full usage, examples and how-to guides are in the
 | `deny <name or key>` | admins | Turn down a join request |
 | `email <address> <message>` | users | Email any address |
 | `emailall <message>` | users | Email your group |
+| `health` | admins | How the node is doing: radio, battery, users, messages, errors |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
 | `join [name]` | anyone | Ask to become a user, under a one-word name |
@@ -264,6 +265,7 @@ ok = { permission = "public" }
 status = { permission = "public" }
 clearstatus = { permission = "admin" }
 roster = { permission = "admin" }
+health = { permission = "admin" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }

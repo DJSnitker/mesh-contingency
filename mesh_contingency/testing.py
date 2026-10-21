@@ -92,7 +92,13 @@ class FakeCommands:
         return self.radio.advert_result
 
     async def send_device_query(self):
-        return event(EventType.DEVICE_INFO, {"max_channels": len(self.radio.channels)})
+        return event(EventType.DEVICE_INFO, {"max_channels": len(self.radio.channels), **self.radio.device_info})
+
+    async def get_bat(self):
+        return self.radio.battery_result
+
+    async def get_stats_core(self):
+        return self.radio.stats_result
 
     async def get_channel(self, channel_idx):
         if channel_idx >= len(self.radio.channels):
@@ -141,6 +147,10 @@ class FakeMeshCore:
         self.add_contact_result = event(EventType.OK)
         self.advert_result = event(EventType.OK)
         self.channel_result = event(EventType.OK)
+        self.device_info = {"max_contacts": 350, "model": "Test Board", "ver": "v1.9"}
+        self.battery_result = event(EventType.BATTERY, {"level": 4050})
+        self.stats_result = event(EventType.STATS_CORE, {"battery_mv": 4050, "uptime_secs": 93780, "errors": 0,
+                                                         "queue_len": 0})
 
     @property
     def contacts(self):
