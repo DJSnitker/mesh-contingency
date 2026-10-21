@@ -37,6 +37,7 @@ Full usage, examples and how-to guides are in the
 | `email <address> <message>` | users | Email any address |
 | `emailall <message>` | users | Email your group |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
+| `history [page]` | admins | What admins have done (approve, remove, rename...), newest first |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `inbox [passphrase] [page]` | users | Read your messages (see [Sealed messages](#sealed-messages)) |
 | `join [name]` | anyone | Ask to become a user, under a one-word name |
@@ -125,7 +126,17 @@ and reload it at once. They rewrite only that person's `[users.<key>]` section
 (comments inside it are dropped); the rest of the file is kept as it is. The
 result is checked before it's saved, so if a section can't be rewritten
 cleanly (for example one split into sub-tables), nothing is changed and the
-command says to edit it by hand. Join requests wait in `requests.json` next to
+command says to edit it by hand. Before each write, the file as it was is
+saved in a `backups` folder next to it (e.g.
+`backups/users-20261020-221500.toml`, as private as the file); the newest 5
+are kept. To undo a change, copy a backup back over `users.toml`.
+
+`approve`, `deny`, `remove`, `rename`, `resetpass`, `clearstatus` and `alert`
+are recorded in `history.json` next to `config.toml`, with who did them and
+when, as is a user's `leave`; admins read it with `history`. The newest 200
+are kept.
+
+Join requests wait in `requests.json` next to
 `config.toml` until approved or denied, at most 20 at a time.
 
 `alert` posts to a hashtag channel, which anyone can join by adding the same
@@ -266,6 +277,7 @@ status = { permission = "public" }
 clearstatus = { permission = "admin" }
 roster = { permission = "admin" }
 health = { permission = "admin" }
+history = { permission = "admin" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }

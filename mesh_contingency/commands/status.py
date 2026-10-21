@@ -90,4 +90,5 @@ class ClearStatusCommand(StatusBase):
         self.statuses.clear()
         self.store.save()
         reply = f"{self.name}: cleared {count} status{'' if count == 1 else 'es'}"
+        self.ctx.state.record(self.ctx.name_of(sender), f"cleared {count} check-in(s)")
         return CommandResult(console=reply, reply=reply)

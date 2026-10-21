@@ -98,6 +98,7 @@ class ApproveCommand(RequestsBase):
         del self.requests[key]
         self.store.save()
         self.ctx.send(key, f"Welcome, {name}: you're now a user. Send help for your commands.")
+        self.ctx.state.record(self.ctx.name_of(sender), f"approved {name} ({key[:12]})")
         return CommandResult(console=f"Approved {name} ({key[:12]}); added to {directory.name}",
                              reply=f"{self.name}: {name} added to {directory.name}")
 
@@ -112,5 +113,6 @@ class DenyCommand(RequestsBase):
         key = self.find(text)
         name = self.requests.pop(key)["name"]
         self.store.save()
+        self.ctx.state.record(self.ctx.name_of(sender), f"denied {name} ({key[:12]})")
         # The person isn't told, so a refusal can't start an argument on the air.
         return CommandResult(console=f"Denied {name} ({key[:12]})", reply=f"{self.name}: request from {name} removed")

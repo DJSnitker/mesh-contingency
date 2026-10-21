@@ -3,12 +3,15 @@
 config.toml
 users.toml
 # What the bot saves while running: check-ins, mailbox messages, join requests,
-# the last scheduled advert.
+# the last scheduled advert, the history of admin actions, and backups of
+# users.toml.
 status.json
 mailbox.json
 requests.json
 adverts.json
+history.json
 *.json.tmp
+backups/
 
 # Python
 __pycache__/
