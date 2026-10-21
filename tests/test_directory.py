@@ -29,7 +29,7 @@ keys = ["{ADMIN}"]
 
 [users.{ALICE}]
 name = "Alice"
-quickim = "a@example.com"
+qm = "a@example.com"
 """
 
 
@@ -40,7 +40,7 @@ def parse_text(text):
 class ParseTest(unittest.TestCase):
     def test_users_and_admins(self):
         users, admins = parse_text(USERS)
-        self.assertEqual(users, {ALICE: {"name": "Alice", "quickim": "a@example.com"}})
+        self.assertEqual(users, {ALICE: {"name": "Alice", "qm": "a@example.com"}})
         self.assertEqual(admins, frozenset({ADMIN}))
 
     def test_keys_normalized_to_lowercase(self):
@@ -74,8 +74,8 @@ class ParseTest(unittest.TestCase):
 
 class SummarizeTest(unittest.TestCase):
     def test_changes(self):
-        old = {ALICE: {"name": "Alice", "quickim": "a@example.com"}, BOB: {"name": "Bob"}}
-        new = {ALICE: {"name": "Alice", "quickim": "new@example.com"}, ADMIN: {}}
+        old = {ALICE: {"name": "Alice", "qm": "a@example.com"}, BOB: {"name": "Bob"}}
+        new = {ALICE: {"name": "Alice", "qm": "new@example.com"}, ADMIN: {}}
         self.assertEqual(summarize(old, frozenset(), new, frozenset({ALICE})),
                          "added adadadadadad; removed Bob; changed Alice; admin added Alice")
         self.assertEqual(summarize(new, frozenset({BOB}), new, frozenset()), "admin removed b0b0b0b0b0b0")
@@ -217,10 +217,10 @@ class TomlValueTest(unittest.TestCase):
 class WithUserTest(unittest.TestCase):
     def test_replaces_only_that_section(self):
         text = (f"# top\n[admin]\nkeys = []\n\n# Alice's settings\n[users.{ALICE}]  # comment\nname = 'Alice'\n"
-                f"quickim = [\n  'a@example.com',\n]\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
-        new = with_user(text, ALICE, {"name": "Alice", "quickim": "new@example.com"})
+                f"qm = [\n  'a@example.com',\n]\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
+        new = with_user(text, ALICE, {"name": "Alice", "qm": "new@example.com"})
         self.assertEqual(new, f"# top\n[admin]\nkeys = []\n\n# Alice's settings\n[users.{ALICE}]\nname = \"Alice\"\n"
-                              f"quickim = \"new@example.com\"\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
+                              f"qm = \"new@example.com\"\n\n# Bob next\n[users.{BOB}]\nname = 'Bob'\n")
 
     def test_finds_upper_case_and_quoted_headers(self):
         for header in (f"[users.{ALICE.upper()}]", f'[ users . "{ALICE}" ]'):
@@ -244,7 +244,7 @@ class SaveUserTest(unittest.TestCase):
         self.directory.load()
 
     def test_save_several_users_at_once(self):
-        changes = {ALICE: {"name": "Ridge Base 1", "quickim": "alice@example.com"}, BOB: {"name": "Bob's T-Deck"}}
+        changes = {ALICE: {"name": "Ridge Base 1", "qm": "alice@example.com"}, BOB: {"name": "Bob's T-Deck"}}
         self.assertEqual(self.directory.save_users(changes), "added Bob's T-Deck; changed Ridge Base 1")
         self.assertEqual(self.directory.users[ALICE]["name"], "Ridge Base 1")
         self.assertEqual(len(list((self.folder / "backups").iterdir())), 1)  # one backup for both
@@ -277,13 +277,13 @@ class SaveUserTest(unittest.TestCase):
     def test_nothing_is_backed_up_when_a_write_is_refused(self):
         self.path.write_text(f"[users.{ALICE}]\nname = 'Alice'\n[users.{ALICE}.extra]\nx = 1\n")
         with self.assertRaises(DirectoryError):
-            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "quickim": "a@example.com"})
+            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "qm": "a@example.com"})
         self.assertFalse((self.folder / "backups").exists())
 
     def test_change_a_user(self):
-        self.assertEqual(self.directory.save_user(ALICE, {"name": "Alice", "quickim": "b@example.com"}),
+        self.assertEqual(self.directory.save_user(ALICE, {"name": "Alice", "qm": "b@example.com"}),
                          "changed Alice")
-        self.assertEqual(parse_text(self.path.read_text())[0][ALICE]["quickim"], "b@example.com")
+        self.assertEqual(parse_text(self.path.read_text())[0][ALICE]["qm"], "b@example.com")
 
     def test_new_file(self):
         self.path.unlink()
@@ -301,7 +301,7 @@ class SaveUserTest(unittest.TestCase):
         text = f"[users.{ALICE}]\nname = 'Alice'\n[users.{ALICE}.extra]\nx = 1\n"
         self.path.write_text(text)
         with self.assertRaisesRegex(DirectoryError, "edit Alice's section by hand"):
-            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "quickim": "a@example.com"})
+            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "qm": "a@example.com"})
         self.assertEqual(self.path.read_text(), text)
 
     def test_in_memory(self):

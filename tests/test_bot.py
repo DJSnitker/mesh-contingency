@@ -58,7 +58,7 @@ CONFIG = """
 help = { permission = "public" }
 wx = { permission = "public" }
 verse = { permission = "public" }
-quickim = { permission = "user" }
+qm = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
@@ -78,7 +78,7 @@ alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
-setquickim = { permission = "user" }
+setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
 users = { permission = "admin" }
@@ -95,7 +95,7 @@ keys = ["{full_key(ADMIN_KEY)}"]
 
 [users.{full_key(DANA)}]
 name = "Dana"
-quickim = "partner@example.com"
+qm = "partner@example.com"
 """
 
 
@@ -258,14 +258,14 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
-        self.assertIn("user commands (1 user(s)): quickim, emailall, email, roster, msg, inbox, clearinbox, "
-                      "setpass, setquickim, addgroup, cleargroup, whoami, leave\n", out)
+        self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
+                      "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, health, history, alert, "
                       "approve, deny, users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
-        self.assertNotIn("no user has quickim addresses", out)
+        self.assertNotIn("no user has qm addresses", out)
         self.assertIn(f"Users file: {self.users_file} (checked every 5s).", out)
         self.assertEqual(self.radio.manual_add_calls, [])  # no [contacts] section
 
@@ -440,20 +440,20 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_user_added_without_restart(self):
         await self.start(CONFIG + self.FAST_RELOAD)
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(STRANGER, "quickim hi")
+            await self.radio.dm(STRANGER, "qm hi")
             send_email.assert_not_called()
-            self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Stranger"\nquickim = "s@example.com"\n')
+            self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Stranger"\nqm = "s@example.com"\n')
             await self.wait_for_output("users.toml reloaded: added Stranger")
-            await self.radio.dm(STRANGER, "quickim hi")
+            await self.radio.dm(STRANGER, "qm hi")
         self.assertEqual(send_email.call_args.args[0], ["s@example.com"])
 
     async def test_user_removed_without_restart(self):
         await self.start(CONFIG + self.FAST_RELOAD)
         self.edit_users(USERS.split("[users.")[0])
         await self.wait_for_output("users.toml reloaded: removed Dana")
-        self.assertIn("Warning: no user has quickim addresses in users.toml.", self.out.getvalue())
+        self.assertIn("Warning: no user has qm addresses in users.toml.", self.out.getvalue())
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "quickim hi")
+            await self.radio.dm(DANA, "qm hi")
         send_email.assert_not_called()
 
     async def test_bad_edit_keeps_users_and_tells_admins(self):
@@ -464,7 +464,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.sent, [
             ("Admin", "users.toml not reloaded: [users]: 'd0d0' is not a full public key (64 hex characters)")])
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "quickim hi")
+            await self.radio.dm(DANA, "qm hi")
         send_email.assert_called_once()  # Dana is still a user
 
     async def test_reload_command(self):
@@ -617,18 +617,18 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_user_command_denied_to_non_user(self):
         await self.start()
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(STRANGER, "quickim hi")
-            await self.radio.dm(ADMIN_KEY, "quickim hi")
+            await self.radio.dm(STRANGER, "qm hi")
+            await self.radio.dm(ADMIN_KEY, "qm hi")
         send_email.assert_not_called()
         self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY] * 2)
-        self.assertIn("quickim denied: sender not approved", self.out.getvalue())
+        self.assertIn("qm denied: sender not approved", self.out.getvalue())
 
     async def test_user_command_allowed_for_user(self):
         await self.start()
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "QUICKIM running late")
+            await self.radio.dm(DANA, "QM running late")
         self.assertEqual(send_email.call_args.args[0], ["partner@example.com"])
-        self.assertEqual(self.radio.sent, [("Dana", "quickim: sent")])
+        self.assertEqual(self.radio.sent, [("Dana", "qm: sent")])
 
     async def test_admin_command(self):
         await self.start()
@@ -644,7 +644,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         lookalike = DANA + "11" * 26
         await self.start(contacts={lookalike: "Dana", ADMIN_KEY: "Admin"})
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "quickim hi")
+            await self.radio.dm(DANA, "qm hi")
         send_email.assert_not_called()
         self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
 
@@ -654,10 +654,10 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         impostor = DANA + "11" * 26
         await self.start(contacts={DANA: "Dana", impostor: "Dana"})
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "quickim hi")
+            await self.radio.dm(DANA, "qm hi")
         send_email.assert_not_called()
         self.assertIn(f"(2 contacts share key prefix {DANA}; sender not identified)", self.out.getvalue())
-        self.assertIn("quickim denied: sender not approved", self.out.getvalue())
+        self.assertIn("qm denied: sender not approved", self.out.getvalue())
 
     async def test_shared_prefix_reported_to_admins_once(self):
         impostor = DANA + "11" * 26
@@ -699,7 +699,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start(contacts={ADMIN_KEY: "Admin"})
         self.radio.stored[full_key(DANA)] = "Dana"
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(DANA, "quickim hi")
+            await self.radio.dm(DANA, "qm hi")
         send_email.assert_called_once()
 
     async def test_public_command_for_anyone(self):
@@ -877,11 +877,34 @@ permission = "public"
         await self.radio.dm(DANA, "msg Sam T-Deck see you at noon")
         self.assertEqual(self.replies()[-1], "msg: saved for Sam T-Deck (1 in their inbox)")
         self.assertNotIn(full_key(STRANGER), self.out.getvalue())
-        await self.radio.dm(STRANGER, "setquickim sam.home@example.com")
-        self.assertEqual(self.replies()[-1], "quickim now sends to sam.home@example.com")
+        await self.radio.dm(STRANGER, "setqm sam.home@example.com")
+        self.assertEqual(self.replies()[-1], "qm now sends to sam.home@example.com")
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
-            await self.radio.dm(STRANGER, "quickim hello")
+            await self.radio.dm(STRANGER, "qm hello")
         self.assertEqual(send_email.call_args.args[0], ["sam.home@example.com"])
+
+    # --- quickim, renamed qm
+
+    async def test_an_old_config_and_users_file_are_converted(self):
+        config = CONFIG.replace('qm = { permission = "user" }', 'quickim = { permission = "user" }')
+        await self.start(config=config, users=USERS.replace('qm = "partner@example.com"',
+                                                            'quickim = "partner@example.com"'))
+        out = self.out.getvalue()
+        self.assertIn("quickim is now called qm; rename [commands.quickim] to [commands.qm]", out)
+        self.assertIn("users.toml: quickim is now qm for 1 user(s)", out)
+        self.assertNotIn("no user has qm addresses", out)
+        self.assertEqual(tomllib.loads(self.users_file.read_text())["users"][full_key(DANA)],
+                         {"name": "Dana", "qm": "partner@example.com"})
+        with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
+            await self.radio.dm(DANA, "qm running late")
+        self.assertEqual(send_email.call_args.args[0], ["partner@example.com"])
+
+    async def test_quickim_typed_into_the_users_file_later_is_converted(self):
+        await self.start(CONFIG + self.FAST_RELOAD)
+        self.edit_users(USERS + f'[users.{full_key(STRANGER)}]\nname = "Stranger"\nquickim = "s@example.com"\n')
+        await self.radio.dm(ADMIN_KEY, "reload")
+        self.assertEqual(tomllib.loads(self.users_file.read_text())["users"][full_key(STRANGER)],
+                         {"name": "Stranger", "qm": "s@example.com"})
 
     # --- names come from the radios
 
@@ -889,7 +912,7 @@ permission = "public"
         await self.start(contacts={DANA: "Ridge Base 1", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
         self.assertIn("Dana (d0d0d0d0d0d0) is now Ridge Base 1, the radio's name", self.out.getvalue())
         self.assertEqual(tomllib.loads(self.users_file.read_text())["users"][full_key(DANA)],
-                         {"name": "Ridge Base 1", "quickim": "partner@example.com"})
+                         {"name": "Ridge Base 1", "qm": "partner@example.com"})
         self.assertEqual(len(list((self.users_file.parent / "backups").glob("users-*.toml"))), 1)
         await self.radio.dm(ADMIN_KEY, "history")
         self.assertIn("radio: Dana (d0d0d0d0d0d0) is now Ridge Base 1", self.replies()[-1])

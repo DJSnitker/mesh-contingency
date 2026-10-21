@@ -7,7 +7,7 @@ from mesh_contingency.api import ADMIN, PUBLIC, USER, CommandError, Sender
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email
-from mesh_contingency.commands.quickim import QuickImCommand
+from mesh_contingency.commands.qm import QmCommand
 from mesh_contingency.directory import Directory
 from mesh_contingency.limits import Limits
 from mesh_contingency.state import State
@@ -16,9 +16,9 @@ from mesh_contingency.testing import make_context
 DANA = Sender("Dana", "d0" * 32)
 BOB = Sender("Bob", "b0" * 32)
 USERS = {
-    "d0" * 32: {"quickim": "partner@example.com",
+    "d0" * 32: {"qm": "partner@example.com",
                      "emailall": ["a@example.com", "b@example.com"]},
-    "b0" * 32: {"quickim": ["bob1@example.com", "bob2@example.com"]},
+    "b0" * 32: {"qm": ["bob1@example.com", "bob2@example.com"]},
     "c0" * 32: {"name": "No addresses"},
 }
 
@@ -78,70 +78,70 @@ class MailCommandTestCase(unittest.IsolatedAsyncioTestCase):
             to, SUBJECT.format(sender=sender_name), BODY.format(text=text, disclaimer=DISCLAIMER))
 
 
-class QuickImTest(MailCommandTestCase):
+class QmTest(MailCommandTestCase):
     def test_recipients_per_user_accept_string_or_list(self):
-        cmd = QuickImCommand(make_context("quickim", users=USERS))
+        cmd = QmCommand(make_context("qm", users=USERS))
         self.assertEqual(cmd.recipients, {
             "d0" * 32: ["partner@example.com"],
             "b0" * 32: ["bob1@example.com", "bob2@example.com"],
         })
         self.assertTrue(cmd.enabled)
-        self.assertFalse(QuickImCommand(make_context("quickim")).enabled)
+        self.assertFalse(QmCommand(make_context("qm")).enabled)
 
     async def test_addresses_read_when_sending(self):
         # The users file can change while the bot runs.
         directory = Directory(USERS)
-        cmd = QuickImCommand(make_context("quickim", directory=directory))
-        directory._users = {DANA.public_key: {"quickim": "new@example.com"}}
+        cmd = QmCommand(make_context("qm", directory=directory))
+        directory._users = {DANA.public_key: {"qm": "new@example.com"}}
         await cmd.execute("hi", DANA)
         self.assert_sent(["new@example.com"], "hi")
         directory._users = {}
         self.assertFalse(cmd.enabled)
-        with self.assertRaisesRegex(CommandError, "quickim: not configured for you"):
+        with self.assertRaisesRegex(CommandError, "qm: not configured for you"):
             await cmd.execute("hi", DANA)
 
     async def test_sends_to_senders_own_addresses(self):
-        result = await QuickImCommand(make_context("quickim", users=USERS)).execute("Running late", DANA)
+        result = await QmCommand(make_context("qm", users=USERS)).execute("Running late", DANA)
         self.assert_sent(["partner@example.com"], "Running late")
-        self.assertEqual(result.reply, "quickim: sent")
+        self.assertEqual(result.reply, "qm: sent")
         self.assertIn("partner@example.com", result.console)
 
     async def test_other_user_gets_their_own_addresses(self):
-        await QuickImCommand(make_context("quickim", users=USERS)).execute("hi", BOB)
+        await QmCommand(make_context("qm", users=USERS)).execute("hi", BOB)
         self.assert_sent(["bob1@example.com", "bob2@example.com"], "hi", "Bob")
 
     async def test_usage_and_not_configured(self):
-        cmd = QuickImCommand(make_context("quickim", users=USERS))
-        with self.assertRaisesRegex(CommandError, "usage: quickim <message>"):
+        cmd = QmCommand(make_context("qm", users=USERS))
+        with self.assertRaisesRegex(CommandError, "usage: qm <message>"):
             await cmd.execute("", DANA)
-        with self.assertRaisesRegex(CommandError, "quickim: not configured for you"):
+        with self.assertRaisesRegex(CommandError, "qm: not configured for you"):
             await cmd.execute("hi", Sender("Nobody", "c0" * 32))
         self.send_email.assert_not_called()
 
     async def test_mail_failure_propagates(self):
         self.send_email.side_effect = RuntimeError("`mail` failed")
         with self.assertRaises(RuntimeError):
-            await QuickImCommand(make_context("quickim", users=USERS)).execute("hi", DANA)
+            await QmCommand(make_context("qm", users=USERS)).execute("hi", DANA)
 
     async def test_message_starting_with_an_address_is_refused(self):
         commands = {}
-        ctx = make_context("quickim", users=USERS, commands=commands)
-        quickim = commands["quickim"] = QuickImCommand(ctx)
+        ctx = make_context("qm", users=USERS, commands=commands)
+        qm = commands["qm"] = QmCommand(ctx)
         email = EmailCommand(make_context("email", users=USERS, commands=commands))
-        with self.assertRaisesRegex(CommandError, "^quickim: message starts with an address; send just the message$"):
-            await quickim.execute("bob@example.com hi", DANA)  # no email command loaded
+        with self.assertRaisesRegex(CommandError, "^qm: message starts with an address; send just the message$"):
+            await qm.execute("bob@example.com hi", DANA)  # no email command loaded
         commands["email"] = email
         email.permission = USER
         with self.assertRaisesRegex(CommandError, "to email it, use email <address> <message>$"):
-            await quickim.execute("bob@example.com hi", DANA)
+            await qm.execute("bob@example.com hi", DANA)
         email.permission = ADMIN  # Dana may not use it, so don't suggest it
         with self.assertRaisesRegex(CommandError, "send just the message$"):
-            await quickim.execute("bob@example.com hi", DANA)
+            await qm.execute("bob@example.com hi", DANA)
         email.permission = PUBLIC
         with self.assertRaisesRegex(CommandError, "to email it, use email"):
-            await quickim.execute("bob@example.com hi", BOB)
+            await qm.execute("bob@example.com hi", BOB)
         self.send_email.assert_not_called()
-        await quickim.execute("hi bob@example.com", DANA)  # an address later on is fine
+        await qm.execute("hi bob@example.com", DANA)  # an address later on is fine
         self.assert_sent(["partner@example.com"], "hi bob@example.com")
 
     def test_body_ends_with_disclaimer(self):

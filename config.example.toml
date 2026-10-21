@@ -29,7 +29,7 @@ at_startup = false   # also advert every time the bot starts
 
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
-# emails_per_day caps each sender's quickim, emailall and email commands (one
+# emails_per_day caps each sender's qm, emailall and email commands (one
 # each, however many addresses), and emails_per_day_total the addresses
 # emailed by everyone; 0 for no cap.
 # These are the defaults.
@@ -54,7 +54,7 @@ emails_per_day_total = 200
 help = { permission = "public" }
 wx = { permission = "public" }
 verse = { permission = "public" }
-quickim = { permission = "user" }
+qm = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
@@ -74,7 +74,7 @@ alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
-setquickim = { permission = "user" }
+setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
 users = { permission = "admin" }

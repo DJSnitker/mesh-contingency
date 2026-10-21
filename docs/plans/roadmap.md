@@ -146,14 +146,14 @@ missing.
 
 ## 6. Queue emails while the internet is down
 
-In an emergency the internet may come and go, and today `quickim`,
+In an emergency the internet may come and go, and today `qm`,
 `emailall` and `email` just fail.
 
 - When `mail` fails (non-zero exit or timeout), save the email to
   `outbox.json` (git-ignored, mode 600) and reply
-  `quickim: no internet; queued, will send when it's back`.
+  `qm: no internet; queued, will send when it's back`.
 - A background task retries the outbox every few minutes, oldest first, and
-  DMs the sender `quickim to partner@example.com: sent (queued 2h ago)` when
+  DMs the sender `qm to partner@example.com: sent (queued 2h ago)` when
   one goes out.
 - Give up after 24 hours (configurable) and tell the sender.
 - Email caps count at queue time, so a queue can't be used to get round them.

@@ -58,7 +58,7 @@ keys = ["<64-hex public key>"]
 
 [users.<64-hex public key>]
 name = "Alice"
-quickim = "someone@example.com"
+qm = "someone@example.com"
 emailall = ["a@example.com", "b@example.com"]
 ```
 
@@ -99,7 +99,7 @@ emailall = ["a@example.com", "b@example.com"]
 - `api.py`: `Context` gets `directory`; `ctx.users` and `ctx.admins` become
   read-only properties returning the *current* snapshot, so existing plugins
   keep working and see changes. `is_authorized` takes the directory.
-- `quickim.py` / `emailall.py`: look up the sender's addresses at execute time
+- `qm.py` / `emailall.py`: look up the sender's addresses at execute time
   instead of building `recipients` in `__init__`; `enabled` becomes "any user
   currently has addresses", and the startup warning becomes a per-reload one.
 - `bot.py`: startup counts and the new-contact notice read admins from the
@@ -112,7 +112,7 @@ emailall = ["a@example.com", "b@example.com"]
 - Reload swaps atomically; an invalid edit keeps the old snapshot and notifies
   admins; deleting the file keeps the old snapshot.
 - A user added to the file can run a user command on the next message without
-  a restart; a removed user is refused; a changed `quickim` address is used.
+  a restart; a removed user is refused; a changed `qm` address is used.
 - `reload` command and `SIGHUP` trigger a reload; non-admins can't run `reload`.
 - Plugins reading `ctx.users` see updates.
 
@@ -159,7 +159,7 @@ are set as `public_rate`/`user_rate`/`admin_rate` in `[limits]`).
   (resets on restart; noted in the README).
 - Defaults when unset: public commands `10/hour`, user commands `30/hour`,
   admin commands unlimited. Defaults live in `[limits]` in `config.toml`.
-- Email cap across `quickim`, `emailall` and `email` together:
+- Email cap across `qm`, `emailall` and `email` together:
   `[limits] emails_per_day = 50` per sender, plus a bot-wide cap
   (`emails_per_day_total = 200`) to protect the Gmail account.
 - When limited, reply once `wx: limit reached, try again in 23 min`, then stay

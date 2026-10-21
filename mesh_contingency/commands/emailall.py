@@ -1,9 +1,9 @@
 """emailall <message>: email the sender's preconfigured group."""
 
-from .quickim import QuickImCommand
+from .qm import QmCommand
 
 
-class EmailAllCommand(QuickImCommand):
-    """Same as quickim, but each user's config holds a list of addresses."""
+class EmailAllCommand(QmCommand):
+    """Same as qm, but each user's config holds a list of addresses."""
 
     summary = "Email your message to your preset group"

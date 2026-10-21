@@ -26,10 +26,10 @@ from mesh_contingency.commands.help import HelpCommand
 from mesh_contingency.commands.history import HistoryCommand
 from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
 from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
-from mesh_contingency.commands.quickim import QuickImCommand
+from mesh_contingency.commands.qm import QmCommand
 from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
-from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQuickImCommand
+from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQmCommand
 from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.commands.users import (
     LeaveCommand,
@@ -47,13 +47,13 @@ from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, res
 FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
-            "quickim": QuickImCommand, "emailall": EmailAllCommand,
+            "qm": QmCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
             "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,
             "msg": MsgCommand, "inbox": InboxCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
-            "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setquickim": SetQuickImCommand,
+            "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setqm": SetQmCommand,
             "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
             "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,
             "whoami": WhoAmICommand, "leave": LeaveCommand}
@@ -228,9 +228,9 @@ class RegistryBuildTest(unittest.TestCase):
     def test_built_in_commands(self):
         radio = object()
         sections = {name: {"permission": level} for name, level in [
-            ("help", "public"), ("wx", "public"), ("verse", "public"), ("quickim", "user"),
+            ("help", "public"), ("wx", "public"), ("verse", "public"), ("qm", "user"),
             ("emailall", "user"), ("email", "user"), ("advert", "admin"), ("reload", "admin")]}
-        directory = Directory({FULL_KEY.lower(): {"quickim": "a@example.com"}})
+        directory = Directory({FULL_KEY.lower(): {"qm": "a@example.com"}})
         commands = Registry(commands_config(**sections)).build(directory, radio)
         self.assertEqual(list(commands), list(sections))
         for name, cmd in commands.items():
@@ -238,7 +238,7 @@ class RegistryBuildTest(unittest.TestCase):
             self.assertEqual(cmd.name, name)
             self.assertEqual(cmd.permission, sections[name]["permission"])
         self.assertIs(commands["advert"].radio, radio)
-        self.assertEqual(commands["quickim"].recipients, {FULL_KEY.lower(): ["a@example.com"]})
+        self.assertEqual(commands["qm"].recipients, {FULL_KEY.lower(): ["a@example.com"]})
         self.assertIs(commands["help"].ctx.commands, commands)  # help sees every command
 
     def test_context_and_settings(self):
@@ -261,14 +261,28 @@ class RegistryBuildTest(unittest.TestCase):
         self.assertEqual(WxCommand.timeout, DEFAULT_TIMEOUT)
 
     def test_same_code_under_two_names(self):
-        # e.g. a second quickim command with its own per-user addresses
+        # e.g. a second qm command with its own per-user addresses
         r = Registry(commands_config(
-            quickim={"permission": "user"},
-            quickim_mom={"permission": "user", "handler": "mesh_contingency.commands.quickim:QuickImCommand"}))
-        users = {"d0" * 32: {"quickim": "a@example.com", "quickim_mom": "mom@example.com"}}
+            qm={"permission": "user"},
+            qm_mom={"permission": "user", "handler": "mesh_contingency.commands.qm:QmCommand"}))
+        users = {"d0" * 32: {"qm": "a@example.com", "qm_mom": "mom@example.com"}}
         commands = r.build(Directory(users), None)
-        self.assertEqual(commands["quickim_mom"].recipients, {"d0" * 32: ["mom@example.com"]})
-        self.assertEqual(commands["quickim_mom"].usage, "quickim_mom <message>")
+        self.assertEqual(commands["qm_mom"].recipients, {"d0" * 32: ["mom@example.com"]})
+        self.assertEqual(commands["qm_mom"].usage, "qm_mom <message>")
+
+    def test_old_command_names_still_work(self):
+        r = Registry(commands_config(quickim={"permission": "user"}, setquickim={"permission": "public"}))
+        self.assertEqual(r.specs["qm"].permission, "user")
+        self.assertEqual(r.specs["setqm"].permission, "public")
+        self.assertNotIn("quickim", r.specs)
+        self.assertIn("quickim is now called qm; rename [commands.quickim] to [commands.qm] in the config. "
+                      "Using it for qm meanwhile.", r.warnings)
+
+    def test_old_and_new_command_names_together(self):
+        r = Registry(commands_config(quickim={"permission": "public"}, qm={"permission": "user"}))
+        self.assertEqual(r.specs["qm"].permission, "user")
+        self.assertIn("[commands.quickim] is now [commands.qm], which is also there; remove [commands.quickim] "
+                      "from the config.", r.warnings)
 
     def test_function_command_wrapped(self):
         r = Registry(commands_config(shout={"permission": "public", "handler": "tests.test_registry:shout"}),

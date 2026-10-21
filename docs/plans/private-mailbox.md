@@ -141,7 +141,7 @@ message text nor passphrases reach the console. Phase 5 of the security plan
 - `mailbox.json` stays keyed by the recipient's radio public key, as it is
   today. A sealed message is `{"from", "time", "read", "sealed": {"epk",
   "nonce", "ct"}}`; an unsealed one keeps today's shape.
-- `setpass` writes through `Directory.save_user`, like `setquickim`.
+- `setpass` writes through `Directory.save_user`, like `setqm`.
 
 ## Tests
 

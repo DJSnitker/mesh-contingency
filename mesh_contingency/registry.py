@@ -79,6 +79,9 @@ class CommandSpec:
 RETIRED = {
     "rename": "names are now the radios' names, kept up to date by the bot",
 }
+# Commands that were renamed: an old config's section is used for the new
+# name, with a warning, so an upgraded node keeps working.
+RENAMED = {"quickim": "qm", "setquickim": "setqm"}
 
 
 class Registry:
@@ -99,11 +102,24 @@ class Registry:
                              "see config.example.toml.")
         available = discover() if available is None else available
         self.limits = Limits.from_config(config)
-        sections = config.get("commands", {})
+        sections = dict(config.get("commands", {}))
+        renamed = []  # warnings about old command names
+        for old, new in RENAMED.items():
+            if old not in sections or old in available:
+                continue
+            if new in sections:
+                renamed.append(f"[commands.{old}] is now [commands.{new}], which is also there; remove "
+                               f"[commands.{old}] from the config.")
+            else:
+                renamed.append(f"{old} is now called {new}; rename [commands.{old}] to [commands.{new}] in the "
+                               f"config. Using it for {new} meanwhile.")
+                sections[new] = sections[old]
+            del sections[old]
         self.specs = {}  # name -> CommandSpec, enabled commands only
         self.disabled = []  # names of commands nobody may run
         self.warnings = []  # problems worth printing at startup
         self.factories = {}  # name -> imported Command subclass or function
+        self.warnings += renamed
 
         for name, section in sections.items():
             if name in RETIRED and name not in available and not (isinstance(section, dict) and "handler" in section):

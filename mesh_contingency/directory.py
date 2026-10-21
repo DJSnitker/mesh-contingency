@@ -6,14 +6,14 @@
 
     [users.<64-hex public key>]
     name = "Alice T-Deck"             # the radio's name; kept up to date by the bot
-    quickim = "someone@example.com"   # settings for the commands
+    qm = "someone@example.com"   # settings for the commands
 
 The bot checks the file every few seconds. A change is used only once the file
 has stopped changing and has been read and checked in full, so a half-saved
 file or a bad edit never locks anyone out: the previous users stay in effect
 until the file is fixed.
 
-Commands can also write one user's section (approve, setquickim, ...). Only
+Commands can also write one user's section (approve, setqm, ...). Only
 that section is rewritten; the rest of the file, comments included, is kept.
 
 A user's name is always their radio's name: the bot writes it when they join

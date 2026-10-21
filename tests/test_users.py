@@ -31,7 +31,7 @@ name = "Admin"
 
 [users.{ALICE.public_key}]
 name = "Alice"
-quickim = "alice@example.com"
+qm = "alice@example.com"
 
 # Bob joined later
 [users.{BOB.public_key}]
@@ -69,7 +69,7 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
     async def test_users(self):
         await self.setpass.execute("blue-canoe-42x", BOB)
         self.assertEqual((await self.users.execute("", ADMIN)).reply,
-                         ["users (3): Admin adadadadadad (admin) Alice a1a1a1a1a1a1 (quickim) "
+                         ["users (3): Admin adadadadadad (admin) Alice a1a1a1a1a1a1 (qm) "
                           "Bob b0b0b0b0b0b0 (pass)"])
 
     async def test_users_pages(self):
@@ -85,7 +85,7 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_whois_and_whoami(self):
         await self.msg.execute("Alice hello", BOB)
-        expected = "Alice (a1a1a1a1a1a1); no passphrase; quickim alice@example.com; 1 message(s), 1 unread"
+        expected = "Alice (a1a1a1a1a1a1); no passphrase; qm alice@example.com; 1 message(s), 1 unread"
         self.assertEqual((await self.whois.execute("alice", ADMIN)).reply, expected)
         self.assertEqual((await self.whois.execute("a1a1", ADMIN)).reply, expected)
         self.assertEqual((await self.whoami.execute("", ALICE)).reply, expected)
@@ -127,7 +127,7 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(ADMIN.public_key, self.directory.admins)
 
     async def test_names_with_spaces_and_shared_names(self):
-        self.directory.save_user(ALICE.public_key, {"name": "Ridge Base 1", "quickim": "alice@example.com"})
+        self.directory.save_user(ALICE.public_key, {"name": "Ridge Base 1", "qm": "alice@example.com"})
         self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("ridge base 1", ADMIN)).reply)
         self.assertIn("Ridge Base 1 (a1a1a1a1a1a1)", (await self.whois.execute("«Ridge Base 1»", ADMIN)).reply)
         with self.assertRaisesRegex(CommandError, "^whois: no user «Ridge»"):
@@ -145,7 +145,7 @@ class UsersTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.resetpass.execute("alice", ADMIN)).reply,
                          "resetpass: Alice's passphrase cleared, 1 sealed message(s) deleted")
         self.assertNotIn("inbox_key", self.in_file()[ALICE.public_key])
-        self.assertEqual(self.in_file()[ALICE.public_key]["quickim"], "alice@example.com")
+        self.assertEqual(self.in_file()[ALICE.public_key]["qm"], "alice@example.com")
         self.assertEqual(self.sent[-1], (ALICE.public_key, "An admin cleared your passphrase; 1 sealed message(s) "
                                                            "deleted. New messages are kept unsealed until you send "
                                                            "setpass."))

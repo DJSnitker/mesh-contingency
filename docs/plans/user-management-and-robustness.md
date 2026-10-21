@@ -34,7 +34,7 @@ All admin commands.
 
 | Command | What it does |
 |---|---|
-| `users [page]` | Every user, by name, with the key prefix and what they have set: `Alice a1b2c3 (pass, quickim, group 3)` |
+| `users [page]` | Every user, by name, with the key prefix and what they have set: `Alice a1b2c3 (pass, qm, group 3)` |
 | `whois <name or key>` | One user: name, key prefix, settings, passphrase yes/no, messages waiting, admin or not |
 | `remove <name or key>` | Removes the user's section of the users file and their mailbox, after confirming. Admin rights (`[admin] keys`) are not touched |
 | `rename <name or key> <new name>` | Changes a user's name. Names are up to 32 plain characters and must not already belong to another user |
@@ -47,7 +47,7 @@ radio could then create more admins; admin changes stay a file edit.
 
 | Command | What it does |
 |---|---|
-| `whoami` | What the bot knows about you: name, key prefix, passphrase set or not, quickim and group, messages waiting, admin or not |
+| `whoami` | What the bot knows about you: name, key prefix, passphrase set or not, qm and group, messages waiting, admin or not |
 | `leave` | Removes you from the users file and deletes your mailbox, after confirming |
 | `clearinbox all` | Deletes every message, unread and sealed included |
 
@@ -74,7 +74,7 @@ text. Not sent for a message to yourself. Turned off with `notify = false` in
 ### Email caps
 
 - `[limits] emails_per_day = 50`: emails sent per sender per day, across
-  `quickim`, `emailall` and `email`, one per command however many addresses
+  `qm`, `emailall` and `email`, one per command however many addresses
   it goes to (an `emailall` is one email with every address in To).
 - `[limits] emails_per_day_total = 200`: addresses emailed by the whole bot
   per day (an `emailall` to 3 addresses counts 3), to protect the sending

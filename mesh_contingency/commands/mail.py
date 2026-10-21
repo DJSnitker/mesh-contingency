@@ -1,4 +1,4 @@
-"""Sending mesh messages out as email, shared by the quickim, emailall and
+"""Sending mesh messages out as email, shared by the qm, emailall and
 email commands."""
 
 import asyncio
