@@ -196,15 +196,5 @@ class FetchWeatherTest(unittest.TestCase):
         self.assertEqual(wx["alerts"], [{"event": "Rip Current Statement"}])
 
 
-    def test_alerts_only(self):
-        api = FakeApi({
-            weather.ZIP_API: ZIP_RESPONSE,
-            f"{weather.NWS_API}/alerts/": {"features": [{"properties": {"event": "Flood Warning"}}]},
-        })
-        with mock.patch("mesh_contingency.weather._get_json", api):
-            self.assertEqual(weather.fetch_alerts("33101 "), ("33101", "Miami, FL", [{"event": "Flood Warning"}]))
-        with self.assertRaisesRegex(ValueError, "invalid zipcode"):
-            weather.fetch_alerts("331")
-
 if __name__ == "__main__":
     unittest.main()

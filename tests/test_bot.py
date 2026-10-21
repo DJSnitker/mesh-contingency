@@ -75,6 +75,7 @@ inbox = { permission = "user" }
 clearinbox = { permission = "user" }
 setpass = { permission = "user" }
 alert = { permission = "admin" }
+alertmap = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
@@ -261,7 +262,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, health, history, alert, "
-                      "approve, deny, users, whois, remove, resetpass\n", out)
+                      "alertmap, approve, deny, users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -789,8 +790,8 @@ permission = "public"
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in two.
         self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, "
-                                                   "clearstatus, health, history, alert, join, approve, deny, users, "
-                                                   "whois, remove, resetpass, echo, slow, secret. "
+                                                   "clearstatus, health, history, alert, alertmap, join, approve, "
+                                                   "deny, users, whois, remove, resetpass, echo, slow, secret. "
                                                    "Send help <command> for usage"))
         self.assertEqual(replies[3], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
         self.assertEqual(replies[4], "help: no command secret")

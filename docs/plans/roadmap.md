@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: item 1 done (v0.3.0); field testing paused · Written 2026-10-21 · Updated 2026-10-21
+Status: items 1–2 done; field testing paused · Written 2026-10-21 · Updated 2026-10-21
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -12,7 +12,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | # | What | Kind | Size | Status |
 |---|---|---|---|---|
 | 1 | Release 0.3.0 with a changelog | release | small | done (v0.3.0) |
-| 2 | Automatic weather alerts | feature | medium | to do |
+| 2 | Automatic weather alerts | feature | medium | done (channel only) |
 | 3 | Admin broadcast to every user | feature | small | to do |
 | 4 | Roll call of check-ins | feature | small | to do |
 | 5 | Queue emails while the internet is down | feature | medium | to do |
@@ -21,7 +21,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 8 | Does the radio restart when the bot connects? | check, docs | small | to do |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: 2 next. Items 3–8 can follow in any order; 3 and 4 are
+Recommended order: items 3–8 can follow in any order; 3 and 4 are
 quick wins, 5 and 6 matter most when things go wrong, and 8 needs only the one
 radio. Field testing (9) waits for more radio equipment; it was started
 2026-10-21 and its results so far are kept below.
@@ -58,7 +58,24 @@ notes: tested so far on one radio.
 - Decide: does CI need a release workflow (build and attach the wheel), or is
   a tag enough? Suggest: a tag and notes only for now.
 
-## 2. Automatic weather alerts
+## 2. Automatic weather alerts (done)
+
+*Done 2026-10-21:* `[alerts]` in `config.toml` (`counties`, `every_minutes`,
+`channel`), `mesh_contingency/alerts.py` with the shared channel helpers and
+`AlertWatcher`, `alerts.json`, "auto" in `history`, and a line in `health`.
+Changed from the design above:
+- It watches **counties** (`"Taylor, TX"`), not zipcodes, which were too
+  fine-grained: a county is what the NWS issues warnings for, and every
+  zipcode in one gets the same alerts. Posts are named by county.
+- Each county's NWS code is looked up once (kept in `alerts.json`; the admin
+  command `alertmap` looks them up again), and each round is one
+  `/alerts/active?zone=TXC441,...` request for every county. The NWS includes
+  alerts issued for forecast zones in those counties; each alert's FIPS
+  (`SAME`) codes say which watched county it belongs to.
+- With the NWS alerts automatic, `alert <message>` now posts an admin's own
+  message to the alert channel instead of a zipcode's alerts. (Item 3 is
+  still about direct messages to every user.)
+Decided: **channel only**; DMs for Warnings stay a possible follow-up.
 
 Today an admin has to send `alert <zipcode>`. Instead, the bot watches a list
 of zipcodes and posts each **new** National Weather Service alert to the

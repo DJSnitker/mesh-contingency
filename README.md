@@ -38,7 +38,8 @@ write one in a separate package and install it (see
 [Writing a command](#writing-a-command)).
 
 Channel messages are ignored entirely; only direct messages are acted on. The
-one exception is outgoing: `alert` posts weather alerts to a public channel.
+one exception is outgoing: `alert` and the automatic weather alerts post to a
+public channel.
 
 What changed in each release, and how to upgrade, is in
 [CHANGELOG.md](CHANGELOG.md).
@@ -58,7 +59,8 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
 | `advert [flood]` | admins | Make the radio advertise itself (see [While it runs](#while-it-runs)) |
-| `alert <zipcode>` | admins | Post weather alerts to `#contingency-wx` |
+| `alert <message>` | admins | Post a message to the alert channel, `#contingency-wx` |
+| `alertmap [county, ST]` | admins | Look up the NWS codes of the [automatically watched](#automatic-weather-alerts) counties again |
 | `approve [name or key]` | admins | Approve a join request; alone, list them |
 | `clearstatus` | admins | Delete every check-in |
 | `contacts [name or key] [page]` | admins | List the radio's contacts |
@@ -162,16 +164,21 @@ saved in a `backups` folder next to it (e.g.
 `backups/users-20261020-221500.toml`, as private as the file); the newest 5
 are kept. To undo a change, copy a backup back over `users.toml`.
 
-`approve`, `deny`, `remove`, `resetpass`, `clearstatus` and `alert`
-are recorded in `history.json` next to `config.toml`, with who did them and
-when, as are a user's `leave` and a radio's change of name; admins read it with `history`. The newest 200
-are kept.
+`approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` (with the
+message) and `alertmap` are recorded in `history.json` next to `config.toml`,
+with who did them and when, as are a user's `leave`, a radio's change of name
+and the weather alerts the bot posts by itself (as "auto"); admins read it
+with `history`. The newest 200 are kept.
 
 Join requests wait in `requests.json` next to
 `config.toml` until approved or denied, at most 20 at a time.
 
-`alert` posts to a hashtag channel, which anyone can join by adding the same
-name (`#contingency-wx`) in their app. When the bot starts, it makes sure the
+`alert <message>` posts the message, exactly as typed, to a hashtag channel,
+which anyone can join by adding the same name (`#contingency-wx`) in their
+app: `alert Shelter open at First Baptist on 5th St`. It must fit in one
+channel message (133 characters, less the node's name and ": ", which the
+radio puts in front). The automatic weather alerts below go to the same
+channel. When the bot starts, it makes sure the
 radio has the channel, adding it to the first empty channel slot if needed
 (the console says which slot). If there is no free slot, it warns and keeps
 running. To use another channel:
@@ -181,6 +188,38 @@ running. To use another channel:
 permission = "admin"
 channel = "#storm-watch"
 ```
+
+### Automatic weather alerts
+
+The bot can watch the National Weather Service for a list of counties and
+post each **new** alert to the channel by itself, with no admin needed:
+
+```toml
+[alerts]
+counties = ["Taylor, TX", "Jones, TX"]  # empty, the default, turns it off
+every_minutes = 10                      # how often to check (at least 5)
+# channel = "#storm-watch"              # defaults to [commands.alert] channel
+```
+
+Write each county as its name and state (`"Taylor, TX"`; `Taylor County, TX`
+works too). The bot looks up each county's NWS code once and keeps it in
+`alerts.json`; `alertmap` looks them up again. Each round is then a single
+request for the alerts in all the counties, including those the NWS issues
+for forecast zones in them. Each alert is posted once, one message per alert,
+named by the first watched county it covers:
+
+```
+Taylor, TX ALERT: Severe Thunderstorm Warning | until Tue 6:00PM | Taylor; Jones
+```
+
+An alert several counties share isn't repeated. What has been posted is kept
+in `alerts.json` too, so a restart doesn't post anything again, and alerts
+are forgotten some hours after they end. If something can't be looked up (no
+internet, or api.weather.gov is down) the console says so once and the bot
+keeps trying every round. Each post is in `history` as by "auto", and
+`health` shows `auto alerts 2 counties, checked 3m ago`. Posting goes only to
+the channel; nobody is sent a direct message. For anyone to look up a
+zipcode's alerts themselves, there is `wx <zipcode>`.
 
 Example `wx` reply:
 
@@ -643,6 +682,7 @@ mesh_contingency/
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
+  alerts.py           posting weather alerts to a channel; the automatic alert watcher
   bible/
     __init__.py       reference parsing and verse lookup
     bsb.json.gz       the bundled Berean Standard Bible
@@ -652,7 +692,7 @@ mesh_contingency/
     help.py, wx.py, verse.py, advert.py, reload.py, roster.py, contacts.py, health.py, history.py
     status.py         ok, status and clearstatus
     mailbox.py        msg, inbox, clearinbox and setpass
-    alert.py          posting alerts to a channel
+    alert.py          posting alerts to a channel on request
     join.py           join, approve and deny
     settings.py       setqm, addgroup and cleargroup
     users.py          users, whois, remove, resetpass, whoami and leave
@@ -800,7 +840,8 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 - A flood `advert` is sent to the whole mesh; use it sparingly.
 - `ok` and `status` are public: anyone who can reach the node can read
   anyone's check-in by name. Don't put anything in a status you wouldn't
-  say on an open channel. `alert` posts to a public channel.
+  say on an open channel. `alert` and the automatic weather alerts post to a
+  public channel.
 - `join` is public, so anyone can ask; nothing changes until an admin
   approves. Approving gives the person every `user` command, including
   `email` to any address.

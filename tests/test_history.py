@@ -121,13 +121,10 @@ class RecordedActionsTest(unittest.IsolatedAsyncioTestCase):
     async def test_clearstatus_and_alert(self):
         await self.make(OkCommand, "ok").execute("fine", ALICE)
         await self.make(ClearStatusCommand, "clearstatus").execute("", ADMIN)
-        alert = self.make(AlertCommand, "alert")
-        alert.send_gap = 0
-        with mock.patch("mesh_contingency.commands.alert.fetch_alerts", return_value=("79601", "Abilene, TX", [])):
-            await alert.execute("79601", ADMIN)
+        await self.make(AlertCommand, "alert").execute("Storm shelter open", ADMIN)
         self.assertEqual(self.recorded(), [("Admin", "cleared 1 check-in(s)"),
-                                           ("Admin", "posted 79601 alerts to #contingency-wx")])
-        self.assertEqual(self.radio.channel_sent[-1][1], "No alerts active for 79601")
+                                           ("Admin", "posted to #contingency-wx: Storm shelter open")])
+        self.assertEqual(self.radio.channel_sent[-1][1], "Storm shelter open")
         self.assertEqual(self.radio.channel_result.type, EventType.OK)
 
 

@@ -7,6 +7,7 @@ from unittest import mock
 
 from meshcore import EventType
 
+from mesh_contingency.alerts import AlertSettings, AlertWatcher
 from mesh_contingency.api import MAX_REPLY_LEN, CommandError
 from mesh_contingency.commands import health
 from mesh_contingency.commands.health import HealthCommand, duration
@@ -65,6 +66,18 @@ class HealthTest(unittest.IsolatedAsyncioTestCase):
                      "since start 12 message(s) in, 15 out (2 undelivered)", "errors 1, last wx timed out just now",
                      "emails 24h 3/200 address(es)", "last flood advert 2h ago"]:
             self.assertIn(part, text)
+
+    async def test_auto_alerts(self):
+        text = await self.reply()
+        self.assertNotIn("auto alerts", text)
+        watcher = self.state.alert_watcher = AlertWatcher(self.radio, AlertSettings(("Taylor, TX", "Jones, TX")),
+                                                          self.state)
+        self.assertIn("auto alerts 2 counties, not checked yet", await self.reply())
+        watcher.last_check = time.time() - 180
+        watcher.problem = "timed out"
+        watcher.unmapped["Jones, TX"] = "timed out"
+        self.assertIn("auto alerts 2 counties, checked 3m ago, last check failed, not looked up: Jones, TX",
+                      await self.reply())
 
     async def test_what_the_radio_doesnt_answer_is_left_out(self):
         self.radio.device_info = {}

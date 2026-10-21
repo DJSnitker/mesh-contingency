@@ -27,6 +27,17 @@ every_hours = 0      # advert this often; 0 for never
 flood = true         # flood (across the mesh) or zero-hop (direct range)
 at_startup = false   # also advert every time the bot starts
 
+# Automatic weather alerts: the bot checks the National Weather Service for
+# these counties ("Name, ST") and posts each new alert to the alert command's
+# channel once, with no admin needed. An alert several counties share is
+# posted once. It looks up each county's NWS code
+# once (alertmap looks them up again), then checks every county in one
+# request. Empty, the default, turns it off.
+[alerts]
+counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
+every_minutes = 10             # how often to check; at least 5
+# channel = "#contingency-wx"  # defaults to the alert command's channel
+
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
 # emails_per_day caps each sender's qm, emailall and email commands (one
@@ -71,6 +82,7 @@ inbox = { permission = "user" }
 clearinbox = { permission = "user" }
 setpass = { permission = "user" }
 alert = { permission = "admin" }
+alertmap = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }

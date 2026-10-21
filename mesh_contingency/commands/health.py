@@ -12,6 +12,7 @@ import time
 
 from meshcore import EventType
 
+from ..alerts import plural_counties
 from ..api import Command, CommandError, CommandResult, pack
 from ..console import ADVERTS_FILE
 from ..state import ago
@@ -86,6 +87,14 @@ class HealthCommand(Command):
             items.append("errors none")
         cap = self.ctx.limits.emails_per_day_total
         items.append(f"emails 24h {state.emails.addresses()}" + (f"/{cap}" if cap else "") + " address(es)")
+        watcher = state.alert_watcher
+        if watcher:
+            checked = f"checked {ago(watcher.last_check)}" if watcher.last_check else "not checked yet"
+            if watcher.problem:
+                checked += ", last check failed"
+            if watcher.unmapped:
+                checked += f", not looked up: {'; '.join(watcher.unmapped)}"
+            items.append(f"auto alerts {plural_counties(len(watcher.settings.counties))}, {checked}")
         last = state.store(ADVERTS_FILE).data.get("last_flood")
         items.append(f"last flood advert {ago(last)}" if last else "no flood advert yet")
         directory = self.ctx.directory
