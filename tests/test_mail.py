@@ -9,6 +9,8 @@ from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email
 from mesh_contingency.commands.quickim import QuickImCommand
 from mesh_contingency.directory import Directory
+from mesh_contingency.limits import Limits
+from mesh_contingency.state import State
 from mesh_contingency.testing import make_context
 
 DANA = Sender("Dana", "d0" * 32)
@@ -191,6 +193,52 @@ class EmailTest(MailCommandTestCase):
         for good in ("a@example.com", "first.last+tag@mail.example.co.uk", "x_y%z@sub-domain.example.org"):
             self.assertTrue(ADDRESS_RE.fullmatch(good), good)
 
+
+class EmailCapsTest(MailCommandTestCase):
+    def setUp(self):
+        super().setUp()
+        self.now = 1_000_000.0
+        self.enterContext(mock.patch("mesh_contingency.limits.time.time", lambda: self.now))
+        state = State()
+        self.limits = Limits(emails_per_day=3, emails_per_day_total=5)
+        directory = Directory(USERS)
+        self.email, self.emailall = (
+            cls(make_context(name, directory=directory, state=state, limits=self.limits))
+            for cls, name in [(EmailCommand, "email"), (EmailAllCommand, "emailall")])
+
+    async def test_per_sender_cap_counts_commands(self):
+        self.limits.emails_per_day_total = 0
+        await self.emailall.execute("hi all", DANA)  # 2 addresses, but one email
+        await self.email.execute("x@example.com hi", DANA)
+        await self.emailall.execute("hi again", DANA)
+        with self.assertRaisesRegex(CommandError, r"^email: you've reached your daily email limit \(3\); "
+                                                  r"try again later$"):
+            await self.email.execute("x@example.com again", DANA)
+        await self.email.execute("x@example.com from bob", BOB)  # others aren't affected
+        self.now += 86401  # a day later it frees up
+        await self.email.execute("x@example.com next day", DANA)
+
+    async def test_total_cap_counts_addresses(self):
+        await self.emailall.execute("hi", DANA)  # 2
+        await self.email.execute("x@example.com hi", BOB)  # 3
+        await self.email.execute("x@example.com hi", BOB)  # 4
+        with self.assertRaisesRegex(CommandError, "^emailall: the node's daily email limit is reached"):
+            await self.emailall.execute("hi again", DANA)  # 2 more would make 6
+        await self.email.execute("x@example.com hi", DANA)  # 1 more fits
+        self.assertEqual(self.send_email.call_count, 4)
+
+    async def test_failed_send_is_not_counted(self):
+        self.send_email.side_effect = RuntimeError("down")
+        for _ in range(4):
+            with self.assertRaises(RuntimeError):
+                await self.email.execute("x@example.com hi", DANA)
+        self.send_email.side_effect = None
+        await self.email.execute("x@example.com hi", DANA)
+
+    async def test_zero_means_no_cap(self):
+        self.limits.emails_per_day = self.limits.emails_per_day_total = 0
+        for _ in range(10):
+            await self.email.execute("x@example.com hi", DANA)
 
 if __name__ == "__main__":
     unittest.main()

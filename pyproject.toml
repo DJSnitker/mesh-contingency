@@ -11,7 +11,8 @@ license = "LicenseRef-Proprietary"
 license-files = ["LICENSE"]
 authors = [{ name = "Doug Snitker" }]
 requires-python = ">=3.11"
-dependencies = ["meshcore>=2.3"]
+# pycryptodome seals mailbox messages (X25519 keys need 3.21).
+dependencies = ["meshcore>=2.3", "pycryptodome>=3.21"]
 
 [project.optional-dependencies]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
@@ -41,6 +42,7 @@ roster = "mesh_contingency.commands.roster:RosterCommand"
 msg = "mesh_contingency.commands.mailbox:MsgCommand"
 inbox = "mesh_contingency.commands.mailbox:InboxCommand"
 clearinbox = "mesh_contingency.commands.mailbox:ClearInboxCommand"
+setpass = "mesh_contingency.commands.mailbox:SetPassCommand"
 alert = "mesh_contingency.commands.alert:AlertCommand"
 join = "mesh_contingency.commands.join:JoinCommand"
 approve = "mesh_contingency.commands.join:ApproveCommand"
@@ -48,6 +50,13 @@ deny = "mesh_contingency.commands.join:DenyCommand"
 setquickim = "mesh_contingency.commands.settings:SetQuickImCommand"
 addgroup = "mesh_contingency.commands.settings:AddGroupCommand"
 cleargroup = "mesh_contingency.commands.settings:ClearGroupCommand"
+users = "mesh_contingency.commands.users:UsersCommand"
+whois = "mesh_contingency.commands.users:WhoisCommand"
+remove = "mesh_contingency.commands.users:RemoveCommand"
+rename = "mesh_contingency.commands.users:RenameCommand"
+resetpass = "mesh_contingency.commands.users:ResetPassCommand"
+whoami = "mesh_contingency.commands.users:WhoAmICommand"
+leave = "mesh_contingency.commands.users:LeaveCommand"
 
 [tool.setuptools.packages.find]
 include = ["mesh_contingency*"]

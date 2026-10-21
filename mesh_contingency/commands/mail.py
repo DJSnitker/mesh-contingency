@@ -5,7 +5,7 @@ import asyncio
 import re
 import subprocess
 
-from ..api import Command, CommandResult, Sender
+from ..api import Command, CommandError, CommandResult, Sender
 
 SUBJECT = "You have received a MeshCore message from: {sender}"
 DISCLAIMER = (
@@ -54,11 +54,25 @@ def send_email(to, subject, body):
 class MailCommand(Command):
     """Base for commands that email the sender's message."""
 
+    def check_caps(self, to, sender):
+        """Raise CommandError if emailing `to` would pass a daily email cap
+        ([limits] emails_per_day: emails the sender sent, one per command;
+        emails_per_day_total: addresses everyone emailed, since the sending
+        account's own limits count recipients)."""
+        log, limits = self.ctx.state.emails, self.ctx.limits
+        if limits.emails_per_day and log.sends(sender.public_key) >= limits.emails_per_day:
+            raise CommandError(f"{self.name}: you've reached your daily email limit "
+                               f"({limits.emails_per_day}); try again later")
+        if limits.emails_per_day_total and log.addresses() + len(to) > limits.emails_per_day_total:
+            raise CommandError(f"{self.name}: the node's daily email limit is reached; try again later")
+
     async def send(self, to, text, sender: Sender):
         """Email text to the given addresses and return the CommandResult."""
+        self.check_caps(to, sender)
         subject = SUBJECT.format(sender=sender.name)
         body = BODY.format(text=text, disclaimer=DISCLAIMER)
         await asyncio.to_thread(send_email, to, subject, body)
+        self.ctx.state.emails.record(sender.public_key, len(to))
         return CommandResult(
             console=f"Sent email to {', '.join(to)}\n  Subject: {subject}\n  Body: {text}",
             reply=f"{self.name}: sent",

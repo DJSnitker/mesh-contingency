@@ -31,14 +31,22 @@ one exception is outgoing: `alert` posts weather alerts to a public channel.
 | `clearstatus` | admins | Deletes every check-in. |
 | `roster` | users | The node names (as their radios advertise them) of everyone who has direct-messaged the node since the bot started, most recent first. |
 | `msg <name> <message>` | users | Leaves a message for a user (by their name in the users file, or key prefix). Up to 20 are kept per person. |
-| `inbox [page]` | users | Sends you your messages, oldest first. They stay until you clear them; if they don't fit in one reply (8 messages), `inbox 2` shows the next page. |
-| `clearinbox` | users | Deletes the messages `inbox` has shown you. Any that arrived since are kept. |
+| `inbox [passphrase] [page]` | users | Sends you your messages, oldest first. They stay until you clear them; if they don't fit in one reply (8 messages), `inbox 2` shows the next page. With a passphrase set, plain `inbox` only says who left messages and when; `inbox <passphrase>` (and `inbox <passphrase> 2`) shows them. |
+| `clearinbox [all]` | users | Deletes the messages `inbox` has shown you; any that arrived since are kept. `clearinbox all` deletes every message, unread and sealed ones too. |
+| `setpass <passphrase>` | users | Seals new messages to you with a passphrase of 12 to 16 characters, no spaces. See [Sealed messages](#sealed-messages). |
 | `join [name]` | anyone | Asks to become a user, under the given name or the node's own. Every admin gets a direct message about it. |
 | `approve [name or key]` | admins | Adds the person who asked to the [users file](#users-file) and welcomes them by direct message. Plain `approve` lists the waiting requests. |
 | `deny <name or key>` | admins | Removes a request to join. The person isn't told. |
 | `setquickim <address>` | users | Sets the address your `quickim` sends to. Plain `setquickim` shows it. |
 | `addgroup <address>` | users | Adds an address to the group your `emailall` sends to (up to 10). Plain `addgroup` lists them. |
 | `cleargroup` | users | Empties your `emailall` group. |
+| `whoami` | users | What the node knows about you: name, key prefix, passphrase set or not, your settings, messages waiting, admin or not. |
+| `leave` | users | Takes you out of the users file and deletes your messages, after you confirm. |
+| `users [page]` | admins | Lists the users with their key prefixes and what each has set, e.g. `Alice a1b2c3d4e5f6 (pass, quickim)`. |
+| `whois <name or key>` | admins | Shows one user, as `whoami` does. |
+| `remove <name or key>` | admins | Takes a user out of the users file and deletes their messages, after you confirm. Admin rights stay until `[admin] keys` is edited. |
+| `rename <name or key> <new name>` | admins | Changes a user's name (up to 32 characters, not already used by another user). |
+| `resetpass <name or key>` | admins | For a forgotten passphrase: clears the user's `inbox_key` and deletes their sealed messages, after you confirm, and tells the user. |
 | `alert <zipcode>` | admins | Posts the zipcode's active NWS alerts to the public channel `#contingency-wx`, one message each, or `No alerts active for <zipcode>`. |
 
 Command names are case-insensitive. Everything after the command name is
@@ -55,7 +63,55 @@ readable only by you. Messages stay until their reader sends `clearinbox`, so
 one lost on the air can be read again with `inbox`. The names a check-in or message
 shows are from the users file, or the name the node advertises.
 
-`approve`, `setquickim`, `addgroup` and `cleargroup` write to the users file
+### Sealed messages
+
+A user who sends `setpass <passphrase>` gets every new message to them sealed,
+so `mailbox.json` holds only who sent it and when. Nobody needs to handle keys:
+
+```
+Alice → bot:  setpass blue-canoe-42x
+Bob → bot:    msg Alice meet at the shelter at 6
+Alice → bot:  inbox
+bot → Alice:  inbox: 1 message(s) from Bob 5m ago. Send inbox <passphrase> to read.
+Alice → bot:  inbox blue-canoe-42x
+bot → Alice:  Bob 6m ago: meet at the shelter at 6
+```
+
+- The bot turns the passphrase into a key pair (scrypt, then X25519) and saves
+  only the public half, as `inbox_key` in the user's section of the users
+  file. That half can seal messages but not open them. The passphrase and the
+  private half are never saved; `inbox <passphrase>` rebuilds the private half,
+  opens the messages and forgets it again.
+- Messages are found by the recipient's radio public key as usual; the
+  `inbox_key` is a separate key, made from the passphrase.
+- Passphrases are 12 to 16 characters, without spaces.
+- **A forgotten passphrase can't be recovered**, and the messages sealed with it
+  are lost. `setpass` with a new passphrase starts a new key. If sealed
+  messages are waiting, it says they will be deleted and asks for the same
+  `setpass` again within 5 minutes to confirm.
+- Messages left before `setpass` stay unsealed, and are shown with
+  `inbox <passphrase>`. Users who never set a passphrase keep plain messages,
+  shown by plain `inbox`.
+- The bot still sees each message as it arrives and as it's delivered, since
+  the radio hands it plain text both ways. `msg`, `inbox` and `setpass` are
+  private commands: the console shows only the command and who sent it, never
+  the message, passphrase or reply.
+
+When `msg` saves a message, the recipient gets a direct message such as
+`inbox: new message from Bob; send inbox to read`, at most once every 10
+minutes, never with the text and never for a message to yourself. Set
+`notify = false` in `[commands.msg]` to turn this off. Messages are deleted
+after 30 days, read or not; set `keep_days` in `[commands.msg]` to change
+that (0 keeps them until cleared).
+
+`remove`, `resetpass` and `leave` can't be undone, so the first time each only
+says what it would do, e.g. `remove: this removes Bob (b0b0b0b0b0b0) and their
+2 message(s). Send it again within 5 min to confirm.` Users are
+named by their name in the users file (`Ann Lee`) or a key prefix of at least
+4 hex characters. Nobody can be made an admin over the mesh; that takes an
+edit of `[admin] keys`, so a lost admin radio can't create more admins.
+
+`approve`, `rename`, `remove`, `setquickim`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
 and reload it at once. They rewrite only that person's `[users.<key>]` section
 (comments inside it are dropped); the rest of the file is kept as it is. The
 result is checked before it's saved, so if a section can't be rewritten
@@ -202,6 +258,7 @@ roster = { permission = "user" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }
+setpass = { permission = "user" }
 alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
@@ -209,6 +266,13 @@ deny = { permission = "admin" }
 setquickim = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+users = { permission = "admin" }
+whois = { permission = "admin" }
+remove = { permission = "admin" }
+rename = { permission = "admin" }
+resetpass = { permission = "admin" }
+whoami = { permission = "user" }
+leave = { permission = "user" }
 ```
 
 Each entry under `[commands]` takes:
@@ -217,6 +281,7 @@ Each entry under `[commands]` takes:
 |---|---|
 | `permission` | Required: `public`, `user`, `admin` or `disabled`. |
 | `timeout` | Seconds before the command is abandoned with a "timed out" reply (default 60). |
+| `rate` | Uses allowed per sender, e.g. `"5/hour"` (per `minute`, `hour` or `day`), or `"none"`. Defaults come from [`[limits]`](#limits). |
 | `handler` | Code to run, as `"module:attr"`: a `Command` subclass or a function. Only needed for commands that aren't installed as a package, or to run installed code under another name. |
 | anything else | Passed to the command as its options. |
 
@@ -242,6 +307,30 @@ A user with no addresses can still use `email`. A `quickim` or `emailall`
 message that starts with an email address is refused with a pointer to
 `email`, so a message meant for someone else isn't sent to the preset
 contact by mistake.
+
+### Limits
+
+So no one can tie up the node or its email account, each sender may use each
+command only so often:
+
+```toml
+[limits]
+public_rate = "10/hour"       # default for public commands
+user_rate = "30/hour"         # default for user commands
+admin_rate = "none"           # default for admin commands
+emails_per_day = 50           # emails sent per sender in 24 hours
+emails_per_day_total = 200    # addresses emailed by the whole node in 24 hours
+```
+
+These are the defaults when `[limits]` is left out. A command's own `rate`
+replaces its level's default. A sender who reaches a limit gets one reply,
+`wx: limit reached, try again in 23 min`, and no reply to that command after
+that until the limit frees up, so the limit itself can't make the node
+transmit. `emails_per_day` counts each `quickim`, `emailall` or `email` as
+one, however many addresses it goes to. `emails_per_day_total` counts
+addresses, so an `emailall` to 3 counts 3 there, since that's what the sending
+account's own limits count. Set a cap to 0 for no cap.
+Counts are kept in memory and start again when the bot restarts.
 
 ### Users file
 
@@ -319,6 +408,20 @@ can ask for the person's full public key to add them to the users file. Set
 themselves be contacts to receive it. Notices are sent in the background, one
 message at a time, so they never hold up replies to incoming messages.
 
+So a burst of adverts can't fill the contact table or swamp the admins:
+
+```toml
+[contacts]
+max_new_per_hour = 20   # new nodes added per hour; users and admins always are
+notices_per_hour = 5    # new-contact notices sent one by one per hour
+```
+
+Nodes over the cap aren't added (they are when they advert again later). After
+the hour's notices are used up, the rest are counted and the admins get one
+summary when the hour is up, e.g. `In the last hour: 14 more new contact(s);
+3 new node(s) not added (over max_new_per_hour)`. These are the defaults; 0
+means no limit.
+
 ### Email
 
 Mail is sent by running `mail -s <subject> <addresses...>`, so `mail` must be
@@ -389,6 +492,8 @@ mesh_contingency/
   registry.py         finding commands (entry points), checking [commands], loading them
   directory.py        the users file: checking it and reloading it while running
   state.py            senders seen since startup; status.json and mailbox.json
+  sealing.py          sealing mailbox messages to a passphrase
+  limits.py           rate limits and email caps
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
@@ -401,10 +506,11 @@ mesh_contingency/
   commands/           built-in commands, one module each
     help.py, wx.py, verse.py, advert.py, reload.py, roster.py
     status.py         ok, status and clearstatus
-    mailbox.py        msg, inbox and clearinbox
+    mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          posting alerts to a channel
     join.py           join, approve and deny
     settings.py       setquickim, addgroup and cleargroup
+    users.py          users, whois, remove, rename, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
     quickim.py, emailall.py, email.py
 examples/mesh-dice/   an example third-party command package
@@ -459,6 +565,16 @@ class TideCommand(Command):
 Use a class when the command keeps state or needs setup. Setup that needs the
 radio goes in `async def start(self)`, which the bot calls once after
 connecting and before handling messages; it may return a line to print.
+
+Set `private = True` on the class when what senders write or get back must
+stay off the console (messages, passphrases). The bot then prints only the
+command name and sender, not the text, error or reply. Keep the `console` of
+your `CommandResult` free of that text too.
+
+For something that can't be undone, `Confirmations` from `mesh_contingency.api`
+asks first: `if not self.confirmations.confirmed(sender.public_key, what):`
+reply with what would happen; the same request again within 5 minutes
+confirms it.
 
 ### What a command gets and returns
 
@@ -541,9 +657,17 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 - Addresses set over the mesh must be plain `user@domain.tld`; anything else
   is refused, as with `email`.
 - `status.json`, `mailbox.json` and `requests.json` hold node keys and what
-  people wrote; they are created readable only by you.
+  people wrote; they are created readable only by you. Messages to users who
+  set a passphrase are sealed in `mailbox.json`, but someone with a copy of it
+  and the users file can try guessing passphrases offline; scrypt makes each
+  guess slow, and the 12-character minimum keeps the number of guesses large.
+  Passphrases reach the bot inside encrypted direct messages, and the bot
+  sees each one briefly while handling `setpass` or `inbox`.
 - The users file decides who is an admin, and changes to it apply while the
-  bot runs. Keep it writable only by you (`chmod 600 users.toml`).
+  bot runs. Keep it writable only by you (`chmod 600 users.toml`). Admin
+  rights can't be given over the mesh.
+- Rate limits and email caps (see [Limits](#limits)) are per sender and kept
+  in memory; restarting the bot resets them.
 
 ## License
 

@@ -69,6 +69,7 @@ roster = { permission = "user" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }
+setpass = { permission = "user" }
 alert = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
@@ -76,6 +77,13 @@ deny = { permission = "admin" }
 setquickim = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+users = { permission = "admin" }
+whois = { permission = "admin" }
+remove = { permission = "admin" }
+rename = { permission = "admin" }
+resetpass = { permission = "admin" }
+whoami = { permission = "user" }
+leave = { permission = "user" }
 """
 
 USERS = f"""
@@ -236,8 +244,10 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         out = self.out.getvalue()
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): quickim, emailall, email, roster, msg, inbox, clearinbox, "
-                      "setquickim, addgroup, cleargroup\n", out)
-        self.assertIn("admin commands (1 admin(s)): advert, reload, clearstatus, alert, approve, deny\n", out)
+                      "setpass, setquickim, addgroup, cleargroup, whoami, leave\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, reload, clearstatus, alert, approve, deny, users, whois, "
+                      "remove, rename, resetpass\n", out)
+        self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
         self.assertNotIn("no user has quickim addresses", out)
@@ -686,7 +696,8 @@ permission = "public"
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in two.
         self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, reload, ok, status, "
-                                                   "clearstatus, alert, join, approve, deny, echo, slow, secret. "
+                                                   "clearstatus, alert, join, approve, deny, users, whois, remove, "
+                                                   "rename, resetpass, echo, slow, secret. "
                                                    "Send help <command> for usage"))
         self.assertEqual(replies[3], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
         self.assertEqual(replies[4], "help: no command secret")
@@ -720,6 +731,37 @@ permission = "public"
         self.assertEqual(self.replies()[-1], "Dana just now: note to self")
         await self.radio.dm(DANA, "clearinbox")
         self.assertEqual(self.replies()[-1], "clearinbox: deleted 1 message(s)")
+
+    async def test_rate_limit_replies_once_then_stays_silent(self):
+        await self.start(CONFIG + '\n[limits]\npublic_rate = "2/hour"\n')
+        for _ in range(4):
+            await self.radio.dm(STRANGER, "help")
+        replies = self.replies()
+        self.assertEqual(len(replies), 3)
+        self.assertEqual(replies[2], "help: limit reached, try again in 60 min")
+        out = self.out.getvalue()
+        self.assertIn("  -> help limit reached (2/hour); replying once\n", out)
+        self.assertIn("  -> help limit reached; not replying\n", out)
+        await self.radio.dm(DANA, "help")  # others aren't limited
+        self.assertIn("commands:", self.replies()[3])
+
+    async def test_private_commands_keep_text_off_the_console(self):
+        await self.start()
+        await self.radio.dm(DANA, "setpass blue-canoe-42x")
+        await self.radio.dm(DANA, "msg Dana the code is 4711")
+        await self.radio.dm(DANA, "inbox blue-canoe-42y")
+        self.assertEqual(self.replies()[-1], "inbox: wrong passphrase")
+        await self.radio.dm(DANA, "inbox blue-canoe-42x")
+        self.assertEqual(self.replies()[-1], "Dana just now: the code is 4711")
+        out = self.out.getvalue()
+        for secret in ("4711", "blue-canoe"):
+            self.assertNotIn(secret, out)
+            self.assertNotIn(secret, (self.users_file.parent / "mailbox.json").read_text())
+        self.assertIn(f"[{DANA} Dana] msg (private)\n  -> running msg\n", out)
+        self.assertIn("  inbox: refused\n", out)
+        self.assertIn("  -> replied (31 chars)\n", out)
+        await self.radio.dm(DANA, "clearinbox")
+        self.assertIn(f"[{DANA} Dana] clearinbox\n", self.out.getvalue())  # not private
 
     # --- joining and users' own settings
 

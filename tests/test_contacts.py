@@ -1,10 +1,19 @@
 import contextlib
 import io
 import unittest
+from unittest import mock
 
 from meshcore import EventType
 
-from mesh_contingency.contacts import NODE_TYPES, load_auto_add, load_notify_admins, lookalike_of, setup_auto_add
+from mesh_contingency.contacts import (
+    NODE_TYPES,
+    NoticeBatcher,
+    load_auto_add,
+    load_contact_limits,
+    load_notify_admins,
+    lookalike_of,
+    setup_auto_add,
+)
 from mesh_contingency.testing import FakeMeshCore, event, make_contact
 
 
@@ -162,6 +171,73 @@ class SetupAutoAddTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("skipped new contact", out)
         self.assertEqual(self.blocked, [])
 
+
+class ContactLimitsTest(unittest.TestCase):
+    def test_defaults_and_settings(self):
+        self.assertEqual(load_contact_limits({}), (20, 5))
+        self.assertEqual(load_contact_limits({"contacts": {"max_new_per_hour": 0, "notices_per_hour": 2}}), (0, 2))
+        for value in (-1, "5", True):
+            with self.subTest(value=value), self.assertRaisesRegex(SystemExit, "max_new_per_hour must be"):
+                load_contact_limits({"contacts": {"max_new_per_hour": value}})
+
+
+class CapTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.clock = 1_000.0
+        self.enterContext(mock.patch("mesh_contingency.contacts.time.monotonic", lambda: self.clock))
+        self.radio = FakeMeshCore()
+        self.skipped = 0
+
+        def skip():
+            self.skipped += 1
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            await setup_auto_add(self.radio, {1}, protected=lambda: {DANA}, max_new_per_hour=2, on_skipped=skip)
+
+    async def new(self, key, name="x"):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            await self.radio.deliver(EventType.NEW_CONTACT, make_contact(key, name, 1))
+        return out.getvalue()
+
+    async def test_cap_and_hourly_reset(self):
+        await self.new("a1" * 32)
+        await self.new("a2" * 32)
+        out = await self.new("a3" * 32, "Third")
+        self.assertIn(f"(skipped new contact {'a3' * 6} Third (chat): 2 already added this hour)", out)
+        self.assertEqual(self.skipped, 1)
+        await self.new(DANA)  # users and admins always get in
+        self.assertEqual(len(self.radio.added), 3)
+        self.clock += 3600
+        await self.new("a3" * 32)
+        self.assertEqual(len(self.radio.added), 4)
+
+
+class NoticeBatcherTest(unittest.TestCase):
+    def setUp(self):
+        self.clock = 1_000.0
+        self.enterContext(mock.patch("mesh_contingency.contacts.time.monotonic", lambda: self.clock))
+
+    def test_batches_after_the_limit(self):
+        notices = NoticeBatcher(2)
+        self.assertEqual([notices.allow() for _ in range(5)], [True, True, False, False, False])
+        notices.skipped()
+        self.assertIsNone(notices.summary())  # not until the hour is up
+        self.clock += 3600
+        self.assertEqual(notices.summary(),
+                         "In the last hour: 3 more new contact(s); 1 new node(s) not added (over max_new_per_hour)")
+        self.assertIsNone(notices.summary())
+        self.assertTrue(notices.allow())  # a new hour
+
+    def test_nothing_held_means_no_summary(self):
+        notices = NoticeBatcher(2)
+        notices.allow()
+        self.clock += 3600
+        self.assertIsNone(notices.summary())
+
+    def test_zero_means_no_limit(self):
+        notices = NoticeBatcher(0)
+        self.assertTrue(all(notices.allow() for _ in range(50)))
 
 if __name__ == "__main__":
     unittest.main()

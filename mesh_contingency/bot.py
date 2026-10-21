@@ -26,8 +26,9 @@ from .api import (
     is_authorized,
     to_messages,
 )
-from .contacts import load_auto_add, load_notify_admins, setup_auto_add
-from .directory import Directory, describe
+from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
+from .directory import Directory, describe, possessive
+from .limits import RateLimiter, describe_rate, wait_text
 from .registry import Registry
 from .state import State
 
@@ -39,6 +40,8 @@ UNRECOGNIZED_REPLY = "unrecognized user or function"
 # Send UNRECOGNIZED_REPLY to the same sender at most once per this many
 # seconds, so another auto-replying node can't trap us in a reply loop.
 UNRECOGNIZED_COOLDOWN = 300
+# How often to check whether an hourly new-contact summary is due.
+SUMMARY_CHECK_SECONDS = 60
 
 
 def find_serial_port():
@@ -86,6 +89,7 @@ async def main():
         print(f"Warning: {directory.path} not found; no users or admins until it is created.")
     auto_add = load_auto_add(config)
     notify_admins = load_notify_admins(config)
+    max_new_per_hour, notices_per_hour = load_contact_limits(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -146,9 +150,23 @@ async def main():
         for admin in sorted(directory.admins):
             send_later(admin, text, what)
 
+    notices = NoticeBatcher(notices_per_hour)
+
     def announce_new_contact(key, name, type_name):
-        """Tell every admin about a contact the bot just added."""
-        tell_admins(f"New contact: {name or '?'} ({key}, {type_name})", "new-contact notice")
+        """Tell every admin about a contact the bot just added, unless this
+        hour's notices are used up (then it goes in the hourly summary)."""
+        if notices.allow():
+            tell_admins(f"New contact: {name or '?'} ({key}, {type_name})", "new-contact notice")
+
+    async def send_summaries():
+        """Send the hourly summary of contacts not announced or not added."""
+        while True:
+            await asyncio.sleep(SUMMARY_CHECK_SECONDS)
+            text = notices.summary()
+            if text:
+                print(text, flush=True)
+                if notify_admins:
+                    tell_admins(text, "new-contact summary")
 
     def protected_keys():
         """Users' and admins' full keys, as of now."""
@@ -163,7 +181,8 @@ async def main():
 
     if auto_add is not None:
         await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None,
-                             protected=protected_keys, on_blocked=announce_blocked)
+                             protected=protected_keys, on_blocked=announce_blocked,
+                             max_new_per_hour=max_new_per_hour, on_skipped=notices.skipped)
         if notify_admins and directory.admins:
             print(f"New contacts are announced to {len(directory.admins)} admin(s).")
 
@@ -178,6 +197,8 @@ async def main():
     print(f"  {DISABLED} commands (nobody): {', '.join(registry.disabled) or 'none'}")
     for warning in registry.warnings:
         print(f"Warning: {warning}")
+    defaults = ", ".join(f"{level} {describe_rate(rate)}" for level, rate in registry.limits.rates.items())
+    print(f"Rate limits per sender and command: {defaults} (unless a command sets rate).")
 
     # Setup that needs the radio, such as alert making sure its channel exists.
     for command in commands.values():
@@ -214,6 +235,7 @@ async def main():
     with contextlib.suppress(AttributeError, NotImplementedError):  # no SIGHUP on Windows
         asyncio.get_running_loop().add_signal_handler(signal.SIGHUP, wake.set)
     watcher = asyncio.create_task(directory.watch(wake, on_users_error))
+    summaries = asyncio.create_task(send_summaries())
     when = f"every {directory.reload_seconds}s" if directory.reload_seconds else "on reload or SIGHUP only"
     print(f"Users file: {directory.path} (checked {when}).")
     print("Listening for direct messages (Ctrl+C to quit)...")
@@ -242,9 +264,9 @@ async def main():
                 continue
             reported_shared.add(report)
             who = describe(key, directory.users)
-            print(f"Warning: {len(matches)} contacts share {who}'s key prefix {key[:12]}; {who} has no "
+            print(f"Warning: {len(matches)} contacts share {possessive(who)} key prefix {key[:12]}; {who} has no "
                   f"user or admin rights until the impostor is removed from the radio's contacts.", flush=True)
-            tell_admins(f"{len(matches)} contacts share {who}'s key prefix {key[:12]}: remove the impostor "
+            tell_admins(f"{len(matches)} contacts share {possessive(who)} key prefix {key[:12]}: remove the impostor "
                         f"from the radio", "shared-prefix alert")
 
     async def get_sender(msg):
@@ -272,6 +294,7 @@ async def main():
     check_shared_prefixes()
 
     last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY
+    limiter = RateLimiter()
 
     async def reply_unrecognized(msg, sender, why):
         """Send UNRECOGNIZED_REPLY unless this sender got one recently."""
@@ -289,9 +312,11 @@ async def main():
         sender = await get_sender(msg)
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
-        print(f"[{label}] {msg.get('text', '')}", flush=True)
-        state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         parsed = parse_command(msg, commands)
+        # A private command's text (a message, a passphrase) is never printed.
+        private = parsed is not None and parsed[0].private
+        print(f"[{label}] {parsed[0].name + ' (private)' if private else msg.get('text', '')}", flush=True)
+        state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         if parsed is None:
             if msg.get("text", "").strip():
                 await reply_unrecognized(msg, sender, "unrecognized command")
@@ -300,7 +325,16 @@ async def main():
         if not is_authorized(command, sender, directory.users, directory.admins):
             await reply_unrecognized(msg, sender, f"{command.name} denied: sender not approved")
             return
-        print(f"  -> running {command.name} {text}".rstrip(), flush=True)
+        wait, first = limiter.check(sender.public_key or prefix, command.name, command.rate)
+        if wait:
+            # Told once; after that silence, so the limit can't make us transmit.
+            if first:
+                print(f"  -> {command.name} limit reached ({describe_rate(command.rate)}); replying once", flush=True)
+                await reply(msg, sender, f"{command.name}: limit reached, try again in {wait_text(wait)}")
+            else:
+                print(f"  -> {command.name} limit reached; not replying", flush=True)
+            return
+        print(f"  -> running {command.name} {'' if private else text}".rstrip(), flush=True)
         try:
             result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
         except TimeoutError:
@@ -308,11 +342,11 @@ async def main():
             await reply(msg, sender, f"{command.name}: timed out")
             return
         except CommandError as e:
-            print(f"  {e}", flush=True)
+            print(f"  {command.name}: refused" if private else f"  {e}", flush=True)
             await reply(msg, sender, str(e))
             return
         except Exception as e:
-            print(f"  {command.name} failed: {e}", flush=True)
+            print(f"  {command.name} failed: {type(e).__name__ if private else e}", flush=True)
             await reply(msg, sender, f"{command.name}: failed")
             return
         if not isinstance(result, CommandResult):
@@ -326,7 +360,7 @@ async def main():
         # A long reply comes as several messages, sent in order.
         for text in messages:
             await reply(msg, sender, text)
-            print(f"  -> replied ({len(text)} chars): {text}", flush=True)
+            print(f"  -> replied ({len(text)} chars)" + ("" if private else f": {text}"), flush=True)
 
     # Only direct messages; channel messages are never subscribed to.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)
@@ -336,6 +370,7 @@ async def main():
         await asyncio.Event().wait()
     finally:
         watcher.cancel()
+        summaries.cancel()
         with contextlib.suppress(AttributeError, NotImplementedError):
             asyncio.get_running_loop().remove_signal_handler(signal.SIGHUP)
         await mc.stop_auto_message_fetching()
