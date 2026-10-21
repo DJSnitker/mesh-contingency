@@ -65,6 +65,7 @@ status = { permission = "public" }
 clearstatus = { permission = "admin" }
 roster = { permission = "admin" }
 health = { permission = "admin" }
+history = { permission = "admin" }
 msg = { permission = "user" }
 inbox = { permission = "user" }
 clearinbox = { permission = "user" }

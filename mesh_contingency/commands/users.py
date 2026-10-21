@@ -138,6 +138,7 @@ class RemoveCommand(UsersBase):
         deleted = self.delete_messages(key)
         still = "; still an admin (edit [admin] keys to change that)" if key in self.ctx.admins else ""
         reply = f"{self.name}: {name} removed, {deleted} message(s) deleted{still}"
+        self.ctx.state.record(self.ctx.name_of(sender), f"removed {name} ({key[:12]}), {deleted} message(s) deleted")
         return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
 
 
@@ -156,6 +157,7 @@ class RenameCommand(UsersBase):
         old = describe(key, self.ctx.users)
         self.save(key, {**self.ctx.users[key], "name": new})
         reply = f"{self.name}: {old} is now {new}"
+        self.ctx.state.record(self.ctx.name_of(sender), f"renamed {old} to {new} ({key[:12]})")
         return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
 
 
@@ -182,6 +184,8 @@ class ResetPassCommand(UsersBase):
         self.ctx.send(key, f"An admin cleared your passphrase{deleted_text}. New messages are kept unsealed "
                            f"until you send setpass.")
         reply = f"{self.name}: {possessive(name)} passphrase cleared, {deleted} sealed message(s) deleted"
+        self.ctx.state.record(self.ctx.name_of(sender), f"cleared {possessive(name)} passphrase ({key[:12]}), "
+                                                        f"{deleted} sealed message(s) deleted")
         return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
 
 
@@ -208,6 +212,7 @@ class LeaveCommand(UsersBase):
         name = self.ctx.name_of(sender)
         self.save(key, None)
         self.delete_messages(key)
+        self.ctx.state.record(name, f"left the users ({key[:12]})")
         still = " You're still an admin." if key in self.ctx.admins else ""
         return CommandResult(console=f"{name} ({key[:12]}) left the users",
                              reply=f"{self.name}: you're no longer a user; send join to ask again.{still}")

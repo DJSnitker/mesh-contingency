@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from mesh_contingency.directory import (
+    BACKUPS,
     Directory,
     DirectoryError,
     find_user,
@@ -245,7 +246,31 @@ class SaveUserTest(unittest.TestCase):
         self.assertEqual(self.directory.users[BOB], {"name": "Bob"})
         self.assertTrue(self.path.read_text().startswith("# my notes\n"))
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o640)  # permissions kept
-        self.assertEqual(sorted(p.name for p in self.folder.iterdir()), ["users.toml"])
+        self.assertEqual(sorted(p.name for p in self.folder.iterdir()), ["backups", "users.toml"])  # no temp file
+
+    def test_the_old_version_is_backed_up(self):
+        old = self.path.read_text()
+        self.directory.save_user(BOB, {"name": "Bob"})
+        backups = list((self.folder / "backups").iterdir())
+        self.assertEqual(len(backups), 1)
+        self.assertRegex(backups[0].name, r"^users-\d{8}-\d{6}\.toml$")
+        self.assertEqual(backups[0].read_text(), old)
+        self.assertEqual(backups[0].stat().st_mode & 0o777, 0o640)  # as private as the file
+        self.assertEqual((self.folder / "backups").stat().st_mode & 0o777, 0o700)
+
+    def test_only_the_newest_backups_are_kept(self):
+        versions = []
+        for i in range(BACKUPS + 2):
+            versions.append(self.path.read_text())
+            self.directory.save_user(BOB, {"name": f"Bob{i}"})
+        backups = sorted((self.folder / "backups").iterdir(), key=lambda p: p.stat().st_mtime_ns)
+        self.assertEqual([p.read_text() for p in backups], versions[-BACKUPS:])
+
+    def test_nothing_is_backed_up_when_a_write_is_refused(self):
+        self.path.write_text(f"[users.{ALICE}]\nname = 'Alice'\n[users.{ALICE}.extra]\nx = 1\n")
+        with self.assertRaises(DirectoryError):
+            self.directory.save_user(ALICE, {"name": "Alice", "extra": {"x": 1}, "quickim": "a@example.com"})
+        self.assertFalse((self.folder / "backups").exists())
 
     def test_change_a_user(self):
         self.assertEqual(self.directory.save_user(ALICE, {"name": "Alice", "quickim": "b@example.com"}),

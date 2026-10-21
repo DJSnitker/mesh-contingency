@@ -123,4 +123,5 @@ class AlertCommand(Command):
                 raise RuntimeError(f"radio rejected channel message {i + 1} of {len(messages)}: {res.payload}")
             console.append(f"  {message}")
         what = f"{len(messages)} alert message(s)" if alerts else f"'{messages[0]}'"
+        self.ctx.state.record(self.ctx.name_of(sender), f"posted {zipcode} alerts to {self.channel}")
         return CommandResult(console="\n".join(console), reply=f"{self.name}: posted {what} to {self.channel}")

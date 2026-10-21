@@ -1,6 +1,6 @@
 # Plan: user management and robustness
 
-Status: sections 1–3 merged (PR #5); section 4 in progress · Requested 2026-10-20
+Status: sections 1–4 built (PRs #5, #12, #13 and this one); section 5 future · Requested 2026-10-20
 
 Builds on the users file (`users.toml`, reloaded while running), the join
 flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
@@ -11,7 +11,7 @@ flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
 | 1 | Admin user management over the mesh | built |
 | 2 | Users' own commands and the new-message notice | built |
 | 3 | Abuse protection: rate limits, email caps, contact floods, mailbox expiry | built |
-| 4 | Keeping the bot running: service, log file, health, backups, history | service, log and health built |
+| 4 | Keeping the bot running: service, log file, health, backups, history | built |
 | 5 | Small hardening | future |
 
 ---
@@ -113,9 +113,12 @@ Messages older than 30 days are deleted, read or not, sealed or not. Set
   and the last one, emails in 24 hours, last flood advert, and the last
   users-file reload or why it failed. Radio queries time out after 5 s each
   and are left out if unanswered.
-- A backup of `users.toml` before every write by the bot, keeping the last 5.
-- An audit trail of admin actions (approve, deny, remove, rename, resetpass),
-  readable with an admin `history` command.
+- *Done:* a backup of `users.toml` before every write by the bot, in a
+  `backups` folder next to it (`users-YYYYMMDD-HHMMSS.toml`, as private as the
+  file), keeping the newest 5.
+- *Done:* an audit trail in `history.json` of approve, deny, remove, rename,
+  resetpass, clearstatus and alert, plus users who leave, with who and when
+  (newest 200 kept), read with the admin `history [page]` command.
 
 ## Section 5: small hardening (future)
 

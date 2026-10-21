@@ -26,6 +26,10 @@ import tomllib
 from pathlib import Path
 
 DEFAULT_FILE = "users.toml"
+# Before the bot rewrites the users file, the old version is saved in this
+# folder next to it; the newest BACKUPS are kept.
+BACKUP_FOLDER = "backups"
+BACKUPS = 5
 DEFAULT_RELOAD_SECONDS = 5
 DIRECTORY_KEYS = {"file", "reload_seconds"}
 PUBLIC_KEY_RE = re.compile(r"[0-9a-f]{64}")
@@ -338,8 +342,11 @@ class Directory:
         if written != (changed(users), admins):
             raise DirectoryError(f"can't be changed automatically; edit {possessive(describe(key, users))} "
                                  f"section by hand")
-        # Replace the file in one step, keeping its permissions.
+        # Keep the version being replaced, then replace the file in one step,
+        # keeping its permissions.
         mode = self.path.stat().st_mode & 0o777 if text else 0o600
+        if text:
+            self._back_up(text, mode)
         temp = self.path.with_name(self.path.name + ".tmp")
         fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
         with open(fd, "w", encoding="utf-8") as f:
@@ -347,6 +354,24 @@ class Directory:
         os.chmod(temp, mode)
         os.replace(temp, self.path)
         return self.check(force=True)
+
+    def _back_up(self, text, mode):
+        """Save text (the file as it is) in the backups folder next to it,
+        as e.g. users-20261020-221500.toml, keeping the newest BACKUPS."""
+        folder = self.path.parent / BACKUP_FOLDER
+        folder.mkdir(mode=0o700, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        backup = folder / f"{self.path.stem}-{stamp}{self.path.suffix}"
+        count = 1
+        while backup.exists():  # more than one write in a second
+            count += 1
+            backup = folder / f"{self.path.stem}-{stamp}-{count}{self.path.suffix}"
+        fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        with open(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        old = sorted(folder.glob(f"{self.path.stem}-*{self.path.suffix}"), key=lambda p: p.stat().st_mtime_ns)
+        for path in old[:-BACKUPS]:
+            path.unlink()
 
     async def watch(self, wake, on_error):
         """Check the file every reload_seconds (or only when woken, if 0)

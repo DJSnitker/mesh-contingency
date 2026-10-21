@@ -13,6 +13,11 @@ from pathlib import Path
 
 from .limits import EmailLog
 
+# The audit trail of admin actions (and users leaving), newest last, read
+# with the history command.
+HISTORY_FILE = "history.json"
+MAX_HISTORY = 200
+
 
 class StoreError(Exception):
     """A state file can't be read; the message says why."""
@@ -80,6 +85,15 @@ class State:
         """Record a command that failed or timed out, e.g. "wx failed"."""
         self.counts["errors"] += 1
         self.last_error = (time.time(), what)
+
+    def record(self, by, what):
+        """Add an action to the history, e.g. record("Doug", "approved Sam
+        (5a3e1c7b9d20)"), keeping the newest MAX_HISTORY."""
+        store = self.store(HISTORY_FILE)
+        entries = store.data.setdefault("entries", [])
+        entries.append({"time": time.time(), "by": by, "what": what})
+        del entries[:-MAX_HISTORY]
+        store.save()
 
     def store(self, filename):
         """The Store for a file in data_dir, the same one for every command
