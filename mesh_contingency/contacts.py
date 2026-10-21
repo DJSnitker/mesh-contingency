@@ -104,6 +104,15 @@ class NoticeBatcher:
         return f"In the last hour: {'; '.join(parts)}" if parts else None
 
 
+def contact_rows(mc, wanted=""):
+    """[(name, full public key, type name)] for the radio's contacts, sorted
+    by name; with `wanted`, only those whose name or key starts with it."""
+    wanted = wanted.lower()
+    rows = sorted(((c.get("adv_name") or "?", c["public_key"].lower(), TYPE_NAMES.get(c.get("type"), ""))
+                   for c in mc.contacts.values()), key=lambda row: (row[0].lower(), row[1]))
+    return [row for row in rows if not wanted or row[0].lower().startswith(wanted) or row[1].startswith(wanted)]
+
+
 def lookalike_of(public_key, protected):
     """Return the key in `protected` that public_key shares a 12-hex prefix
     with but doesn't equal, or None."""

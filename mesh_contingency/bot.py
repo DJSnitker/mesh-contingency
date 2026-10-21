@@ -26,6 +26,15 @@ from .api import (
     is_authorized,
     to_messages,
 )
+from .console import (
+    ADVERTS_FILE,
+    advert_on_schedule,
+    load_advert,
+    run_console_command,
+    seconds_until_advert,
+    send_advert,
+    watch_console,
+)
 from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
 from .directory import Directory, describe, possessive
 from .limits import RateLimiter, describe_rate, wait_text
@@ -90,6 +99,7 @@ async def main():
     auto_add = load_auto_add(config)
     notify_admins = load_notify_admins(config)
     max_new_per_hour, notices_per_hour = load_contact_limits(config)
+    advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -136,14 +146,18 @@ async def main():
         else:
             print(f"  ({what} to {prefix} delivered)", flush=True)
 
-    background = set()  # running notice tasks, kept so they aren't garbage collected
+    background = set()  # running background tasks, kept so they aren't garbage collected
+
+    def in_background(coro):
+        """Run a coroutine as a background task, kept until it finishes."""
+        task = asyncio.create_task(coro)
+        background.add(task)
+        task.add_done_callback(background.discard)
 
     def send_later(key, text, what="notice"):
         """Send a direct message in the background, without holding up the
         radio's event handling (or a command's reply) while it goes out."""
-        task = asyncio.create_task(send_dm(key, text, what=what))
-        background.add(task)
-        task.add_done_callback(background.discard)
+        in_background(send_dm(key, text, what=what))
 
     def tell_admins(text, what):
         """Send text to every current admin in the background."""
@@ -236,6 +250,24 @@ async def main():
         asyncio.get_running_loop().add_signal_handler(signal.SIGHUP, wake.set)
     watcher = asyncio.create_task(directory.watch(wake, on_users_error))
     summaries = asyncio.create_task(send_summaries())
+    loop = asyncio.get_running_loop()
+    # When each kind of advert last went out, scheduled or by hand.
+    advert_times = state.store(ADVERTS_FILE)
+    # kill -USR1 <pid> sends a flood advert, for a bot running without a terminal.
+    with contextlib.suppress(AttributeError, NotImplementedError):  # no SIGUSR1 on Windows
+        loop.add_signal_handler(signal.SIGUSR1, lambda: in_background(send_advert(mc, True, "SIGUSR1", advert_times)))
+    if advert_at_startup:
+        await send_advert(mc, advert_flood, "at startup", advert_times)
+    adverts = None
+    if advert_every_hours:
+        # So new radios learn the node; the schedule carries on across restarts.
+        wait = seconds_until_advert(advert_times, advert_every_hours, advert_flood)
+        print(f"Sending a {'flood' if advert_flood else 'zero-hop'} advert every {advert_every_hours:g} hour(s); "
+              f"next {'now' if not wait else 'in ' + wait_text(wait)}.")
+        adverts = asyncio.create_task(advert_on_schedule(mc, advert_times, advert_every_hours, advert_flood))
+    stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
+    if stop_console:
+        print("Type help for console commands (advert, advert flood, contacts).")
     when = f"every {directory.reload_seconds}s" if directory.reload_seconds else "on reload or SIGHUP only"
     print(f"Users file: {directory.path} (checked {when}).")
     print("Listening for direct messages (Ctrl+C to quit)...")
@@ -371,8 +403,13 @@ async def main():
     finally:
         watcher.cancel()
         summaries.cancel()
+        if adverts:
+            adverts.cancel()
+        if stop_console:
+            stop_console()
         with contextlib.suppress(AttributeError, NotImplementedError):
-            asyncio.get_running_loop().remove_signal_handler(signal.SIGHUP)
+            loop.remove_signal_handler(signal.SIGHUP)
+            loop.remove_signal_handler(signal.SIGUSR1)
         await mc.stop_auto_message_fetching()
         await mc.disconnect()
 

@@ -17,6 +17,16 @@ notify_admins = true
 max_new_per_hour = 20
 notices_per_hour = 5
 
+# Adverts tell other radios about this node, so they can message it. They can
+# also be sent while the bot runs: type "advert" or "advert flood" in its
+# terminal, or kill -USR1 <pid> for a flood advert. A scheduled advert goes out
+# every_hours after the last one of its kind (by hand or not), even across
+# restarts, so a restart only adverts if one is due.
+[advert]
+every_hours = 0      # advert this often; 0 for never
+flood = true         # flood (across the mesh) or zero-hop (direct range)
+at_startup = false   # also advert every time the bot starts
+
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
 # emails_per_day caps each sender's quickim, emailall and email commands (one
@@ -48,6 +58,7 @@ quickim = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
+contacts = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -64,13 +75,6 @@ deny = { permission = "admin" }
 setquickim = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
-users = { permission = "admin" }
-whois = { permission = "admin" }
-remove = { permission = "admin" }
-rename = { permission = "admin" }
-resetpass = { permission = "admin" }
-whoami = { permission = "user" }
-leave = { permission = "user" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }

@@ -168,6 +168,34 @@ def split_reply(text, limit=MAX_REPLY_LEN):
         count = len(chunks)
 
 
+def pack(items, limit=MAX_REPLY_LEN, separator="; "):
+    """Join items into as few messages of at most `limit` chars as possible,
+    without splitting an item (one longer than limit is cut)."""
+    messages = []
+    for item in items:
+        item = item if len(item) <= limit else item[: limit - 3] + "..."
+        if messages and len(messages[-1]) + len(separator) + len(item) <= limit:
+            messages[-1] += separator + item
+        else:
+            messages.append(item)
+    return messages
+
+
+def page(messages, number, name, again=None):
+    """Return page `number` (from 1) of a long list of mesh messages, each
+    page at most MAX_PARTS messages with the last saying how to get the next
+    (`again`: what to send, before the page number; the command's name by
+    default). Raises CommandError for a page that doesn't exist."""
+    per_page = MAX_PARTS - 1  # leaving room to say what's next
+    pages = [messages[i:i + per_page] for i in range(0, len(messages), per_page)] or [[]]
+    if not 1 <= number <= len(pages):
+        raise CommandError(f"{name}: there are {len(pages)} page(s)")
+    reply = pages[number - 1]
+    if number < len(pages):
+        reply = reply + [f"{name}: page {number} of {len(pages)}; send {again or name} {number + 1} for more"]
+    return reply
+
+
 def to_messages(reply):
     """Return the mesh messages for a command's reply, within the mesh limits.
 

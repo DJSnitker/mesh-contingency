@@ -24,7 +24,8 @@ one exception is outgoing: `alert` posts weather alerts to a public channel.
 | `quickim <message>` | users | Emails the message to the sender's preset contact. |
 | `emailall <message>` | users | Emails the message to the sender's preset group of addresses. |
 | `email <address> <message>` | users | Emails the message to the given address. |
-| `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. |
+| `advert [flood]` | admins | Makes the radio send a zero-hop advert, or a flood advert with `flood`. To advert without the mesh, see [While it runs](#while-it-runs). |
+| `contacts [name or key] [page]` | admins | The radio's contacts with their key prefixes, marking users, admins and non-chat nodes, e.g. `Alice a1b2c3d4e5f6 (user)`; with a name or key start, only those that match. Long lists come in pages (`contacts 2`). |
 | `reload` | admins | Reads the [users file](#users-file) now and replies with what changed. |
 | `ok [status]` | anyone | Checks in: saves the sender's name, key and status (plain `ok` if none given), replacing their last one. |
 | `status <name or key>` | anyone | Shows the last check-in of anyone whose name matches (exactly, else in part) or whose key starts with the given hex (4+ characters), e.g. `Bob: at the shelter (2h ago)`. Plain `status` shows your own. |
@@ -250,6 +251,7 @@ quickim = { permission = "user" }
 emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
+contacts = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -458,6 +460,39 @@ limit (60 s unless its config says otherwise). Each reply is
 retried until the radio reports an ack, and the console notes whether it was
 delivered.
 
+### While it runs
+
+Two radios can only exchange direct messages once each has the other as a
+contact, which happens when each hears the other's advert. A new user's radio
+learns the node from its advert, and the node adds theirs when it hears it
+(see [Contacts](#contacts)). This can all be done without stopping the bot:
+
+- **In the bot's terminal**, type:
+  - `advert`: a zero-hop advert, heard by radios in direct range;
+  - `advert flood`: a flood advert, repeated across the mesh;
+  - `contacts [name]`: the radio's contacts (or those whose name or key starts
+    with `name`), to check that the other radio has been added;
+  - `help`: this list.
+- **From another shell**, when the bot has no terminal (e.g. running as a
+  service): `kill -USR1 <pid>` sends a flood advert.
+- **By itself**, from `config.toml`:
+
+  ```toml
+  [advert]
+  every_hours = 12     # advert this often (default 0, never)
+  flood = true         # flood or zero-hop (default true)
+  at_startup = false   # also advert every time the bot starts (default false)
+  ```
+
+  The next advert goes out 12 hours after the last one of that kind, whether
+  the schedule sent it or someone did by hand (from the terminal,
+  `kill -USR1` or the `advert` command). The time is kept in `adverts.json`
+  next to `config.toml`, so a restart doesn't flood the mesh again: the bot
+  adverts at startup only if the last one was 12 or more hours ago.
+
+So for a new user: ask them to advert from their app, send `advert flood` (or
+`advert` if they're in range), and check with `contacts <their name>`.
+
 ## Testing
 
 ```sh
@@ -494,6 +529,7 @@ mesh_contingency/
   state.py            senders seen since startup; status.json and mailbox.json
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
+  console.py          commands typed into the bot's terminal, scheduled adverts
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type

@@ -9,24 +9,11 @@ do until the same command is sent again within CONFIRM_SECONDS. Nobody can be
 made an admin over the mesh: [admin] keys is only changed by editing the file.
 """
 
-from ..api import CONFIRM_SECONDS, MAX_PARTS, MAX_REPLY_LEN, Command, CommandError, CommandResult, Confirmations
+from ..api import CONFIRM_SECONDS, Command, CommandError, CommandResult, Confirmations, pack, page
 from ..directory import DirectoryError, describe, find_user, possessive
 from .join import MAX_NAME
 from .mailbox import FILENAME as MAILBOX
 from .mailbox import INBOX_KEY
-
-
-def pack(items, limit=MAX_REPLY_LEN, separator="; "):
-    """Join items into as few messages of at most `limit` chars as possible,
-    without splitting an item (one longer than limit is cut)."""
-    messages = []
-    for item in items:
-        item = item if len(item) <= limit else item[: limit - 3] + "..."
-        if messages and len(messages[-1]) + len(separator) + len(item) <= limit:
-            messages[-1] += separator + item
-        else:
-            messages.append(item)
-    return messages
 
 
 class UsersBase(Command):
@@ -118,14 +105,7 @@ class UsersCommand(UsersBase):
         if not keys:
             return CommandResult(console="", reply=f"{self.name}: nobody yet")
         messages = pack([f"{self.name} ({len(keys)}):"] + [self.entry(k) for k in keys], separator=" ")
-        per_page = MAX_PARTS - 1  # leaving room to say what's next
-        pages = [messages[i:i + per_page] for i in range(0, len(messages), per_page)]
-        number = int(text or 1)
-        if not 1 <= number <= len(pages):
-            raise CommandError(f"{self.name}: there are {len(pages)} page(s)")
-        reply = pages[number - 1]
-        if number < len(pages):
-            reply = reply + [f"{self.name}: page {number} of {len(pages)}; send {self.name} {number + 1} for more"]
+        reply = page(messages, int(text or 1), self.name)
         return CommandResult(console="\n".join(reply), reply=reply)
 
 

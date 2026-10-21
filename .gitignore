@@ -2,10 +2,12 @@
 # Copy config.example.toml and users.example.toml instead.
 config.toml
 users.toml
-# What the bot saves while running: check-ins, mailbox messages, join requests.
+# What the bot saves while running: check-ins, mailbox messages, join requests,
+# the last scheduled advert.
 status.json
 mailbox.json
 requests.json
+adverts.json
 *.json.tmp
 
 # Python
