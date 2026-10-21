@@ -7,7 +7,9 @@ import argparse
 import asyncio
 import contextlib
 import glob
+import os
 import signal
+import sys
 import time
 import tomllib
 from pathlib import Path
@@ -38,6 +40,7 @@ from .console import (
 from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
 from .directory import Directory, describe, possessive
 from .limits import RateLimiter, describe_rate, wait_text
+from .output import SafeOutput
 from .registry import Registry
 from .state import State
 
@@ -84,7 +87,31 @@ def parse_command(msg, commands):
     return (command, parts[1].strip() if len(parts) > 1 else "") if command else None
 
 
+def warn_if_shared(path):
+    """Warn if a file holding addresses, keys or passwords can be read or
+    changed by other accounts."""
+    try:
+        mode = path.stat().st_mode & 0o777
+    except OSError:
+        return
+    if mode & 0o077:
+        print(f"Warning: {path} can be read or changed by other accounts (mode {mode:o}); "
+              f"fix with: chmod 600 {path}", flush=True)
+
+
+def mailrc_path():
+    """The mail command's settings file, which may hold an SMTP password."""
+    return Path(os.environ.get("MAILRC") or Path.home() / ".mailrc")
+
+
 async def main():
+    # Everything printed may include text from the mesh; escape any terminal
+    # control sequences in it.
+    with contextlib.redirect_stdout(SafeOutput(sys.stdout)):
+        return await _main()
+
+
+async def _main():
     parser = argparse.ArgumentParser(prog="mesh-contingency", description=__doc__)
     parser.add_argument("-p", "--port", help="serial port (auto-detected if omitted)")
     parser.add_argument("-b", "--baud", type=int, default=115200)
@@ -238,6 +265,8 @@ async def main():
 
     def on_users_reloaded(summary):
         print(f"{directory.name} reloaded: {summary}", flush=True)
+        if directory.path:
+            warn_if_shared(directory.path)
         warn_unconfigured()
         check_shared_prefixes()
 
@@ -275,6 +304,9 @@ async def main():
         print("Type help for console commands (advert, advert flood, contacts).")
     when = f"every {directory.reload_seconds}s" if directory.reload_seconds else "on reload or SIGHUP only"
     print(f"Users file: {directory.path} (checked {when}).")
+    for path in (args.config.resolve(), directory.path, mailrc_path()):
+        if path:
+            warn_if_shared(path)
     print("Listening for direct messages (Ctrl+C to quit)...")
 
     def message_prefix(msg):

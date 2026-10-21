@@ -192,12 +192,12 @@ class ParseCommandTest(unittest.TestCase):
 class MainTest(unittest.IsolatedAsyncioTestCase):
     """Runs bot.main() against a fake radio and drives it with messages."""
 
-    async def start(self, config=CONFIG, contacts=None, argv=None, radio=None, users=USERS):
+    async def start(self, config=CONFIG, contacts=None, argv=None, radio=None, users=USERS, config_file=None):
         """Start the bot with config.toml and users.toml (if users isn't None)
-        in a temporary folder."""
+        in a temporary folder, or with config_file from write_files."""
         self.radio = radio or FakeMeshCore(contacts if contacts is not None else
                                            {DANA: "Dana", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
-        config_file = self.write_files(config, users)
+        config_file = config_file or self.write_files(config, users)
 
         self.clock = 1000.0
         self.out = io.StringIO()
@@ -222,9 +222,14 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
         config_file = folder / "config.toml"
         config_file.write_text(config)
+        config_file.chmod(0o600)
         self.users_file = folder / "users.toml"
         if users is not None:
             self.users_file.write_text(users)
+            self.users_file.chmod(0o600)
+        # Not the real ~/.mailrc
+        self.mailrc = folder / ".mailrc"
+        self.enterContext(mock.patch.dict("os.environ", {"MAILRC": str(self.mailrc)}))
         return config_file
 
     async def main_exits(self, config, users, error):
@@ -491,6 +496,30 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.deliver(EventType.DISCONNECTED, {"reason": "manual_disconnect"})
         await asyncio.sleep(0)
         self.assertFalse(self.task.done())
+
+    async def test_mesh_text_is_printed_with_control_codes_escaped(self):
+        self.radio = FakeMeshCore({DANA: "Dana\x1b]0;owned\x07", ADMIN_KEY: "Admin", STRANGER: "Stranger"})
+        await self.start(radio=self.radio)
+        await self.radio.dm(DANA, "wx \x1b[2J\x1b[31m33101")
+        out = self.out.getvalue()
+        self.assertNotIn("\x1b", out)
+        self.assertIn("[d0d0d0d0d0d0 Dana\\x1b]0;owned\\x07] wx \\x1b[2J\\x1b[31m33101", out)
+
+    async def test_files_others_can_read_are_warned_about(self):
+        config_file = self.write_files(CONFIG, USERS)
+        self.users_file.chmod(0o644)
+        self.mailrc.write_text("set mta=smtps://secret\n")
+        self.mailrc.chmod(0o640)
+        await self.start(config_file=config_file)
+        out = self.out.getvalue()
+        self.assertIn(f"Warning: {self.users_file} can be read or changed by other accounts (mode 644); "
+                      f"fix with: chmod 600 {self.users_file}", out)
+        self.assertIn(f"Warning: {self.mailrc} can be read or changed by other accounts (mode 640)", out)
+        self.assertNotIn(f"Warning: {config_file} ", out)
+
+    async def test_no_warning_for_private_files(self):
+        await self.start()
+        self.assertNotIn("other accounts", self.out.getvalue())
 
     async def test_sigterm_stops_cleanly(self):
         await self.start()

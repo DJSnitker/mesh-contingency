@@ -1,6 +1,6 @@
 # Plan: user management and robustness
 
-Status: sections 1–4 built (PRs #5, #12, #13 and this one); section 5 future · Requested 2026-10-20
+Status: all five sections built · Requested 2026-10-20
 
 Builds on the users file (`users.toml`, reloaded while running), the join
 flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
@@ -12,7 +12,7 @@ flow and the mailbox. Sections 3 and 5 replace phases 3–6 of
 | 2 | Users' own commands and the new-message notice | built |
 | 3 | Abuse protection: rate limits, email caps, contact floods, mailbox expiry | built |
 | 4 | Keeping the bot running: service, log file, health, backups, history | built |
-| 5 | Small hardening | future |
+| 5 | Small hardening | built |
 
 ---
 
@@ -120,14 +120,17 @@ Messages older than 30 days are deleted, read or not, sealed or not. Set
   resetpass, clearstatus and alert, plus users who leave, with who and when
   (newest 200 kept), read with the admin `history [page]` command.
 
-## Section 5: small hardening (future)
+## Section 5: small hardening
 
-- Escape terminal control characters in everything printed from the mesh
-  (phase 5 of the security plan).
-- Email addresses must start with a letter or digit.
-- Warn when `config.toml`, `users.toml` or `~/.mailrc` can be read by other
-  accounts.
-- Pin GitHub Actions to commit SHAs and `meshcore` to the tested range.
+- *Done:* terminal control characters (C0/C1 controls except newline and tab,
+  DEL, and Unicode bidi controls) are escaped in everything the bot prints,
+  by wrapping its output once (`output.py`) rather than at each print.
+- *Done:* email addresses must start with a letter or digit.
+- *Done:* startup and every users-file reload warn when `config.toml`,
+  `users.toml` or the mail settings (`~/.mailrc` or `$MAILRC`) can be read or
+  changed by other accounts, with the `chmod 600` fix.
+- *Done:* GitHub Actions pinned to commit SHAs (version in a comment), and
+  `meshcore` to `>=2.3.17,<2.4`; Dependabot proposes updates.
 
 ## Decisions taken (change if needed)
 

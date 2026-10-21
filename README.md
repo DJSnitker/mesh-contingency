@@ -611,6 +611,7 @@ mesh_contingency/
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
   names.py            checking chosen names: letters and numbers, profanity
+  output.py           escaping terminal control codes in everything printed
   console.py          commands typed into the bot's terminal, scheduled adverts
   bot.py              entry point: radio connection, permissions, dispatch, replies
   testing.py          fake radio and make_context() for testing commands
@@ -777,8 +778,13 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 - `join` is public, so anyone can ask; nothing changes until an admin
   approves. Approving gives the person every `user` command, including
   `email` to any address.
-- Addresses set over the mesh must be plain `user@domain.tld`; anything else
-  is refused, as with `email`.
+- Addresses set over the mesh must be plain `user@domain.tld`, starting with
+  a letter or digit; anything else is refused, as with `email`.
+- Everything the bot prints (to the terminal or the journal) has terminal
+  control sequences escaped, e.g. `\x1b[2J`, since message text and node
+  names come from anyone on the mesh: a message can't clear the screen,
+  recolour it, set the window title, overwrite earlier lines or reverse how
+  text displays.
 - `status.json`, `mailbox.json` and `requests.json` hold node keys and what
   people wrote; they are created readable only by you. Messages to users who
   set a passphrase are sealed in `mailbox.json`, but someone with a copy of it
@@ -789,6 +795,13 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 - The users file decides who is an admin, and changes to it apply while the
   bot runs. Keep it writable only by you (`chmod 600 users.toml`). Admin
   rights can't be given over the mesh.
+- At startup, and whenever the users file reloads, the bot warns if
+  `config.toml`, `users.toml` or the mail settings (`~/.mailrc`, or the file
+  `$MAILRC` names) can be read or changed by other accounts, with the
+  `chmod 600` command that fixes it. `~/.mailrc` usually holds an SMTP
+  password.
+- `meshcore` is held to the tested minor version, and CI's GitHub Actions are
+  pinned to commit SHAs; Dependabot proposes updates to both.
 - Rate limits and email caps (see [Limits](#limits)) are per sender and kept
   in memory; restarting the bot resets them.
 

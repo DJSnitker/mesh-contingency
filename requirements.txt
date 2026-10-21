@@ -1,2 +1,2 @@
-meshcore>=2.3
+meshcore>=2.3.17,<2.4
 pycryptodome>=3.21

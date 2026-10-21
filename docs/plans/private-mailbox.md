@@ -1,6 +1,6 @@
 # Plan: keeping mailbox messages private
 
-Status: built on `feature/private-mailbox` · Requested 2026-10-20 · Decided 2026-10-20
+Status: built (PR #5) · Requested 2026-10-20 · Decided 2026-10-20
 
 ## Goal
 
