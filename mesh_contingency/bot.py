@@ -491,7 +491,8 @@ async def _main():
         except Exception as e:
             print(f"  {command.name} failed: {type(e).__name__ if private else e}", flush=True)
             state.error(f"{command.name} failed")
-            await reply(msg, sender, f"{command.name}: failed")
+            # An error may carry a reply that says why, safe to send.
+            await reply(msg, sender, getattr(e, "reply", None) or f"{command.name}: failed")
             return
         if not isinstance(result, CommandResult):
             # Function commands may return just the reply.

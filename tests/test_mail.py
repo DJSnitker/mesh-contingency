@@ -6,7 +6,17 @@ from unittest import mock
 from mesh_contingency.api import ADMIN, PUBLIC, USER, CommandError, Sender
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
-from mesh_contingency.commands.mail import ADDRESS_RE, BODY, DISCLAIMER, SUBJECT, send_email
+from mesh_contingency.commands.mail import (
+    ADDRESS_RE,
+    BODY,
+    DISCLAIMER,
+    LOGIN_REFUSED,
+    NO_INTERNET,
+    SUBJECT,
+    SendError,
+    reason_for,
+    send_email,
+)
 from mesh_contingency.commands.qm import QmCommand
 from mesh_contingency.directory import Directory
 from mesh_contingency.limits import Limits
@@ -50,21 +60,58 @@ class SendEmailTest(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["input"], " ~!rm -rf /\nok\n ~v\n")
 
     def test_failure_exit_status(self):
-        with self.assertRaisesRegex(RuntimeError, "`mail` failed: no sendmail"):
+        with self.assertRaisesRegex(SendError, "`mail` failed: no sendmail"):
             self.send(result=completed(1, stderr="no sendmail\n"))
-        with self.assertRaisesRegex(RuntimeError, "exit status 2"):
+        with self.assertRaisesRegex(SendError, "exit status 2"):
             self.send(result=completed(2))
+
+    def test_failure_is_one_line_with_a_reason(self):
+        stderr = ("msmtp: cannot locate host smtp.example.com: Name or service not known\n"
+                  "msmtp: could not send mail\n/home/node/dead.letter 8/146\n... message not sent\n")
+        with self.assertRaises(SendError) as caught:
+            self.send(result=completed(4, stderr=stderr))
+        self.assertEqual(str(caught.exception), "`mail` failed: " + " ".join(stderr.split()))
+        self.assertEqual(caught.exception.reason, NO_INTERNET)
+
+    def test_unsent_message_is_not_saved(self):
+        run = self.send()
+        self.assertEqual(run.call_args.kwargs["env"]["DEAD"], "/dev/null")
 
     def test_mail_missing(self):
         with mock.patch("mesh_contingency.commands.mail.subprocess.run", side_effect=FileNotFoundError):
-            with self.assertRaisesRegex(RuntimeError, "not found"):
+            with self.assertRaisesRegex(SendError, "not found") as caught:
                 send_email(["a@example.com"], "s", "b")
+        self.assertEqual(caught.exception.reason, ("email isn't set up on the node", "tell an admin"))
 
     def test_mail_timeout(self):
         with mock.patch("mesh_contingency.commands.mail.subprocess.run",
                         side_effect=subprocess.TimeoutExpired("mail", 30)):
-            with self.assertRaisesRegex(RuntimeError, "timed out"):
+            with self.assertRaisesRegex(SendError, "timed out") as caught:
                 send_email(["a@example.com"], "s", "b")
+        self.assertEqual(caught.exception.reason, ("email timed out", "try again later"))
+
+
+class ReasonTest(unittest.TestCase):
+    """msmtp's own wording, as mail passes it on."""
+
+    def test_no_internet(self):
+        for output in ["msmtp: cannot locate host smtp.gmail.com: Temporary failure in name resolution",
+                       "msmtp: cannot connect to smtp.gmail.com, port 587: Network is unreachable",
+                       "msmtp: cannot connect to smtp.gmail.com, port 587: Connection refused",
+                       "msmtp: network read error: The operation timed out"]:
+            self.assertEqual(reason_for(output), NO_INTERNET, output)
+
+    def test_login_refused(self):
+        self.assertEqual(reason_for("msmtp: server message: 535-5.7.8 Username and Password not accepted.\n"
+                                    "msmtp: authentication failed (method PLAIN)"), LOGIN_REFUSED)
+
+    def test_address_refused(self):
+        self.assertEqual(reason_for("msmtp: recipient address x@example.com not accepted by the server"),
+                         ("an address was refused", "check the address"))
+
+    def test_anything_else(self):
+        self.assertEqual(reason_for("... message not sent"), ("email error at the node", "tell an admin"))
+        self.assertEqual(reason_for(""), ("email error at the node", "tell an admin"))
 
 
 class MailCommandTestCase(unittest.IsolatedAsyncioTestCase):
@@ -118,10 +165,14 @@ class QmTest(MailCommandTestCase):
             await cmd.execute("hi", Sender("Nobody", "c0" * 32))
         self.send_email.assert_not_called()
 
-    async def test_mail_failure_propagates(self):
-        self.send_email.side_effect = RuntimeError("`mail` failed")
-        with self.assertRaises(RuntimeError):
-            await QmCommand(make_context("qm", users=USERS)).execute("hi", DANA)
+    async def test_mail_failure_says_why(self):
+        self.send_email.side_effect = SendError("`mail` failed: msmtp: cannot connect", NO_INTERNET)
+        state = State()
+        with mock.patch("mesh_contingency.commands.mail.time.time", return_value=500.0):
+            with self.assertRaises(SendError) as caught:
+                await QmCommand(make_context("qm", users=USERS, state=state)).execute("hi", DANA)
+        self.assertEqual(caught.exception.reply, "qm: not sent, no internet at the node; try again later")
+        self.assertEqual(state.emails.last_failure, (500.0, "no internet at the node"))
 
     async def test_message_starting_with_an_address_is_refused(self):
         commands = {}
@@ -233,9 +284,9 @@ class EmailCapsTest(MailCommandTestCase):
         self.assertEqual(self.send_email.call_count, 4)
 
     async def test_failed_send_is_not_counted(self):
-        self.send_email.side_effect = RuntimeError("down")
+        self.send_email.side_effect = SendError("down", NO_INTERNET)
         for _ in range(4):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(SendError):
                 await self.email.execute("x@example.com hi", DANA)
         self.send_email.side_effect = None
         await self.email.execute("x@example.com hi", DANA)

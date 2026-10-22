@@ -26,6 +26,7 @@ from mesh_contingency.api import (
     Sender,
     split_reply,
 )
+from mesh_contingency.commands.mail import NO_INTERNET, SendError
 from mesh_contingency.testing import FakeMeshCore, full_key, make_contact
 
 
@@ -638,6 +639,15 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
             await self.radio.dm(DANA, "QM running late")
         self.assertEqual(send_email.call_args.args[0], ["partner@example.com"])
         self.assertEqual(self.radio.sent, [("Dana", "qm: sent")])
+
+    async def test_failed_email_says_why(self):
+        await self.start()
+        failure = SendError("`mail` failed: msmtp: cannot connect to smtp.example.com, port 587: "
+                            "Network is unreachable", NO_INTERNET)
+        with mock.patch("mesh_contingency.commands.mail.send_email", side_effect=failure):
+            await self.radio.dm(DANA, "qm running late")
+        self.assertEqual(self.radio.sent, [("Dana", "qm: not sent, no internet at the node; try again later")])
+        self.assertIn("qm failed: `mail` failed: msmtp: cannot connect to smtp.example.com", self.out.getvalue())
 
     async def test_admin_command(self):
         await self.start()

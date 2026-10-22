@@ -107,6 +107,7 @@ class EmailLog:
 
     def __init__(self):
         self._sent = deque()  # (time.time(), sender's key, addresses)
+        self.last_failure = None  # (time.time(), cause), for health
 
     def _recent(self):
         cutoff = time.time() - EMAIL_WINDOW

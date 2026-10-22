@@ -2,9 +2,9 @@
 
 The radio (battery, its own uptime, contact capacity), the people (users, join
 requests, messages waiting, check-ins), what the bot has done since it started
-(messages, replies, undelivered replies, errors), emails in the last 24 hours,
-the last flood advert and the users file. Anything the radio doesn't answer
-within RADIO_SECONDS is left out.
+(messages, replies, undelivered replies, errors), emails in the last 24 hours
+and the last one that failed, the last flood advert and the users file.
+Anything the radio doesn't answer within RADIO_SECONDS is left out.
 """
 
 import asyncio
@@ -87,6 +87,9 @@ class HealthCommand(Command):
             items.append("errors none")
         cap = self.ctx.limits.emails_per_day_total
         items.append(f"emails 24h {state.emails.addresses()}" + (f"/{cap}" if cap else "") + " address(es)")
+        if state.emails.last_failure:
+            when, cause = state.emails.last_failure
+            items.append(f"last email failed {ago(when)}: {cause}")
         watcher = state.alert_watcher
         if watcher:
             checked = f"checked {ago(watcher.last_check)}" if watcher.last_check else "not checked yet"

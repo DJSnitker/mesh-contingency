@@ -5,6 +5,31 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (while below 1.0, a minor version
 may change how the bot is configured).
 
+## [Unreleased]
+
+### Added
+
+- **`comm <message>`** (admins): posts to a second public hashtag channel,
+  `#contingency-comm`, for news and updates everyone should see at once.
+  The channel is added to the radio at startup, like the alert channel.
+  Pull requests #29 and #30.
+- **`checkins [page <n>]`** (admins): a roll call of every user with their
+  last check-in, or `missing`, five to a page.
+
+### Changed
+
+- **Email failures say why.** When `qm`, `emailall` or `email` can't send,
+  the reply gives the cause (`qm: not sent, no internet at the node; try
+  again later`) instead of `qm: failed`; the full reason goes to the
+  console, and `health` shows the last failure. The unsent message is no
+  longer left in `~/dead.letter` by s-nail.
+
+### Upgrading from 0.4.0
+
+- Add `checkins = { permission = "admin" }` and
+  `comm = { permission = "admin" }` under `[commands]` in `config.toml`, or
+  the new commands stay off (with a warning at startup).
+
 ## [0.4.0] - 2026-10-21
 
 Weather alerts no longer need an admin: the bot watches a list of counties
