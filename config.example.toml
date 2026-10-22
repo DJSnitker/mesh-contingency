@@ -81,6 +81,7 @@ reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
 clearstatus = { permission = "admin" }
+checkins = { permission = "admin" }
 roster = { permission = "admin" }
 health = { permission = "admin" }
 history = { permission = "admin" }
@@ -91,6 +92,7 @@ setpass = { permission = "user" }
 alert = { permission = "admin" }
 alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
+comm = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }

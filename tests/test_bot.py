@@ -67,6 +67,7 @@ reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
 clearstatus = { permission = "admin" }
+checkins = { permission = "admin" }
 roster = { permission = "user" }
 health = { permission = "admin" }
 history = { permission = "admin" }
@@ -77,6 +78,7 @@ setpass = { permission = "user" }
 alert = { permission = "admin" }
 alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
+comm = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
@@ -262,8 +264,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
-        self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, health, history, alert, "
-                      "alertmap, testalert, approve, deny, users, whois, remove, resetpass\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, checkins, health, history, "
+                      "alert, alertmap, testalert, comm, approve, deny, users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -276,12 +278,17 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.channels[1][0], "#contingency-wx")
         self.assertIn("alert: #contingency-wx is channel slot 1 (added to the radio).", self.out.getvalue())
 
+    async def test_comm_channel_added_at_startup(self):
+        await self.start()
+        self.assertEqual(self.radio.channels[2][0], "#contingency-comm")
+        self.assertIn("comm: #contingency-comm is channel slot 2 (added to the radio).", self.out.getvalue())
+
     async def test_alert_channel_already_on_the_radio(self):
         radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
         radio.channels[3] = ("#contingency-wx", hashlib.sha256(b"#contingency-wx").digest()[:16])
         await self.start(radio=radio)
         self.assertIn("alert: #contingency-wx is channel slot 3.", self.out.getvalue())
-        self.assertEqual(radio.channels[1], ("", bytes(16)))
+        self.assertEqual([name for name, _ in radio.channels].count("#contingency-wx"), 1)
 
     async def test_no_channel_slot_is_a_warning_not_a_stop(self):
         radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
@@ -292,7 +299,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_alert_disabled_leaves_channels_alone(self):
         await self.start(CONFIG.replace('alert = { permission = "admin" }', 'alert = { permission = "disabled" }'))
-        self.assertEqual(self.radio.channels[1], ("", bytes(16)))
+        self.assertNotIn("#contingency-wx", [name for name, _ in self.radio.channels])
 
     async def test_failed_start_is_a_warning(self):
         await self.start(CONFIG + '[commands.broken]\nhandler = "tests.test_bot:BrokenStart"\npermission = "public"\n')
@@ -791,7 +798,8 @@ permission = "public"
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in two.
         self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, "
-                                                   "clearstatus, health, history, alert, alertmap, testalert, join, "
+                                                   "clearstatus, checkins, health, history, alert, alertmap, "
+                                                   "testalert, comm, join, "
                                                    "approve, deny, users, whois, remove, resetpass, echo, slow, "
                                                    "secret. "
                                                    "Send help <command> for usage"))

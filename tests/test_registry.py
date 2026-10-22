@@ -19,6 +19,7 @@ from mesh_contingency.api import (
 from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.alertmap import AlertMapCommand
+from mesh_contingency.commands.comm import CommCommand
 from mesh_contingency.commands.contacts import ContactsCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
@@ -31,7 +32,7 @@ from mesh_contingency.commands.qm import QmCommand
 from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
 from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQmCommand
-from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
+from mesh_contingency.commands.status import CheckinsCommand, ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.commands.testalert import TestAlertCommand
 from mesh_contingency.commands.users import (
     LeaveCommand,
@@ -51,11 +52,11 @@ DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "qm": QmCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "reload": ReloadCommand,
-            "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand,
+            "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand, "checkins": CheckinsCommand,
             "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,
             "msg": MsgCommand, "inbox": InboxCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
-            "alertmap": AlertMapCommand, "testalert": TestAlertCommand,
+            "alertmap": AlertMapCommand, "testalert": TestAlertCommand, "comm": CommCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setqm": SetQmCommand,
             "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
             "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,
