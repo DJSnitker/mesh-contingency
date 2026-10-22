@@ -331,10 +331,11 @@ journal checked:**
 
 - **Service, reboot:** reboot without logging in; `help` from another radio
   gets an answer.
-- **Service, lost radio:** unplug the radio while the bot runs, wait, plug it
-  back in. Expect `Lost the radio (...); stopping.`, a restart about 30 s
-  later, then `Connected to ...`. While unplugged, the log should show
-  `No serial device found` every 30 s.
+- **Service, lost radio** (passed 2026-10-22, twice; see above): unplug the
+  radio while the bot runs, wait, plug it back in. Expect `Lost the radio
+  (...); stopping.`, `No serial device found` every 30 s while unplugged,
+  `Connected to ...` about 30 s after the replug, then one DM to admins:
+  `Node problem: the radio was disconnected for ...; back now`.
 - **Sealed messages** (mostly passed 2026-10-21; see above):
   `setpass <12-16 chars>`; another user sends `msg`;
   `inbox` shows only who and when; `inbox <passphrase>` shows the text;
@@ -353,8 +354,9 @@ journal checked:**
   `users.toml` has the new name, and `history` lists it as by `radio`.
 - **Quick message (renamed in PR #20):** `setqm` alone shows the address;
   `setqm <address>` changes it; `qm <message>` arrives by email with the
-  sender's radio name in the subject; `quickim` now gets
-  `unrecognized user or function`.
+  sender's radio name in the subject; `quickim` from a user now gets
+  `unknown command quickim; did you mean qm? help lists yours` (from a
+  stranger, `unrecognized user or function`).
 - **Admin tools:** `approve`, then `history` lists it; `backups/` holds the
   previous `users.toml`; `health` reflects the new user; `remove` asks before
   acting.
@@ -365,7 +367,7 @@ journal checked:**
 
 ## Housekeeping to do along the way
 
-- The CI smoke test lists command names by hand; consider deriving the list
-  from `pyproject.toml`'s entry points so new commands can't be forgotten.
-- `config.example.toml` and the README's example `[commands]` block repeat
-  each other; a test could check they match.
+Nothing open. Done in #37: the CI smoke test takes its commands from
+`pyproject.toml` (and the example plugin's), and `tests/test_docs.py` checks
+that `config.example.toml`, the README's `[commands]` block and its command
+table match them.
