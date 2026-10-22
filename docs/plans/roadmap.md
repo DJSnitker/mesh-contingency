@@ -38,7 +38,9 @@ Where things stood on 2026-10-22:
   (backups and the `backup` command, item 7), #36 (watch fixes from field
   testing, lost-radio notice) and #37 (suggestions for mistyped commands;
   CI and a test keep the command lists in step), released as 0.6.0. The
-  wiki is published for all of them.
+  wiki is published for all of them. Since 0.6.0: #40 (the web console
+  plan, item 10) and #41 (a reboot no longer reads as a radio problem; the
+  first alert check waits for the network), not released yet.
 - **The node** runs `main` with `comm`, `checkins` and `backup` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
@@ -53,7 +55,10 @@ Steps, in order:
 
 1. If the computer was restarted, check the service came back:
    `systemctl --user status mesh-contingency`; the journal should show
-   `comm: #contingency-comm is channel slot 2.`
+   `comm: #contingency-comm is channel slot 2.` After the next reboot, check
+   #41 for real: admins get `Node restarted: the computer started ...`, not
+   `Node problem: the radio restarted ...`, and `health` doesn't say
+   `last check failed`.
 2. The node backs up daily to `~/MeshContingencyBackups` for now; move
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
@@ -315,8 +320,8 @@ journal checked:**
 - *Noticed:* 2 of the second radio's 3 replies weren't acknowledged (radio
   link, not the bot). It tried `status` with the node's own name; `status`
   looks up users, so it said "no status for ..."
-- *Still to do:* reboot without logging in; the weekly alert test
-  (Wednesday 2026-10-28, 17:00) arriving on a radio.
+- *Still to do:* the weekly alert test (Wednesday 2026-10-28, 17:00)
+  arriving on a radio. (Reboot: done 2026-10-22, below.)
 
 **2026-10-22, 12:50–13:12, after #36 and #37:**
 
@@ -328,10 +333,28 @@ journal checked:**
   delivered when the radio restarted at 13:11:58 (not by power loss; see
   item 8, to monitor).
 
+**2026-10-22, 15:56–15:58, reboot without logging in, admin's radio:**
+
+- *Passed:* the service came back on its own at boot. The first connect
+  failed (`Could not connect to MeshCore device`: the radio was still
+  starting after USB power came back) and systemd's retry 30 s later
+  connected. `health` and `roster` from the admin's radio were answered, all
+  replies delivered; battery 4.17–4.21 V.
+- *Found:* the watch sent `Node problem: the radio restarted just now
+  (power, USB or a crash)`: true (`radio up 0m`; the reboot cut USB power),
+  but alarming for a planned reboot. And the first NWS check ran before the
+  network was up (`Temporary failure in name resolution`), so `health` said
+  `last check failed` until the next round 10 minutes later.
+- *Fixed in #41:* on Linux the watch reads when the computer started, and a
+  radio that started with it gets `Node restarted: the computer started 1m
+  ago, and the radio with it` instead; the first alert check waits up to 2
+  minutes for api.weather.gov to resolve. Not yet seen on a real reboot.
+
 ### Checks
 
-- **Service, reboot:** reboot without logging in; `help` from another radio
-  gets an answer.
+- **Service, reboot** (passed 2026-10-22; see above): reboot without logging
+  in; `help` from another radio gets an answer. Since #41, expect one
+  `Node restarted: ...` DM, not `Node problem: the radio restarted ...`.
 - **Service, lost radio** (passed 2026-10-22, twice; see above): unplug the
   radio while the bot runs, wait, plug it back in. Expect `Lost the radio
   (...); stopping.`, `No serial device found` every 30 s while unplugged,
