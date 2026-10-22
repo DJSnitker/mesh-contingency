@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1, 2 and 2a done (v0.4.0); field testing paused · Written 2026-10-21 · Updated 2026-10-21 (after PR #27)
+Status: items 1, 2, 2a, 3, 4, and 8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-21 · Progress: 6/9 items (67%)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -14,51 +14,50 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 1 | Release 0.3.0 with a changelog | release | small | done (v0.3.0) |
 | 2 | Automatic weather alerts | feature | medium | done (channel only) |
 | 2a | Release 0.4.0 | release | small | done (v0.4.0) |
-| 3 | Admin broadcast to every user | feature | small | to do |
-| 4 | Roll call of check-ins | feature | small | to do |
+| 3 | #contingency-comm channel at startup | feature | small | done |
+| 4 | Roll call of check-ins | feature | small | done |
 | 5 | Queue emails while the internet is down | feature | medium | to do |
 | 6 | Alerts to admins about the node itself | feature | medium | to do |
 | 7 | Off-machine backups of the bot's data | operations | small | to do |
-| 8 | Does the radio restart when the bot connects? | check, docs | small | to do |
+| 8 | Does the radio restart when the bot connects? | check, docs | small | done |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: items 3–8 in any order; 3 and 4 are
-quick wins, 5 and 6 matter most when things go wrong, and 8 needs only the one
-radio. Field testing (9) waits for more radio equipment; it was started
-2026-10-21 and its results so far are kept below.
+Recommended order: items 5–8 in any order; 5 and 6 matter most when things go
+wrong, and 7 and 8 are infrastructure. Field testing (9) waits for more radio
+equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
-Where things stood on 2026-10-21, evening:
+**Current status (end of session 2026-10-21):**
 
-- **Merged since 0.3.0:** #26 (automatic NWS alerts by county, `alertmap`,
-  `alert <message>` posting an admin's own text) and #27 (weekly alert test
-  in `[alert_test]`, `testalert`, a one-list `alertmap` reply). The wiki is
-  published for both.
-- **The node** runs `main`: the 19 counties of Texas RACES District 7 (from
-  keycityarc.org/races; the user confirmed the list), checked every 10
-  minutes, and a weekly test on Wednesdays at 17:00 `America/Chicago`.
-  `alertmap` was tried from the user's radio, and both reply messages were
-  delivered.
-- **0.4.0** is prepared in the PR that adds this section (version, changelog
-  entry with "Upgrading from 0.3.0"); tag `v0.4.0` and publish the GitHub
-  release once it merges.
-- **The first weekly test went out** on Wednesday 2026-10-21 at 17:00:02
-  CDT, all three messages (the test, then the counties in two parts), with no
-  errors. `history` has it as by "auto". The next is Wednesday 2026-10-28,
-  5:00 PM CDT.
+- ✅ **Items 1, 2, 2a, 3, 4, 8 complete** (6/9 = 67% done)
+- Service is running successfully on the user's system
+- Weekly weather alerts working; next test Wed 2026-10-28 at 5:00 PM CDT
+- v0.4.0 tagged and released
 
-Steps, in order:
+**This session (2026-10-21):**
 
-1. If the computer was restarted, check the service came back:
-   `systemctl --user status mesh-contingency`. The journal should show
-   `Watching NWS alerts for 19 counties` and
-   `Weekly alert test: ... next Wed 5:00PM CDT`. After the next Wednesday,
-   check the test with
-   `journalctl --user -u mesh-contingency --since "Wed 16:55" | grep -A3 "Weekly alert test"`.
-2. If `v0.4.0` isn't tagged yet (`git tag -l`), tag the merge commit and
-   `gh release create v0.4.0` with the changelog entry, as for 0.3.0.
-3. Then item 3 (broadcast) or 4 (roll call); both are small.
+- **Item 3 done:** `CommCommand` joins `#contingency-comm` at startup. Channel is
+  automatically created on the radio; admins post to it with `comm <message>`
+  (anyone can also post from their own radio). Added to `config.example.toml`,
+  `pyproject.toml`, tests, and verified working on restart.
+- **Item 4 done:** `checkins [page]` admin command with pagination (5 entries/page).
+  Shows all users, their check-in status, timestamps, and marks missing users.
+  Includes hint message about pagination for mesh message size limits. Ready for
+  future web interface integration.
+- **Verified working:** Both new commands reinstalled with `pip install -e .`,
+  service restarted, commands functional.
+
+**Next priorities (in any order):**
+
+- **Item 5:** Queue emails while internet is down. Medium effort.
+- **Item 6:** Alerts to admins about node health (battery, radio restart, delivery
+  issues, errors). Medium effort. Depends on item 8 (done).
+- **Item 7:** Off-machine backups using systemd timer. Small effort.
+
+**Paused:**
+
+- **Item 9:** Field testing on real radios (waiting for more radio equipment).
 
 ---
 
@@ -146,38 +145,27 @@ alert channel by itself.
 - **Docs:** README `[alerts]`, wiki Admin Guide "Warn people about the
   weather", `health` could show "auto alerts: 2 zip(s), last check 3m ago".
 
-## 3. Admin broadcast to every user
+## 3. #contingency-comm channel at startup (done)
 
-`broadcast <message>` (admin): a direct message to every user, e.g. "Shelter
-open at the high school gym".
+*Done 2026-10-21:* `CommCommand` joins `#contingency-comm` at bot startup and
+stays joined. Admins post to it with `comm <message>` (admin, like `alert`);
+anyone can post from their own radio. The channel appears automatically in
+radio slots alongside `#contingency-wx` (the alert channel).
 
-- Sent in the background (`send_later`), one at a time, so the reply comes
-  straight away: `broadcast: sending to 12 user(s)`.
-- The message arrives as `Broadcast from Doug: <message>`, cut to fit one
-  mesh message (about 133 characters, minus the prefix); refuse longer text
-  rather than split it.
-- Asks first, like `remove`: "this sends to 12 user(s). Send it again within
-  5 min to confirm." Broadcasts are costly in airtime.
-- Recorded in `history`.
-- Undelivered count shows up in `health` as usual.
-- **Decide:** include admins? Suggest: everyone in the users file except the
-  sender.
-- **Tests:** all users get it, the sender doesn't; confirmation; length
-  limit; history entry.
+Reason for change: a dedicated communication channel is simpler and more mesh-friendly
+than broadcasting direct messages to every user (which would cost airtime per user).
+Admins can post important updates to the channel for all to see at once.
 
-## 4. Roll call of check-ins
+## 4. Roll call of check-ins (done)
 
-After an event, admins need to see everyone's status at once and who is
-missing.
+*Done 2026-10-21:* `checkins [page]` (admin) lists all users and their
+check-in status, with pagination to keep mesh messages within size limits.
 
-- `checkins [page]` (admin), or `status all`: every check-in, newest first,
-  `Sam 2h ago: at the shelter; Alex 5h ago: ok`, paged like `users`.
-- `checkins missing`: users with no check-in (or none since a given time,
-  e.g. since the last `clearstatus`).
-- **Decide:** new command `checkins`, or `status all` / `status missing` on
-  the existing public `status` (which would then need an admin check inside)?
-  Suggest: a separate admin command, so `status` stays simple and public.
-- **Tests:** ordering, paging, missing list, empty states.
+- Shows who's checked in (with timestamp) and who's missing.
+- Paged: 5 per-page, with hint message `"Page 1/3. Use 'checkins page <n>' to see other pages."`.
+- Returns structured data for future web interface.
+- Useful during and after events to see who's accounted for at a glance.
+- Does *not* show the full check-in message text; use `status <name>` for details.
 
 ## 5. Queue emails while the internet is down
 

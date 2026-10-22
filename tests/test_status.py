@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest import mock
 
 from mesh_contingency.api import CommandError, Sender
-from mesh_contingency.commands.status import ClearStatusCommand, OkCommand, StatusCommand
+from mesh_contingency.commands.status import ClearStatusCommand, CheckinsCommand, OkCommand, StatusCommand
 from mesh_contingency.state import State, StoreError
 from mesh_contingency.testing import make_context
 
@@ -108,6 +108,93 @@ class StatusTest(unittest.IsolatedAsyncioTestCase):
         (self.folder / "other" / "status.json").write_text("{oops")
         with self.assertRaises(StoreError):
             OkCommand(make_context("ok", state=State(self.folder / "other")))
+
+
+class CheckinsTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.state = State(self.folder)
+        self.now = 10_000.0
+        self.enterContext(mock.patch("mesh_contingency.commands.status.time.time", lambda: self.now))
+        self.enterContext(mock.patch("mesh_contingency.state.time.time", lambda: self.now))
+        # Create users with multiple people
+        self.users = {
+            ALICE.public_key: {"name": "Alice"},
+            BOB.public_key: {"name": "Bob"},
+            OTHER_BOB.public_key: {"name": "Bobby"},
+            "c3" * 32: {"name": "Charlie"},
+            "d4" * 32: {"name": "David"},
+        }
+        self.checkins = CheckinsCommand(make_context("checkins", users=self.users, state=self.state))
+        self.ok = OkCommand(make_context("ok", users=self.users, state=self.state))
+
+    async def test_checkins_shows_all_users(self):
+        # No check-ins yet, everyone should be missing
+        result = await self.checkins.execute("", ALICE)
+        self.assertIn("Alice: missing", result.reply)
+        self.assertIn("Bob: missing", result.reply)
+        self.assertIn("Bobby: missing", result.reply)
+        self.assertIn("Charlie: missing", result.reply)
+        self.assertIn("David: missing", result.reply)
+        self.assertIn("0/5 checked in", result.reply)
+
+    async def test_checkins_shows_checked_in_users(self):
+        # Alice and Bob check in
+        await self.ok.execute("standing by", ALICE)
+        await self.ok.execute("at home", BOB)
+        result = await self.checkins.execute("", ALICE)
+        self.assertIn("Alice: standing by", result.reply)
+        self.assertIn("Bob: at home", result.reply)
+        self.assertIn("Bobby: missing", result.reply)
+        self.assertIn("2/5 checked in", result.reply)
+
+    async def test_checkins_shows_timestamps(self):
+        await self.ok.execute("ready", ALICE)
+        self.now += 5 * 60  # 5 minutes later
+        result = await self.checkins.execute("", BOB)
+        self.assertIn("Alice: ready (5m ago)", result.reply)
+
+    def six_users(self):
+        """A checkins command over six users: two pages of five and one."""
+        users = {**self.users, "f6" * 32: {"name": "Frank"}}
+        return CheckinsCommand(make_context("checkins", users=users, state=self.state))
+
+    async def test_checkins_pagination_default_page_one(self):
+        result = await self.six_users().execute("", ALICE)
+        self.assertIn("Alice: missing", result.reply)
+        self.assertIn("David: missing", result.reply)
+        self.assertNotIn("Frank", result.reply)
+        self.assertIn("0/6 checked in. Page 1/2.", result.reply)
+
+    async def test_checkins_pagination_page_two(self):
+        await self.ok.execute("at the shelter", ALICE)
+        result = await self.six_users().execute("page 2", ALICE)
+        self.assertIn("Frank: missing", result.reply)
+        self.assertNotIn("Alice", result.reply)
+        self.assertIn("1/6 checked in. Page 2/2.", result.reply)
+
+    async def test_checkins_invalid_page_number(self):
+        await self.ok.execute("", ALICE)
+        with self.assertRaisesRegex(CommandError, "page 10 out of range"):
+            await self.checkins.execute("page 10", ALICE)
+
+    async def test_checkins_invalid_arguments(self):
+        with self.assertRaisesRegex(CommandError, "^usage: checkins"):
+            await self.checkins.execute("invalid arg", ALICE)
+
+    async def test_checkins_summary_count_all_users(self):
+        # Check in only 2 out of 5 users
+        await self.ok.execute("ok", ALICE)
+        await self.ok.execute("ok", BOB)
+        result = await self.checkins.execute("", ALICE)
+        # Summary should show 2/5 total users
+        self.assertIn("2/5 checked in", result.reply)
+
+    async def test_checkins_pagination_message_shows_navigation(self):
+        result = await self.six_users().execute("", ALICE)
+        self.assertIn("Use 'checkins page <n>' to see other pages.", result.reply)
+        result = await self.checkins.execute("", ALICE)
+        self.assertNotIn("checkins page", result.reply)
 
 
 if __name__ == "__main__":
