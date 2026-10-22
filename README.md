@@ -604,6 +604,17 @@ set from="you@gmail.com"
 Keep SMTP credentials in your mail client's config, never in this repository.
 Test with `echo test | mail -s test you@example.com` before relying on it.
 
+An email that can't be sent isn't kept to try again later: the sender is told
+straight away, with the cause in a few words, e.g.
+`qm: not sent, no internet at the node; try again later`. The causes are no
+internet, the email login refused, an address refused, timed out, `mail` not
+installed, or another email error; the sender's reply never includes `mail`'s
+own output, which can hold the node's address. The full reason goes to the
+console, `health` shows `last email failed 5m ago: <cause>`, and a failed
+email doesn't count toward the daily limits. s-nail would normally save the
+unsent message to `~/dead.letter`, unsealed; the bot runs `mail` with
+`DEAD=/dev/null` so it doesn't.
+
 ## Running
 
 ```sh

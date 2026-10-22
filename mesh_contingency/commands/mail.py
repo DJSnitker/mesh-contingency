@@ -1,9 +1,15 @@
 """Sending mesh messages out as email, shared by the qm, emailall and
-email commands."""
+email commands.
+
+An email that can't be sent is not kept to try again: the sender is told why,
+in a few safe words, and the full reason goes to the console.
+"""
 
 import asyncio
+import os
 import re
 import subprocess
+import time
 
 from ..api import Command, CommandError, CommandResult, Sender
 
@@ -20,6 +26,40 @@ TIMEOUT = 30
 # as an argument, where a leading "-" would be an option and "|" or "/" a pipe
 # or file target. Only plain user@domain.tld addresses get through.
 ADDRESS_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+# Why an email wasn't sent, as (cause, what to do) for the sender's reply.
+# Never mail's own output, which can hold the node's email address.
+NO_INTERNET = ("no internet at the node", "try again later")
+LOGIN_REFUSED = ("the node's email login was refused", "tell an admin")
+ADDRESS_REFUSED = ("an address was refused", "check the address")
+TIMED_OUT = ("email timed out", "try again later")
+NOT_SET_UP = ("email isn't set up on the node", "tell an admin")
+OTHER = ("email error at the node", "tell an admin")
+# Phrases in the error output of mail (and msmtp, which it sends through),
+# checked in order, lower case.
+CAUSES = [
+    (("authentication failed", "username and password not accepted"), LOGIN_REFUSED),
+    (("recipient address",), ADDRESS_REFUSED),
+    (("cannot locate host", "cannot connect", "name resolution", "network", "timed out"), NO_INTERNET),
+]
+
+
+class SendError(RuntimeError):
+    """An email that wasn't sent: the message is the full reason, for the
+    console; .reason is (cause, what to do), safe to tell the sender."""
+
+    def __init__(self, detail, reason):
+        super().__init__(detail)
+        self.reason = reason
+
+
+def reason_for(output):
+    """The (cause, what to do) that mail's error output points to."""
+    output = output.lower()
+    for phrases, reason in CAUSES:
+        if any(phrase in output for phrase in phrases):
+            return reason
+    return OTHER
 
 
 def send_email(to, subject, body):
@@ -41,14 +81,18 @@ def send_email(to, subject, body):
             capture_output=True,
             text=True,
             timeout=TIMEOUT,
+            # s-nail saves a message it couldn't send to ~/dead.letter, where
+            # it would sit unsealed; DEAD sends it nowhere instead.
+            env={**os.environ, "DEAD": "/dev/null"},
         )
     except FileNotFoundError as e:
-        raise RuntimeError("`mail` command not found") from e
+        raise SendError("`mail` command not found", NOT_SET_UP) from e
     except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"`mail` timed out after {TIMEOUT}s") from e
+        raise SendError(f"`mail` timed out after {TIMEOUT}s", TIMED_OUT) from e
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip() or f"exit status {result.returncode}"
-        raise RuntimeError(f"`mail` failed: {detail}")
+        output = (result.stderr or result.stdout).strip()
+        detail = " ".join(output.split()) or f"exit status {result.returncode}"
+        raise SendError(f"`mail` failed: {detail}", reason_for(output))
 
 
 class MailCommand(Command):
@@ -71,7 +115,14 @@ class MailCommand(Command):
         self.check_caps(to, sender)
         subject = SUBJECT.format(sender=sender.name)
         body = BODY.format(text=text, disclaimer=DISCLAIMER)
-        await asyncio.to_thread(send_email, to, subject, body)
+        try:
+            await asyncio.to_thread(send_email, to, subject, body)
+        except SendError as e:
+            cause, todo = e.reason
+            self.ctx.state.emails.last_failure = (time.time(), cause)
+            # The bot replies with this instead of "<command>: failed".
+            e.reply = f"{self.name}: not sent, {cause}; {todo}"
+            raise
         self.ctx.state.emails.record(sender.public_key, len(to))
         return CommandResult(
             console=f"Sent email to {', '.join(to)}\n  Subject: {subject}\n  Body: {text}",

@@ -69,6 +69,11 @@ class HealthTest(unittest.IsolatedAsyncioTestCase):
                      "emails 24h 3/200 address(es)", "last flood advert 2h ago"]:
             self.assertIn(part, text)
 
+    async def test_last_email_failure(self):
+        self.assertNotIn("last email failed", await self.reply())
+        self.state.emails.last_failure = (time.time() - 300, "no internet at the node")
+        self.assertIn("last email failed 5m ago: no internet at the node", await self.reply())
+
     async def test_auto_alerts(self):
         text = await self.reply()
         self.assertNotIn("auto alerts", text)

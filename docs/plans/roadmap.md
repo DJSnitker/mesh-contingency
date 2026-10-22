@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1, 2, 2a, 3, 4, and 8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-21 · Progress: 6/9 items (67%)
+Status: items 1–5 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (item 5)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -16,48 +16,44 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 2a | Release 0.4.0 | release | small | done (v0.4.0) |
 | 3 | #contingency-comm channel at startup | feature | small | done |
 | 4 | Roll call of check-ins | feature | small | done |
-| 5 | Queue emails while the internet is down | feature | medium | to do |
+| 5 | Report email failures (no queue) | feature | small | done |
 | 6 | Alerts to admins about the node itself | feature | medium | to do |
 | 7 | Off-machine backups of the bot's data | operations | small | to do |
-| 8 | Does the radio restart when the bot connects? | check, docs | small | done |
+| 8 | Does the radio restart when the bot connects? | check, docs | small | to check: result not recorded |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: items 5–8 in any order; 5 and 6 matter most when things go
-wrong, and 7 and 8 are infrastructure. Field testing (9) waits for more radio
+Recommended order: item 6 (matters most when things go wrong), then 7.
+Item 8's result isn't written down yet (see its section); item 6's restart
+check needs it. Field testing (9) waits for more radio
 equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
-**Current status (end of session 2026-10-21):**
+Where things stood on 2026-10-22:
 
-- ✅ **Items 1, 2, 2a, 3, 4, 8 complete** (6/9 = 67% done)
-- Service is running successfully on the user's system
-- Weekly weather alerts working; next test Wed 2026-10-28 at 5:00 PM CDT
-- v0.4.0 tagged and released
+- **Merged:** #29 (`comm` posting to `#contingency-comm`, `checkins` roll
+  call; both admin) and #30 (README for them). The wiki is published for
+  both. Item 5 (email failures reported, no queue) is in the PR that
+  updates this section; its wiki edits wait for the merge.
+- **The node** runs `main` with `comm` and `checkins` as admin in its
+  `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
+  slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
+- **Not released:** the changelog has an `[Unreleased]` section for
+  `comm`, `checkins` and the email change; 0.5.0 can follow item 6 or go out
+  on its own.
 
-**This session (2026-10-21):**
+Steps, in order:
 
-- **Item 3 done:** `CommCommand` joins `#contingency-comm` at startup. Channel is
-  automatically created on the radio; admins post to it with `comm <message>`
-  (anyone can also post from their own radio). Added to `config.example.toml`,
-  `pyproject.toml`, tests, and verified working on restart.
-- **Item 4 done:** `checkins [page]` admin command with pagination (5 entries/page).
-  Shows all users, their check-in status, timestamps, and marks missing users.
-  Includes hint message about pagination for mesh message size limits. Ready for
-  future web interface integration.
-- **Verified working:** Both new commands reinstalled with `pip install -e .`,
-  service restarted, commands functional.
+1. If the computer was restarted, check the service came back:
+   `systemctl --user status mesh-contingency`; the journal should show
+   `comm: #contingency-comm is channel slot 2.`
+2. Item 8, the check (two minutes with a radio): send `health`, note
+   `radio up`, `systemctl --user restart mesh-contingency`, send `health`
+   again, and write the answer in item 8 below.
+3. Then item 6 (admin alerts about the node), which uses item 8's answer
+   and folds in repeated email failures; then item 7 (backups).
 
-**Next priorities (in any order):**
-
-- **Item 5:** Queue emails while internet is down. Medium effort.
-- **Item 6:** Alerts to admins about node health (battery, radio restart, delivery
-  issues, errors). Medium effort. Depends on item 8 (done).
-- **Item 7:** Off-machine backups using systemd timer. Small effort.
-
-**Paused:**
-
-- **Item 9:** Field testing on real radios (waiting for more radio equipment).
+Paused: item 9, field testing, until more radios arrive.
 
 ---
 
@@ -167,26 +163,24 @@ check-in status, with pagination to keep mesh messages within size limits.
 - Useful during and after events to see who's accounted for at a glance.
 - Does *not* show the full check-in message text; use `status <name>` for details.
 
-## 5. Queue emails while the internet is down
+## 5. Report email failures (done)
 
-In an emergency the internet may come and go, and today `qm`,
-`emailall` and `email` just fail.
+*Decided 2026-10-21: no outbox.* Emails aren't queued to retry; every failure
+to send is reported instead.
 
-- When `mail` fails (non-zero exit or timeout), save the email to
-  `outbox.json` (git-ignored, mode 600) and reply
-  `qm: no internet; queued, will send when it's back`.
-- A background task retries the outbox every few minutes, oldest first, and
-  DMs the sender `qm to partner@example.com: sent (queued 2h ago)` when
-  one goes out.
-- Give up after 24 hours (configurable) and tell the sender.
-- Email caps count at queue time, so a queue can't be used to get round them.
-- `health` shows `outbox 3`.
-- **Decide:** how to tell "no internet" from "bad address / mail
-  misconfigured"? `mail` exit codes are not specific. Suggest: queue on any
-  failure, and say "failed again" in the log with `mail`'s stderr so a
-  misconfiguration is visible.
-- **Tests:** failure queues; retry success notifies the sender; expiry;
-  caps; survives a restart.
+- `mail` hands each message to msmtp, which sends to Gmail straight away;
+  nothing on the node queues mail, so a failure shows up at once (s-nail
+  exits 4, "message not sent").
+- The sender's reply gives the cause, from msmtp's wording:
+  `qm: not sent, no internet at the node; try again later`; also login
+  refused, address refused, timed out, not set up, other. Never `mail`'s own
+  output, which can hold the node's Gmail address.
+- The full reason goes to the console/journal; `health` shows
+  `last email failed 5m ago: <cause>`; failures still count as errors and
+  not toward the email caps.
+- `mail` runs with `DEAD=/dev/null`, so s-nail no longer leaves the unsent
+  message in `~/dead.letter`, unsealed.
+- Telling admins about repeated email failures belongs to item 6.
 
 ## 6. Alerts to admins about the node itself
 
@@ -196,7 +190,7 @@ Problems shouldn't wait for someone to send `health`.
   once when it starts and once when it clears:
   - battery below a threshold (e.g. 3.5 V; configurable);
   - the radio restarted (its uptime went backwards) while the bot didn't;
-  - N undelivered replies in a row, or the outbox (item 5) growing;
+  - N undelivered replies in a row, or emails failing (item 5);
   - repeated command errors (e.g. `wx` timing out = internet down);
   - `users.toml` not reloadable (already sent today; fold in here).
 - At most one notice per condition per hour, so a flapping value can't
