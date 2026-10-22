@@ -158,7 +158,7 @@ class CheckinsCommand(StatusBase):
                 try:
                     page_num = int(parts[1])
                 except ValueError:
-                    raise CommandError(f"usage: {self.usage}")
+                    raise CommandError(f"usage: {self.usage}") from None
             else:
                 raise CommandError(f"usage: {self.usage}")
 
@@ -182,7 +182,7 @@ class CheckinsCommand(StatusBase):
         total_checked_in = len(self.get_checked_in())
         summary = f"\n{total_checked_in}/{total_users} checked in. Page {page_num}/{total_pages}."
         if total_pages > 1:
-            summary += f" Use 'checkins page <n>' to see other pages."
+            summary += " Use 'checkins page <n>' to see other pages."
 
         console_output = "\n".join(lines) + summary
         reply = console_output

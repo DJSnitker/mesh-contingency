@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest import mock
 
 from mesh_contingency.api import CommandError, Sender
-from mesh_contingency.commands.status import ClearStatusCommand, CheckinsCommand, OkCommand, StatusCommand
+from mesh_contingency.commands.status import CheckinsCommand, ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.state import State, StoreError
 from mesh_contingency.testing import make_context
 
