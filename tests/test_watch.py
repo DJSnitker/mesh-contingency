@@ -47,6 +47,8 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
         self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.now = 1_000_000.0
         self.enterContext(mock.patch("mesh_contingency.watch.time.time", lambda: self.now))
+        self.booted = 0.0  # when the computer started: long before the radio, unless a test says
+        self.enterContext(mock.patch("mesh_contingency.watch.computer_started", lambda: self.booted))
         self.radio = FakeMeshCore()
         self.uptime = 3600
         self.volts(4.1)
@@ -135,6 +137,25 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
     async def test_radio_restart_that_restarted_the_bot_too(self):
         await self.check()
         self.watch = self.new_watch()  # e.g. the USB cable was pulled, and the bot exited
+        self.uptime = 0
+        self.assertEqual(await self.check(1), ["Node problem: the radio restarted 1m ago (power, USB or a crash)"])
+
+    async def test_radio_restart_with_the_computer(self):
+        await self.check()
+        self.watch = self.new_watch()  # the computer rebooted, and the bot started with it
+        self.booted = self.now + 60
+        self.uptime = -60  # USB power came back a minute later, and the radio started
+        self.assertEqual(await self.check(2), ["Node restarted: the computer started 1m ago, and the radio with it"])
+
+    async def test_radio_restart_long_after_the_computer_is_still_a_problem(self):
+        self.booted = self.now - 3600
+        await self.check()
+        self.uptime = 0
+        self.assertEqual(await self.check(1), ["Node problem: the radio restarted 1m ago (power, USB or a crash)"])
+
+    async def test_radio_restart_where_the_computer_cant_say_when_it_started(self):
+        await self.check()
+        self.booted = None
         self.uptime = 0
         self.assertEqual(await self.check(1), ["Node problem: the radio restarted 1m ago (power, USB or a crash)"])
 

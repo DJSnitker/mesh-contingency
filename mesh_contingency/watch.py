@@ -16,7 +16,9 @@ when it's over ("Node ok again: ..."):
 
 It also says when the radio has restarted: its uptime went backwards.
 Restarting the bot doesn't restart the radio, so this is always a real
-restart (power, USB, a crash), even one that restarted the bot too. And when
+restart (power, USB, a crash), even one that restarted the bot too. When the
+radio started along with the computer (a power cut, an update, someone
+rebooting it), that's what it says instead: not a problem with the radio. And when
 the bot stopped because it lost the radio (an unplugged USB cable), it says
 for how long once the radio is back, since nobody could be told meanwhile.
 
@@ -32,6 +34,7 @@ import asyncio
 import contextlib
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 from meshcore import EventType
 
@@ -47,6 +50,9 @@ BATTERY_MARGIN = 0.1  # volts above battery_volts before the battery is ok again
 # The radio's start time is worked out from its uptime, which comes in whole
 # seconds and a little late; a later start by more than this is a restart.
 RESTART_SLACK = 120
+# A radio that started within this long after the computer (seconds) started
+# with it: USB power comes back when the computer does.
+BOOT_WINDOW = 10 * 60
 RADIO_SECONDS = 5  # how long to wait for the radio to answer
 # Each problem's name in health, and what the "ok again" notice says.
 LABELS = {"battery": "battery low", "undelivered": "replies undelivered", "email": "email failing",
@@ -61,6 +67,15 @@ async def ask_radio(request, wanted, seconds=RADIO_SECONDS):
     except Exception:
         return None
     return result.payload if result is not None and result.type == wanted else None
+
+
+def computer_started():
+    """The time.time() the computer started, or None where it can't be told
+    (only Linux says, in /proc/uptime)."""
+    try:
+        return time.time() - float(Path("/proc/uptime").read_text().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
 
 
 @dataclass(frozen=True)
@@ -186,9 +201,9 @@ class NodeWatch:
         self.store.data["lost"] = {"time": time.time(), "reason": reason}
         self.store.save()
 
-    def event(self, kind, text, now):
+    def event(self, kind, text, now, heading="Node problem"):
         """A one-off notice (no "ok again"), at most once an hour per kind."""
-        text = f"Node problem: {text}"
+        text = f"{heading}: {text}"
         if now - self.noticed.get(kind, 0) >= NOTICE_GAP:
             self.noticed[kind] = now
             self.tell(text)
@@ -220,6 +235,10 @@ class NodeWatch:
             also = ", and it restarted" if restarted else ""
             self.event("disconnected", f"the radio was disconnected for {duration(now - lost['time'])} "
                                        f"({lost.get('reason', '?')}){also}; back now", now)
+        elif restarted and (booted := computer_started()) is not None and \
+                booted - RESTART_SLACK <= restarted <= booted + BOOT_WINDOW:
+            self.event("reboot", f"the computer started {ago(booted, now)}, and the radio with it",
+                       now, heading="Node restarted")
         elif restarted:
             self.event("restart", f"the radio restarted {ago(restarted, now)} (power, USB or a crash)", now)
         found = self.problems(now)
