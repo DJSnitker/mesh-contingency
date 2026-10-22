@@ -23,8 +23,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 7a | Release 0.6.0 | release | small | done (v0.6.0) |
 | 8 | Does the radio restart when the bot connects? | check, docs | small | done: no |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
+| 10 | Web console on the node (Angular) | feature | large | planned: [web-console.md](web-console.md) |
 
-Recommended order: everything but field testing is done and released (0.6.0).
+Recommended order: everything but field testing is done and released (0.6.0); next is the web console (10), in the PRs its plan lists.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
