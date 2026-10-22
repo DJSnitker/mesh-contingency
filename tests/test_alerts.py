@@ -79,6 +79,7 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.lookups = []  # counties looked up
         self.feed = []  # the active alerts, or an exception to raise
         self.requests = []  # the codes asked for, each request
+        self.network = []  # what the network checks before the first round find, then up
         self.out = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.out))
         self.enterContext(mock.patch("mesh_contingency.alerts.SEND_GAP", 0))
@@ -100,7 +101,11 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
 
     def make_watcher(self, counties, state=None):
         return AlertWatcher(self.radio, AlertSettings(counties, 10, "#contingency-wx"),
-                            state or State(self.folder), lookup=self.lookup, fetch=self.fetch)
+                            state or State(self.folder), lookup=self.lookup, fetch=self.fetch,
+                            reachable=self.reachable)
+
+    def reachable(self):
+        return self.network.pop(0) if self.network else True
 
     def posted(self):
         return [text for _, text in self.radio.channel_sent]
@@ -272,6 +277,37 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.posted()), 2)  # refused, then sent on the second round
         self.assertEqual(set(self.watcher.posted), {"a1"})
         self.assertEqual(self.watcher.state.counts["errors"], 1)
+
+    async def test_the_first_round_waits_for_the_network(self):
+        self.network = [False, False]
+        sleeps = []
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+
+        with mock.patch("mesh_contingency.alerts.asyncio.sleep", sleep):
+            self.assertTrue(await self.watcher.wait_for_network())
+        self.assertEqual(sleeps, [5, 5])
+        self.assertEqual(self.out.getvalue(), "Auto alerts: no network yet; waiting up to 2 min before the "
+                                              "first check\nAuto alerts: network up after 10s\n")
+
+    async def test_no_wait_when_the_network_is_up(self):
+        with mock.patch("mesh_contingency.alerts.asyncio.sleep") as sleep:
+            self.assertTrue(await self.watcher.wait_for_network())
+        sleep.assert_not_called()
+        self.assertEqual(self.out.getvalue(), "")
+
+    async def test_no_network_at_all_checks_anyway(self):
+        self.network = [False] * 100
+        sleeps = []
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+
+        with mock.patch("mesh_contingency.alerts.asyncio.sleep", sleep):
+            self.assertFalse(await self.watcher.wait_for_network())
+        self.assertEqual(sum(sleeps), 120)
+        self.assertIn("Auto alerts: still no network after 2 min; checking anyway", self.out.getvalue())
 
 
 class WeatherCountiesTest(unittest.TestCase):

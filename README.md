@@ -282,11 +282,15 @@ Node problem: battery low, 3.42V (below 3.50V)
 Node ok again: battery 3.65V
 Node problem: the radio restarted 3m ago (power, USB or a crash)
 Node problem: the radio was disconnected for 7m (reconnect_failed); back now
+Node restarted: the computer started 1m ago, and the radio with it
 ```
 
 It also says when the radio has restarted (its uptime went backwards).
 Restarting the bot doesn't restart the radio, so that's always a real restart,
-and it's noticed even when it restarted the bot too. When the bot stopped
+and it's noticed even when it restarted the bot too. A radio powered by the
+computer's USB restarts when the computer does (a power cut, an update,
+someone rebooting it); on Linux the bot can tell, and says `Node restarted`
+instead, since nothing is wrong with the radio. When the bot stopped
 because it lost the radio (an unplugged USB cable), nobody could be told at
 the time, so once the radio is back it says for how long it was gone (and
 whether the radio restarted meanwhile). A radio with a battery keeps running

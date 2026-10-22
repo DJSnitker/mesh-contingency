@@ -11,6 +11,8 @@ minutes asks the National Weather Service for the alerts in all the counties
 in a single request, and posts each alert it hasn't posted before, once, even
 if several counties share it. The codes and what it has posted are kept in
 alerts.json next to config.toml, so a restart doesn't post anything again.
+Right after the computer starts the network may not be up yet, so the first
+round waits (up to NETWORK_WAIT) until the NWS's name can be looked up.
 
 [alert_test] posts a test message to the same channel every week, and the
 testalert command posts it on request, so people know the channel works.
@@ -18,7 +20,9 @@ testalert command posts it on request, so people know the channel works.
 
 import asyncio
 import datetime
+import socket
 import time
+import urllib.parse
 import zoneinfo
 from dataclasses import dataclass
 from hashlib import sha256
@@ -26,7 +30,7 @@ from hashlib import sha256
 from meshcore import EventType
 
 from .api import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
-from .weather import STATE_FIPS, alert_counties, county_alerts, county_code
+from .weather import NWS_API, STATE_FIPS, alert_counties, county_alerts, county_code
 
 DEFAULT_CHANNEL = "#contingency-wx"
 # Channel slots to look through if the radio doesn't say how many it has.
@@ -42,6 +46,10 @@ SEND_GAP = 1
 # say when (seconds), and after its end time once it is no longer active.
 REMEMBER_SECONDS = 24 * 3600
 KEEP_AFTER_END_SECONDS = 6 * 3600
+# Before the first round: how long to wait for the network (seconds), and how
+# often to look while waiting.
+NETWORK_WAIT = 120
+NETWORK_POLL = 5
 
 
 class NoChannelSlot(Exception):
@@ -219,15 +227,25 @@ def _key(alert):
                                f"{alert.get('areaDesc')}"
 
 
+def nws_reachable():
+    """True if the NWS's name can be looked up, i.e. there's a network."""
+    try:
+        socket.getaddrinfo(urllib.parse.urlsplit(NWS_API).hostname, 443)
+    except OSError:
+        return False
+    return True
+
+
 class AlertWatcher:
     """Posts new NWS alerts for the watched counties to the alert channel."""
 
-    def __init__(self, radio, settings, state, lookup=None, fetch=None):
+    def __init__(self, radio, settings, state, lookup=None, fetch=None, reachable=None):
         self.radio = radio
         self.settings = settings
         self.state = state
         self.lookup = lookup or county_code  # (name, state) -> NWS code, e.g. "TXC441"
         self.fetch = fetch or county_alerts  # [NWS codes] -> active alerts
+        self.reachable = reachable or nws_reachable  # () -> True once there's a network
         # {"counties": {"Taylor, TX": {"code", "time"}}, "posted": {key: time to forget it}}
         self.store = state.store(ALERTS_FILE)
         self.store.data.pop("zones", None)  # from a test version that watched zipcodes
@@ -341,9 +359,30 @@ class AlertWatcher:
             self.store.save()
         return sent
 
+    async def wait_for_network(self):
+        """Wait until there's a network, at most NETWORK_WAIT seconds, so the
+        first round right after the computer starts doesn't fail. Returns
+        True if there is one."""
+        waited = 0
+        while not await asyncio.to_thread(self.reachable):
+            if waited >= NETWORK_WAIT:
+                print(f"Auto alerts: still no network after {NETWORK_WAIT // 60} min; checking anyway",
+                      flush=True)
+                return False
+            if not waited:
+                print(f"Auto alerts: no network yet; waiting up to {NETWORK_WAIT // 60} min before the "
+                      "first check", flush=True)
+            await asyncio.sleep(NETWORK_POLL)
+            waited += NETWORK_POLL
+        if waited:
+            print(f"Auto alerts: network up after {waited}s", flush=True)
+        return True
+
     async def run(self):
-        """Check every every_minutes until cancelled; a failed round is logged
-        and tried again next time, never stopping the bot."""
+        """Check every every_minutes until cancelled, the first time once
+        there's a network; a failed round is logged and tried again next
+        time, never stopping the bot."""
+        await self.wait_for_network()
         while True:
             try:
                 await self.check()

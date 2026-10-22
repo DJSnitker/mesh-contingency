@@ -7,6 +7,15 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Changed
+
+- **Node watch** no longer calls it a problem when the radio restarted because
+  the computer did (USB power comes back with it): on Linux it says `Node
+  restarted: the computer started 1m ago, and the radio with it` instead.
+- **Auto alerts** wait up to 2 minutes for the network before the first check,
+  so right after the computer starts, `health` doesn't show `last check
+  failed` just because the network wasn't up yet.
+
 ## [0.6.0] - 2026-10-22
 
 The node now looks after itself: admins get a direct message when something
