@@ -1,6 +1,6 @@
 # Plan: a web console for the node
 
-Status: proposed · Requested 2026-10-22
+Status: in progress, PR 2a done (#43), 2b next · Requested 2026-10-22
 
 ## Goal
 
@@ -127,9 +127,27 @@ port = 8737     # 127.0.0.1 only
 ## PRs, in order
 
 1. **This plan** (docs only).
-2. **Server:** `[console]`, the key and cookie, Host/Origin checks, the read
-   endpoints, `/api/run`, the live log; Python tests. No app yet; usable
-   with `curl`.
+2. **Server**, split in two (decided 2026-10-22). No app yet; usable with
+   `curl`.
+   - **2a (done, #43):** `[console]`, the key and cookie, Host/Origin
+     checks, the read endpoints (`mesh_contingency/web/`); `health`'s items
+     shared with `/api/overview`; aiohttp as the `.[console]` extra.
+   - **2b (next):**
+     - Move the core of running a command (authorization, rate limit,
+       timeout, `CommandError` / failure handling, `CommandResult`) out of
+       `on_message` in `bot.py` into one function the radio and the console
+       both call, so they can't differ.
+     - The console sender: `Sender("console", <a reserved key>)`, which
+       `is_authorized` treats as an admin (decided: no entry in
+       `users.toml`). History reads `by console`.
+     - `GET /api/commands`: admin and public commands only (user commands
+       like `inbox`, `setpass`, `whoami` act on the sender's own mailbox or
+       settings, which `console` doesn't have), with usage.
+     - `POST /api/run` `{"command", "text"}`: the full reply, not paged;
+       `remove`'s "send it again to confirm" works as over the radio.
+     - `GET /api/log`: `SafeOutput` keeps the last ~500 lines and sends new
+       ones as server-sent events; a test that private commands' text never
+       appears.
 3. **App shell and dashboard:** `console/` with the styles, fonts, icons and
    layout, the dashboard and live log; build into the package; CI.
 4. **Users and join requests:** tables, approve/deny, remove (with the
