@@ -147,14 +147,66 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.check(), [])
         self.state.undelivered_in_row = 5
         self.assertEqual(await self.check(), ["Node problem: 5 messages in a row not delivered"])
-        self.state.undelivered_in_row = 0
+        self.state.undelivered_in_row = 6
+        self.assertEqual(await self.check(), [])
+        with mock.patch("mesh_contingency.state.time.time", lambda: self.now + 1):
+            self.state.delivered()
         self.assertEqual(await self.check(), ["Node ok again: messages delivered"])
 
     async def test_email_failing(self):
         self.state.emails.failing = "no internet at the node"
         self.assertEqual(await self.check(), ["Node problem: email failing: no internet at the node"])
         self.state.emails.failing = None
+        self.state.emails.last_sent = self.now + 1
         self.assertEqual(await self.check(), ["Node ok again: an email was sent"])
+        self.assertEqual(self.watch.active, [])
+
+    async def test_a_bot_restart_doesnt_end_a_problem(self):
+        """2026-10-22: after a restart the email problem was said to be over,
+        though no email had been sent."""
+        self.state.emails.failing = "no internet at the node"
+        self.state.undelivered_in_row = 5
+        self.state.backups = mock.Mock(failing="No space left on device", last=None,
+                                       settings=mock.Mock(to="/mnt/usb"))
+        self.assertEqual(len(await self.check()), 3)
+        backups = self.state.backups
+        self.watch = self.new_watch()  # remembers nothing it had seen
+        self.state.backups = mock.Mock(failing=None, last=backups.last, settings=backups.settings)
+        self.assertEqual(await self.check(), [])
+        self.assertEqual(sorted(self.watch.active), ["backup", "email", "undelivered"])
+        self.state.emails.last_sent = self.now + 1  # an email goes out
+        self.state.backups.last = self.now + 1  # and a backup is made
+        self.assertEqual(await self.check(), ["Node ok again: an email was sent", "Node ok again: a backup was made"])
+        self.assertEqual(self.watch.active, ["undelivered"])
+
+    async def test_radio_lost_then_back(self):
+        await self.check()
+        self.watch.lost_radio("reconnect_failed")
+        self.now += 7 * 60  # unplugged for 7 minutes, the radio running on its battery
+        self.uptime += 7 * 60
+        self.watch = self.new_watch()
+        self.assertEqual(await self.check(0),
+                         ["Node problem: the radio was disconnected for 7m (reconnect_failed); back now"])
+        self.assertEqual(await self.check(), [])  # said once
+
+    async def test_radio_lost_and_restarted(self):
+        await self.check()
+        self.watch.lost_radio("reconnect_failed")
+        self.now += 3 * 60
+        self.watch = self.new_watch()
+        self.uptime = 0  # no battery: it restarted when plugged back in
+        self.assertEqual(await self.check(1), ["Node problem: the radio was disconnected for 4m "
+                                               "(reconnect_failed), and it restarted; back now"])
+
+    async def test_radio_lost_again_within_the_hour(self):
+        await self.check()
+        for minutes in (2, 3):
+            self.watch.lost_radio("reconnect_failed")
+            self.now += minutes * 60
+            self.uptime += minutes * 60
+            self.watch = self.new_watch()
+            await self.check(0)
+        self.assertEqual(self.notices, ["Node problem: the radio was disconnected for 2m (reconnect_failed); back now"])
 
     async def test_repeated_errors(self):
         with mock.patch("mesh_contingency.state.time.time", lambda: self.now):
@@ -165,6 +217,15 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await self.check(1), ["Node problem: 3 command errors in 30 min, last wx failed"])
             self.assertEqual(await self.check(20), [])
             self.assertEqual(await self.check(10), ["Node ok again: no more command errors"])
+
+    async def test_errors_after_a_restart_end_after_the_window(self):
+        with mock.patch("mesh_contingency.state.time.time", lambda: self.now):
+            for _ in range(3):
+                self.state.error("wx failed")
+        self.assertEqual(len(await self.check(1)), 1)
+        self.watch = self.new_watch()  # no errors remembered
+        self.assertEqual(await self.check(10), [])
+        self.assertEqual(await self.check(20), ["Node ok again: no more command errors"])
 
     async def test_users_file(self):
         self.directory.problem = (self.now, "[users]: 'd0d0' is not a full public key")

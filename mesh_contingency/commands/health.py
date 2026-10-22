@@ -14,24 +14,13 @@ from meshcore import EventType
 from ..alerts import plural_counties, when_text
 from ..api import Command, CommandError, CommandResult, pack
 from ..console import ADVERTS_FILE
-from ..state import ago
+from ..state import ago, duration
 from ..watch import LABELS, ask_radio
 from .join import FILENAME as REQUESTS
 from .mailbox import FILENAME as MAILBOX
 from .status import FILENAME as STATUSES
 
 RADIO_SECONDS = 5
-
-
-def duration(seconds):
-    """A length of time in its two largest units: "2d 3h", "3h 5m", "12m"."""
-    seconds = int(seconds)
-    days, hours, minutes = seconds // 86400, seconds % 86400 // 3600, seconds % 3600 // 60
-    if days:
-        return f"{days}d {hours}h"
-    if hours:
-        return f"{hours}h {minutes}m"
-    return f"{minutes}m"
 
 
 class HealthCommand(Command):

@@ -272,6 +272,38 @@ in a 0.3.x release.
   after `clearinbox`); `msg` with a plain name with spaces, `whois` and
   `status` with parentheses.
 
+**2026-10-22, 11:47–12:02, the admin's radio and a second user's radio,
+journal checked:**
+
+- *Passed:* `comm hello contingents` posted to `#contingency-comm` (slot 2)
+  and replied; `checkins` listed both users as missing (before any
+  check-in). **Email failure for real:** `qm howdy` with no DNS got the "not sent,
+  no internet" reply, and the node watch DMed the admin `Node problem: email
+  failing: no internet at the node` 88 s later (delivered). **Lost radio:**
+  USB unplugged 11:52–11:59: `Lost the radio (reconnect_failed); stopping.`,
+  `No serial device found` every 30 s (15 tries; systemd kept going), then
+  connected 24 s after the replug, both channels in place. The second radio's `ok`, sent
+  while the bot was down, was handled right after. `radio up 12h 55m`
+  showed the Heltec ran on its battery while unplugged, so the watch rightly
+  sent no restart notice. `qm` then sent an email; `health` came in 4 parts
+  (120/133/114/90 chars, all delivered) with `last backup` and `watch: no
+  problems`; `backup` saved 13 files.
+- *Bug found and fixed (PR after #34):* right after the restart the watch
+  sent `Node ok again: an email was sent` though none had been: the problem
+  was remembered in `watch.json` but its evidence was only in memory. "Ok
+  again" now needs evidence (an email sent, a message delivered, a backup
+  made after the announcement; 30 minutes for command errors).
+- *Added from it:* the bot was down 7 minutes and nobody was told, so a lost
+  radio is now recorded and announced once it's back: `Node problem: the
+  radio was disconnected for 7m (reconnect_failed); back now`.
+- *Noticed:* 2 of the second radio's 3 replies weren't acknowledged (radio
+  link, not the bot). It tried `status` with the node's own name; `status`
+  looks up users, so it said "no status for ..."
+- *Still to do:* reboot without logging in; the weekly alert test
+  (Wednesday 2026-10-28, 17:00) arriving on a radio; the new disconnect
+  notice for real (unplug the USB again); a real radio restart notice (needs
+  the radio to lose power: battery out, or reset button).
+
 ### Checks
 
 - **Service, reboot:** reboot without logging in; `help` from another radio
