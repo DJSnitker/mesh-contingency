@@ -15,12 +15,26 @@ may change how the bot is configured).
   repeated command errors, or a users file that can't be reloaded. Each
   problem is announced at most once an hour. `health` shows `watch: no
   problems` or the current ones.
+- **Backups** (`[backup]` in `config.toml`, on by default): once a day the
+  bot copies its data (`config.toml`, `users.toml`, the JSON files and the
+  users file's backups) into a new dated folder in `to` (default
+  `~/MeshContingencyBackups`), keeping the newest 7, with permissions kept.
+  Best on a separate disk; the bot notes at startup when it isn't. A failed
+  backup is retried hourly and reported by the node watch.
+- **`backup`** (admins): make a backup now.
 
 ### Changed
 
 - The users-file notice to admins now reads `Node problem: users.toml not
   reloaded: ...`, and is followed by `Node ok again: users.toml reloaded`
   once the file is fixed (unless `[watch] enabled = false`).
+
+### Upgrading from 0.5.0
+
+- Add `backup = { permission = "admin" }` under `[commands]` in
+  `config.toml` for the backup command. Backups start without it; add a
+  `[backup]` section to send them somewhere other than
+  `~/MeshContingencyBackups`, ideally another disk.
 
 ## [0.5.0] - 2026-10-22
 
