@@ -87,17 +87,25 @@ jobs:
           /tmp/venv/bin/mesh-contingency --help
           /tmp/venv/bin/python - <<'EOF'
           import asyncio
+          import os
+          import tomllib
+          from pathlib import Path
           from mesh_contingency.api import Sender
           from mesh_contingency.directory import Directory
           from mesh_contingency.registry import Registry, discover
 
+          # Every command the bot and the example plugin declare, so a new one
+          # can't be left out of this check.
+          source = Path(os.environ["GITHUB_WORKSPACE"])
+          declared = set()
+          for pyproject in (source / "pyproject.toml", source / "examples/mesh-dice/pyproject.toml"):
+              project = tomllib.loads(pyproject.read_text())["project"]
+              declared |= set(project["entry-points"]["mesh_contingency.commands"])
+          assert {"help", "backup", "roll", "flip"} <= declared, declared
           found = discover()
-          missing = {"help", "wx", "verse", "qm", "emailall", "email", "advert", "reload",
-                     "ok", "status", "clearstatus", "roster", "msg", "inbox", "clearinbox", "alert",
-                     "join", "approve", "deny", "setqm", "addgroup", "cleargroup", "contacts", "setpass",
-                     "users", "whois", "remove", "resetpass", "whoami", "leave", "health", "history",
-                     "roll", "flip"} - set(found)
+          missing = declared - set(found)
           assert not missing, f"commands not discovered: {missing}"
+          print(f"{len(declared)} commands discovered")
 
           config = {"commands": {"verse": {"permission": "public"}, "roll": {"permission": "public"}}}
           commands = Registry(config).build(Directory(), None)
