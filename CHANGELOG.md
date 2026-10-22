@@ -7,6 +7,14 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-22
+
+The node now looks after itself: admins get a direct message when something
+goes wrong with it (a low battery, the radio restarting or lost, email
+failing...) and when it's over, and the bot's data is backed up every day.
+Users who mistype a command are told the one they meant. Pull requests
+#33, #34, #36 and #37.
+
 ### Added
 
 - **Node watch** (`[watch]` in `config.toml`, on by default): every admin gets
@@ -16,7 +24,10 @@ may change how the bot is configured).
   problem is announced at most once an hour. `health` shows `watch: no
   problems` or the current ones. When the bot stopped because it lost the
   radio, it says for how long once the radio is back (`Node problem: the
-  radio was disconnected for 7m (reconnect_failed); back now`).
+  radio was disconnected for 7m (reconnect_failed); back now`). "Ok again"
+  needs evidence (an email sent, a message delivered, a backup made; 30
+  minutes for command errors), so a restart of the bot doesn't end a problem
+  by itself.
 - **Backups** (`[backup]` in `config.toml`, on by default): once a day the
   bot copies its data (`config.toml`, `users.toml`, the JSON files and the
   users file's backups) into a new dated folder in `to` (default
@@ -36,20 +47,31 @@ may change how the bot is configured).
   reloaded: ...`, and is followed by `Node ok again: users.toml reloaded`
   once the file is fixed (unless `[watch] enabled = false`).
 
-### Fixed
-
-- After a restart of the bot, the node watch no longer says a problem is
-  over without evidence: on 2026-10-22 it sent `Node ok again: an email was
-  sent` when none had been. Email, delivery and backup problems now end only
-  when an email is sent, a message delivered or a backup made after they
-  were announced, and command errors only after 30 minutes.
-
 ### Upgrading from 0.5.0
 
-- Add `backup = { permission = "admin" }` under `[commands]` in
-  `config.toml` for the backup command. Backups start without it; add a
-  `[backup]` section to send them somewhere other than
-  `~/MeshContingencyBackups`, ideally another disk.
+1. Stop the bot, then update and reinstall, which registers the new
+   command:
+   ```sh
+   git pull
+   .venv/bin/python -m pip install -e .
+   ```
+2. **Turn on `backup`** under `[commands]` in `config.toml`, or the bot
+   names it as disabled at startup:
+   ```toml
+   backup = { permission = "admin" }
+   ```
+3. Optionally, send the backups to another disk (a USB stick, a second
+   drive), which survives this one failing; without it they go to
+   `~/MeshContingencyBackups`:
+   ```toml
+   [backup]
+   to = "/mnt/usb/MeshContingencyBackups"
+   ```
+   The node watch needs no setting; see `[watch]` in `config.example.toml`
+   to change its thresholds.
+4. Start the bot. The startup log shows `Backups: every 24 h to ...` and
+   `Watching the node every 5 min: ...`; the first backup is made straight
+   away.
 
 ## [0.5.0] - 2026-10-22
 
@@ -275,6 +297,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.6.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.3.0
