@@ -26,6 +26,7 @@ from .api import (
     USER,
     CommandError,
     CommandResult,
+    Context,
     Sender,
     is_authorized,
     to_messages,
@@ -48,6 +49,7 @@ from .output import SafeOutput
 from .registry import RENAMED, Registry
 from .state import State
 from .watch import NodeWatch, load_watch
+from .web import INSTALL, aiohttp_missing, load_console
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -156,6 +158,7 @@ async def _main():
     test_settings = load_alert_test(config, alert_settings.channel)
     watch_settings = load_watch(config)
     backup_settings = load_backup(config, args.config.resolve().parent)
+    console_settings = load_console(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -386,6 +389,18 @@ async def _main():
         state.watch = NodeWatch(mc, watch_settings, state, directory, tell_watch)
         print(f"Watching the node {state.watch.describe()}; problems go to {len(directory.admins)} admin(s).")
         node_watch = asyncio.create_task(state.watch.run())
+    web_console = None
+    if console_settings.enabled and aiohttp_missing():
+        print(f"Warning: [console] is enabled, but the web console needs aiohttp: run {INSTALL} in the project "
+              "folder and restart. Running without it.")
+    elif console_settings.enabled:
+        from .web.server import ConsoleServer
+
+        console_ctx = Context(name="console", directory=directory, radio=mc, commands=commands, state=state,
+                              send=send_later, limits=registry.limits)
+        web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent)
+        if not await web_console.start():
+            web_console = None
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
@@ -609,6 +624,8 @@ async def _main():
             scheduled_backups.cancel()
         if stop_console:
             stop_console()
+        if web_console:
+            await web_console.stop()
         with contextlib.suppress(AttributeError, NotImplementedError):
             loop.remove_signal_handler(signal.SIGHUP)
             loop.remove_signal_handler(signal.SIGUSR1)

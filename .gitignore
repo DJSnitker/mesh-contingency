@@ -15,6 +15,9 @@ backup.json
 history.json
 *.json.tmp
 backups/
+# The web console's link, with the key that opens it.
+console.url
+console.url.tmp
 
 # Python
 __pycache__/

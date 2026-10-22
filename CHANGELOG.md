@@ -7,6 +7,15 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+
+- **Web console, part 1** (`[console]` in `config.toml`, off by default; needs
+  `pip install -e ".[console]"`): the bot serves a read-only JSON API on
+  `127.0.0.1` (overview, users, join requests, check-ins, inbox, history).
+  It's opened with a new key at each start, written to `console.url`. Only
+  this computer's addresses are answered, and sealed or message text never
+  leaves the node. The app comes in later releases.
+
 ### Changed
 
 - **Node watch** no longer calls it a problem when the radio restarted because
