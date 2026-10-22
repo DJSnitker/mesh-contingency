@@ -23,7 +23,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 7a | Release 0.6.0 | release | small | done (v0.6.0) |
 | 8 | Does the radio restart when the bot connects? | check, docs | small | done: no |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
-| 10 | Web console on the node (Angular) | feature | large | planned: [web-console.md](web-console.md) |
+| 10 | Web console on the node (Angular) | feature | large | in progress: PR 2a done (#43), 2b next; [web-console.md](web-console.md) |
 
 Recommended order: everything but field testing is done and released (0.6.0); next is the web console (10), in the PRs its plan lists.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
@@ -40,10 +40,14 @@ Where things stood on 2026-10-22:
   CI and a test keep the command lists in step), released as 0.6.0. The
   wiki is published for all of them. Since 0.6.0: #40 (the web console
   plan, item 10) and #41 (a reboot no longer reads as a radio problem; the
-  first alert check waits for the network), not released yet.
+  first alert check waits for the network), #42 (this item 9 record) and
+  #43 (web console part 1, PR 2a: `[console]`, key and cookie, read-only
+  API), not released yet.
 - **The node** runs `main` with `comm`, `checkins` and `backup` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
+  Its `config.toml` has `[console] enabled = true` (port 8737) and aiohttp
+  is installed in `.venv`; the link is in `console.url`, new at each start.
 - **0.6.0** is released (this PR, tag `v0.6.0`).
 - **Item 8 answered: no, so far.** Opening the radio's USB port didn't restart
   it (checked 2026-10-22; details in item 8), but once, at 13:11 on
@@ -64,6 +68,8 @@ Steps, in order:
    one.
 3. After Wednesday 2026-10-28, 17:00: check the weekly alert test arrived on
    a radio, and record it in item 9.
+4. **Next code: web console PR 2b** (item 10); the design is under "PRs, in
+   order" in [web-console.md](web-console.md).
 
 Paused: item 9, field testing, until more radios arrive.
 
