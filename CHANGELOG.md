@@ -7,6 +7,12 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-22
+
+Admins can now reach everyone at once with news on a second public channel,
+`#contingency-comm`, and see at a glance who has checked in and who hasn't.
+When an email can't be sent, the sender is told why. Pull requests #29–#31.
+
 ### Added
 
 - **`comm <message>`** (admins): posts to a second public hashtag channel,
@@ -22,13 +28,27 @@ may change how the bot is configured).
   the reply gives the cause (`qm: not sent, no internet at the node; try
   again later`) instead of `qm: failed`; the full reason goes to the
   console, and `health` shows the last failure. The unsent message is no
-  longer left in `~/dead.letter` by s-nail.
+  longer left in `~/dead.letter` by s-nail, and a failed email doesn't
+  count toward the daily limits. Pull request #31.
 
 ### Upgrading from 0.4.0
 
-- Add `checkins = { permission = "admin" }` and
-  `comm = { permission = "admin" }` under `[commands]` in `config.toml`, or
-  the new commands stay off (with a warning at startup).
+1. Stop the bot, then update and reinstall, which registers the new
+   commands:
+   ```sh
+   git pull
+   .venv/bin/python -m pip install -e .
+   ```
+2. **Turn on the new commands** under `[commands]` in `config.toml`, or the
+   bot names them as disabled at startup:
+   ```toml
+   checkins = { permission = "admin" }
+   comm = { permission = "admin" }
+   ```
+3. Start the bot. The startup log shows
+   `comm: #contingency-comm is channel slot 2.` (or whichever slot was
+   free). Ask people to add the hashtag channel `#contingency-comm` in their
+   app.
 
 ## [0.4.0] - 2026-10-21
 
@@ -211,5 +231,6 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.5.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.3.0
