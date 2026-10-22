@@ -16,12 +16,16 @@ when it's over ("Node ok again: ..."):
 
 It also says when the radio has restarted: its uptime went backwards.
 Restarting the bot doesn't restart the radio, so this is always a real
-restart (power, USB, a crash), even one that restarted the bot too.
+restart (power, USB, a crash), even one that restarted the bot too. And when
+the bot stopped because it lost the radio (an unplugged USB cable), it says
+for how long once the radio is back, since nobody could be told meanwhile.
 
 A problem is announced at most once an hour, so a value going back and forth
-can't flood the mesh; its "ok again" follows once. What has been announced,
-and when the radio last started, are kept in watch.json next to config.toml,
-so a restart of the bot doesn't announce an ongoing problem again.
+can't flood the mesh; its "ok again" follows once, and only on evidence that
+it's over (an email sent, a message delivered...), so a restart of the bot,
+which forgets what it had seen, doesn't end a problem by itself. What has
+been announced, when the radio last started and when the radio was lost are
+kept in watch.json next to config.toml.
 """
 
 import asyncio
@@ -31,7 +35,7 @@ from dataclasses import dataclass
 
 from meshcore import EventType
 
-from .state import ago
+from .state import ago, duration
 
 WATCH_FILE = "watch.json"
 WATCH_KEYS = {"enabled", "every_minutes", "battery_volts", "undelivered_in_row", "errors"}
@@ -158,20 +162,47 @@ class NodeWatch:
                 "errors": "no more command errors", "users": f"{self.directory.name} reloaded",
                 "backup": "a backup was made"}[problem]
 
+    def over(self, problem, since, now):
+        """True if there's evidence an announced problem (announced at
+        `since`) is over. Battery and the users file are read afresh each
+        time; the rest the bot only knows from what it has seen since it
+        started, so it waits for something that shows the problem is gone."""
+        state = self.state
+        if problem == "email":
+            return not state.emails.failing and (state.emails.last_sent or 0) > since
+        if problem == "undelivered":
+            return (state.undelivered_in_row < self.settings.undelivered_in_row
+                    and (state.last_delivered or 0) > since)
+        if problem == "errors":
+            return now - since >= ERROR_WINDOW
+        if problem == "backup":
+            backups = state.backups
+            return backups is None or (not backups.failing and (backups.last or 0) > since)
+        return True  # battery, users: not found now
+
+    def lost_radio(self, reason):
+        """The bot is stopping because the radio was lost: remember when, to
+        tell the admins once it's back."""
+        self.store.data["lost"] = {"time": time.time(), "reason": reason}
+        self.store.save()
+
+    def event(self, kind, text, now):
+        """A one-off notice (no "ok again"), at most once an hour per kind."""
+        text = f"Node problem: {text}"
+        if now - self.noticed.get(kind, 0) >= NOTICE_GAP:
+            self.noticed[kind] = now
+            self.tell(text)
+        else:
+            print(f"Watch: {text}; admins told within the hour, not again", flush=True)
+
     def check_restart(self, uptime, now):
-        """Announce a radio restart if its uptime went backwards since the
-        last check (or the last run of the bot)."""
+        """The time.time() the radio restarted, if its uptime went backwards
+        since the last check (or the last run of the bot), else None."""
         started = now - uptime
         before = self.store.data.get("radio_started")
         if before is None or started > before + RESTART_SLACK:
             self.store.data["radio_started"] = started
-        if before is not None and started > before + RESTART_SLACK:
-            text = f"Node problem: the radio restarted {ago(started, now)} (power, USB or a crash)"
-            if now - self.noticed.get("restart", 0) >= NOTICE_GAP:
-                self.noticed["restart"] = now
-                self.tell(text)
-            else:
-                print(f"Watch: {text}; admins told within the hour, not again", flush=True)
+        return started if before is not None and started > before + RESTART_SLACK else None
 
     async def check(self):
         """Read the radio, then announce new problems and ones that are over."""
@@ -181,17 +212,27 @@ class NodeWatch:
         millivolts = battery.get("level") or stats.get("battery_mv")
         self.voltage = millivolts / 1000 if millivolts else None
         now = time.time()
-        if "uptime_secs" in stats:
-            self.check_restart(stats["uptime_secs"], now)
+        restarted = self.check_restart(stats["uptime_secs"], now) if "uptime_secs" in stats else None
+        lost = self.store.data.get("lost")
+        # Only one from before this run of the bot: the radio is back since.
+        if isinstance(lost, dict) and isinstance(lost.get("time"), (int, float)) and lost["time"] < self.state.started:
+            del self.store.data["lost"]
+            also = ", and it restarted" if restarted else ""
+            self.event("disconnected", f"the radio was disconnected for {duration(now - lost['time'])} "
+                                       f"({lost.get('reason', '?')}){also}; back now", now)
+        elif restarted:
+            self.event("restart", f"the radio restarted {ago(restarted, now)} (power, USB or a crash)", now)
         found = self.problems(now)
-        self.active = list(found)
         for problem, text in found.items():
             if problem not in self.announced and now - self.noticed.get(problem, 0) >= NOTICE_GAP:
                 self.announced[problem] = self.noticed[problem] = now
                 self.tell(f"Node problem: {text}")
         for problem in [p for p in self.announced if p not in found]:
-            del self.announced[problem]
-            self.tell(f"Node ok again: {self.ok_text(problem)}")
+            if self.over(problem, self.announced[problem], now):
+                del self.announced[problem]
+                self.tell(f"Node ok again: {self.ok_text(problem)}")
+        # Still a problem until it's shown to be over, even if not seen now.
+        self.active = list(found) + [p for p in self.announced if p not in found]
         self.store.save()
 
     async def run(self):

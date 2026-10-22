@@ -273,7 +273,7 @@ direct message when a problem starts and when it's over:
 | Battery low | the radio's battery is below `battery_volts` | it's 0.1 V above it |
 | Messages not delivered | `undelivered_in_row` direct messages in a row get no acknowledgement | one does |
 | Email failing | an email can't be sent for a reason at the node (no internet, login refused...; not a refused address) | one is sent |
-| Command errors | `errors` commands fail or time out within 30 minutes | there are fewer |
+| Command errors | `errors` commands fail or time out within 30 minutes | 30 minutes have passed and there are fewer |
 | Users file | `users.toml` has a mistake and isn't reloaded | it's reloaded |
 | Backup failing | a [backup](#backups) can't be made | one is |
 
@@ -281,15 +281,23 @@ direct message when a problem starts and when it's over:
 Node problem: battery low, 3.42V (below 3.50V)
 Node ok again: battery 3.65V
 Node problem: the radio restarted 3m ago (power, USB or a crash)
+Node problem: the radio was disconnected for 7m (reconnect_failed); back now
 ```
 
 It also says when the radio has restarted (its uptime went backwards).
 Restarting the bot doesn't restart the radio, so that's always a real restart,
-and it's noticed even when it restarted the bot too (an unplugged USB cable).
+and it's noticed even when it restarted the bot too. When the bot stopped
+because it lost the radio (an unplugged USB cable), nobody could be told at
+the time, so once the radio is back it says for how long it was gone (and
+whether the radio restarted meanwhile). A radio with a battery keeps running
+while unplugged, so only the disconnect shows.
+
 Each problem is announced at most once an hour, with one "ok again" after it,
-so a value going back and forth can't flood the mesh. What has been announced
-is kept in `watch.json`, so a restart doesn't announce an ongoing problem
-again. `health` shows `watch: no problems` or the current ones, and the
+so a value going back and forth can't flood the mesh. "Ok again" needs
+evidence the problem is over (an email sent, a message delivered, a backup
+made), so a restart of the bot, which forgets what it had seen, doesn't end
+a problem by itself. What has been announced is kept in `watch.json`, so a
+restart doesn't announce an ongoing problem again either. `health` shows `watch: no problems` or the current ones, and the
 console logs every notice. It's on by default:
 
 ```toml

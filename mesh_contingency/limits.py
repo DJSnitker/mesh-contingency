@@ -111,6 +111,7 @@ class EmailLog:
         # Why the last email failed, if it was the node's fault (not a refused
         # address) and none has been sent since, for the watch.
         self.failing = None
+        self.last_sent = None  # time.time() an email last went out
 
     def _recent(self):
         cutoff = time.time() - EMAIL_WINDOW
@@ -129,6 +130,7 @@ class EmailLog:
 
     def record(self, who, addresses):
         self._sent.append((time.time(), who, addresses))
+        self.last_sent = self._sent[-1][0]
 
 
 def wait_text(seconds):

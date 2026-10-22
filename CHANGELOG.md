@@ -14,7 +14,9 @@ may change how the bot is configured).
   low battery, the radio restarting, messages not delivered, email failing,
   repeated command errors, or a users file that can't be reloaded. Each
   problem is announced at most once an hour. `health` shows `watch: no
-  problems` or the current ones.
+  problems` or the current ones. When the bot stopped because it lost the
+  radio, it says for how long once the radio is back (`Node problem: the
+  radio was disconnected for 7m (reconnect_failed); back now`).
 - **Backups** (`[backup]` in `config.toml`, on by default): once a day the
   bot copies its data (`config.toml`, `users.toml`, the JSON files and the
   users file's backups) into a new dated folder in `to` (default
@@ -28,6 +30,14 @@ may change how the bot is configured).
 - The users-file notice to admins now reads `Node problem: users.toml not
   reloaded: ...`, and is followed by `Node ok again: users.toml reloaded`
   once the file is fixed (unless `[watch] enabled = false`).
+
+### Fixed
+
+- After a restart of the bot, the node watch no longer says a problem is
+  over without evidence: on 2026-10-22 it sent `Node ok again: an email was
+  sent` when none had been. Email, delivery and backup problems now end only
+  when an email is sent, a message delivered or a backup made after they
+  were announced, and command errors only after 30 minutes.
 
 ### Upgrading from 0.5.0
 

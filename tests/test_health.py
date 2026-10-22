@@ -12,10 +12,10 @@ from meshcore import EventType
 from mesh_contingency.alerts import AlertSettings, AlertTest, AlertWatcher, TestSettings
 from mesh_contingency.api import MAX_REPLY_LEN, CommandError
 from mesh_contingency.commands import health
-from mesh_contingency.commands.health import HealthCommand, duration
+from mesh_contingency.commands.health import HealthCommand
 from mesh_contingency.directory import Directory, DirectoryError
 from mesh_contingency.limits import Limits
-from mesh_contingency.state import State
+from mesh_contingency.state import State, duration
 from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 ALICE = "a1" * 32

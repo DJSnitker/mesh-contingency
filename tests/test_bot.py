@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import hashlib
 import io
+import json
 import os
 import signal
 import tempfile
@@ -519,6 +520,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Lost the radio (reconnect_failed); stopping.", self.out.getvalue())
         self.assertNotIn("Stopped.", self.out.getvalue())
         self.assertTrue(self.radio.disconnected)
+        # Kept for the next start, which tells the admins how long it was gone.
+        lost = json.loads((self.users_file.parent / "watch.json").read_text())["lost"]
+        self.assertEqual(lost["reason"], "reconnect_failed")
 
     async def test_our_own_disconnect_isnt_a_lost_radio(self):
         await self.start()

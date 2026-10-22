@@ -76,6 +76,7 @@ class State:
         self.last_error = None  # (time.time(), e.g. "wx failed")
         self.error_times = deque()  # time.time() of each error in the last day, for the watch
         self.undelivered_in_row = 0  # direct messages not acknowledged since the last one that was
+        self.last_delivered = None  # time.time() a direct message was last acknowledged
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
         self.watch = None  # the NodeWatch, if [watch] is enabled
@@ -94,6 +95,16 @@ class State:
         self.error_times.append(self.last_error[0])
         while self.error_times[0] < self.last_error[0] - 86400:
             self.error_times.popleft()
+
+    def delivered(self):
+        """A direct message was acknowledged."""
+        self.undelivered_in_row = 0
+        self.last_delivered = time.time()
+
+    def undelivered(self):
+        """A direct message got no acknowledgement after retries."""
+        self.counts["undelivered"] += 1
+        self.undelivered_in_row += 1
 
     def recent_errors(self, seconds, now=None):
         """How many commands failed or timed out in the last `seconds`."""
@@ -115,6 +126,17 @@ class State:
         if filename not in self._stores:
             self._stores[filename] = Store(self.data_dir / filename if self.data_dir else None)
         return self._stores[filename]
+
+
+def duration(seconds):
+    """A length of time in its two largest units: "2d 3h", "3h 5m", "12m"."""
+    seconds = int(seconds)
+    days, hours, minutes = seconds // 86400, seconds % 86400 // 3600, seconds % 3600 // 60
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
 
 
 def ago(then, now=None):

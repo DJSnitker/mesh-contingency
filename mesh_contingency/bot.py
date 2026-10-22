@@ -181,11 +181,10 @@ async def _main():
         async with send_lock:
             result = await mc.commands.send_msg_with_retry(contact, text)
         if result is None:
-            state.counts["undelivered"] += 1
-            state.undelivered_in_row += 1
+            state.undelivered()
             print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
         else:
-            state.undelivered_in_row = 0
+            state.delivered()
             print(f"  ({what} to {prefix} delivered)", flush=True)
 
     background = set()  # running background tasks, kept so they aren't garbage collected
@@ -549,6 +548,8 @@ async def _main():
         if reason != "manual_disconnect":
             lost.append(reason)
             print(f"Lost the radio ({reason}); stopping.", flush=True)
+            if state.watch:
+                state.watch.lost_radio(reason)  # told to the admins once it's back
             stopping.set()
 
     with contextlib.suppress(NotImplementedError):  # not on Windows
