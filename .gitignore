@@ -10,6 +10,7 @@ mailbox.json
 requests.json
 adverts.json
 alerts.json
+watch.json
 history.json
 *.json.tmp
 backups/

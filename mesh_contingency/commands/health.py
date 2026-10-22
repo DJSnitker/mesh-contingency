@@ -7,7 +7,6 @@ and the last one that failed, the last flood advert and the users file.
 Anything the radio doesn't answer within RADIO_SECONDS is left out.
 """
 
-import asyncio
 import time
 
 from meshcore import EventType
@@ -16,6 +15,7 @@ from ..alerts import plural_counties, when_text
 from ..api import Command, CommandError, CommandResult, pack
 from ..console import ADVERTS_FILE
 from ..state import ago
+from ..watch import LABELS, ask_radio
 from .join import FILENAME as REQUESTS
 from .mailbox import FILENAME as MAILBOX
 from .status import FILENAME as STATUSES
@@ -37,22 +37,13 @@ def duration(seconds):
 class HealthCommand(Command):
     summary = "How the node is doing: radio, battery, users, messages, errors"
 
-    async def ask(self, request, wanted):
-        """The payload of a radio request, or None if it fails, is refused or
-        takes too long."""
-        try:
-            result = await asyncio.wait_for(request(), RADIO_SECONDS)
-        except Exception:
-            return None
-        return result.payload if result is not None and result.type == wanted else None
-
     async def radio_items(self):
         radio = self.ctx.radio
         if radio is None:
             return ["no radio"]
-        info = await self.ask(radio.commands.send_device_query, EventType.DEVICE_INFO) or {}
-        stats = await self.ask(radio.commands.get_stats_core, EventType.STATS_CORE) or {}
-        battery = await self.ask(radio.commands.get_bat, EventType.BATTERY) or {}
+        info = await ask_radio(radio.commands.send_device_query, EventType.DEVICE_INFO, RADIO_SECONDS) or {}
+        stats = await ask_radio(radio.commands.get_stats_core, EventType.STATS_CORE, RADIO_SECONDS) or {}
+        battery = await ask_radio(radio.commands.get_bat, EventType.BATTERY, RADIO_SECONDS) or {}
         model = " ".join(part for part in (info.get("model"), info.get("ver")) if part)
         items = [f"radio {radio.self_info.get('name', '?')}" + (f" ({model})" if model else "")]
         if "uptime_secs" in stats:
@@ -101,6 +92,8 @@ class HealthCommand(Command):
         test = state.alert_test
         if test and test.settings.weekly:
             items.append(f"next alert test {when_text(test.next_time(), test.settings.zone)}")
+        if state.watch:
+            items.append(f"watch: {', '.join(LABELS[p] for p in state.watch.active) or 'no problems'}")
         last = state.store(ADVERTS_FILE).data.get("last_flood")
         items.append(f"last flood advert {ago(last)}" if last else "no flood advert yet")
         directory = self.ctx.directory

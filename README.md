@@ -261,6 +261,47 @@ is in `history` (as "auto" when scheduled), and `health` shows
 `next alert test Wed 5:00PM CDT`. The message must fit in one channel message
 from the node; the bot won't start if it doesn't.
 
+### Node watch
+
+Problems with the node shouldn't wait for someone to send `health`. Every few
+minutes the bot checks the radio and what it has seen, and sends every admin a
+direct message when a problem starts and when it's over:
+
+| Problem | Starts when | Over when |
+|---|---|---|
+| Battery low | the radio's battery is below `battery_volts` | it's 0.1 V above it |
+| Messages not delivered | `undelivered_in_row` direct messages in a row get no acknowledgement | one does |
+| Email failing | an email can't be sent for a reason at the node (no internet, login refused...; not a refused address) | one is sent |
+| Command errors | `errors` commands fail or time out within 30 minutes | there are fewer |
+| Users file | `users.toml` has a mistake and isn't reloaded | it's reloaded |
+
+```
+Node problem: battery low, 3.42V (below 3.50V)
+Node ok again: battery 3.65V
+Node problem: the radio restarted 3m ago (power, USB or a crash)
+```
+
+It also says when the radio has restarted (its uptime went backwards).
+Restarting the bot doesn't restart the radio, so that's always a real restart,
+and it's noticed even when it restarted the bot too (an unplugged USB cable).
+Each problem is announced at most once an hour, with one "ok again" after it,
+so a value going back and forth can't flood the mesh. What has been announced
+is kept in `watch.json`, so a restart doesn't announce an ongoing problem
+again. `health` shows `watch: no problems` or the current ones, and the
+console logs every notice. It's on by default:
+
+```toml
+[watch]
+enabled = true
+every_minutes = 5        # how often to check; at least 1
+battery_volts = 3.5      # warn below this; 0 for no battery check
+undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
+errors = 3               # commands failed or timed out within 30 min; 0 for no check
+```
+
+With `enabled = false`, a users file that can't be reloaded is still sent to
+the admins straight away, as before, but nothing else is.
+
 Example `wx` reply:
 
 ```
@@ -728,6 +769,7 @@ mesh_contingency/
   registry.py         finding commands (entry points), checking [commands], loading them
   directory.py        the users file: checking it and reloading it while running
   state.py            senders seen since startup; status.json and mailbox.json
+  watch.py            the node watch: problems with the node, sent to the admins
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
   names.py            checking radios' names at join: control characters, profanity

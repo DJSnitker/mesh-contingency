@@ -108,6 +108,9 @@ class EmailLog:
     def __init__(self):
         self._sent = deque()  # (time.time(), sender's key, addresses)
         self.last_failure = None  # (time.time(), cause), for health
+        # Why the last email failed, if it was the node's fault (not a refused
+        # address) and none has been sent since, for the watch.
+        self.failing = None
 
     def _recent(self):
         cutoff = time.time() - EMAIL_WINDOW

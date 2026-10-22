@@ -119,11 +119,15 @@ class MailCommand(Command):
             await asyncio.to_thread(send_email, to, subject, body)
         except SendError as e:
             cause, todo = e.reason
-            self.ctx.state.emails.last_failure = (time.time(), cause)
+            emails = self.ctx.state.emails
+            emails.last_failure = (time.time(), cause)
+            if e.reason != ADDRESS_REFUSED:
+                emails.failing = cause
             # The bot replies with this instead of "<command>: failed".
             e.reply = f"{self.name}: not sent, {cause}; {todo}"
             raise
         self.ctx.state.emails.record(sender.public_key, len(to))
+        self.ctx.state.emails.failing = None
         return CommandResult(
             console=f"Sent email to {', '.join(to)}\n  Subject: {subject}\n  Body: {text}",
             reply=f"{self.name}: sent",
