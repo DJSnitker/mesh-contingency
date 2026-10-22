@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–5 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (item 5)
+Status: items 1–5 done (v0.5.0); field testing paused · Written 2026-10-21 · Updated 2026-10-22 (v0.5.0)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -17,6 +17,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 3 | #contingency-comm channel at startup | feature | small | done |
 | 4 | Roll call of check-ins | feature | small | done |
 | 5 | Report email failures (no queue) | feature | small | done |
+| 5a | Release 0.5.0 | release | small | done (v0.5.0) |
 | 6 | Alerts to admins about the node itself | feature | medium | to do |
 | 7 | Off-machine backups of the bot's data | operations | small | to do |
 | 8 | Does the radio restart when the bot connects? | check, docs | small | to check: result not recorded |
@@ -32,15 +33,14 @@ equipment; it was started 2026-10-21 and its results so far are kept below.
 Where things stood on 2026-10-22:
 
 - **Merged:** #29 (`comm` posting to `#contingency-comm`, `checkins` roll
-  call; both admin) and #30 (README for them). The wiki is published for
-  both. Item 5 (email failures reported, no queue) is in the PR that
-  updates this section; its wiki edits wait for the merge.
+  call; both admin), #30 (README for them) and #31 (email failures reported,
+  no queue). The wiki is published for all three.
 - **The node** runs `main` with `comm` and `checkins` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
-- **Not released:** the changelog has an `[Unreleased]` section for
-  `comm`, `checkins` and the email change; 0.5.0 can follow item 6 or go out
-  on its own.
+- **0.5.0** is prepared in the PR that adds item 5a (version, changelog
+  entry with "Upgrading from 0.4.0"); tag `v0.5.0` and publish the GitHub
+  release once it merges, as for 0.4.0.
 
 Steps, in order:
 
