@@ -434,6 +434,13 @@ or a command the sender isn't allowed to run — gets the reply
 `unrecognized user or function`, at most once per sender every 5 minutes so
 the bot can't be pulled into a reply loop with another automated node.
 
+A user or admin who mistypes a command is told the nearest one **they** may
+run instead, e.g. `unknown command resetpassword; did you mean resetpass?
+help lists yours`; an old name (`quickim`) gets its new one (`qm`). Only the
+first word is repeated, never the rest (it may be a passphrase), and
+strangers still get only `unrecognized user or function`, so they learn
+nothing about the commands there are.
+
 Senders must be in the radio's contacts, since direct messages from unknown
 nodes can't be decrypted or replied to. See [Contacts](#contacts) for adding
 them automatically.

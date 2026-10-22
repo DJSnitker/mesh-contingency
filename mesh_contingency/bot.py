@@ -6,6 +6,7 @@ Channel messages are ignored entirely (the alert command only posts to one).
 import argparse
 import asyncio
 import contextlib
+import difflib
 import glob
 import os
 import signal
@@ -58,6 +59,11 @@ UNRECOGNIZED_REPLY = "unrecognized user or function"
 # Send UNRECOGNIZED_REPLY to the same sender at most once per this many
 # seconds, so another auto-replying node can't trap us in a reply loop.
 UNRECOGNIZED_COOLDOWN = 300
+# How alike (0-1, difflib's ratio) a mistyped command must be to one the
+# sender may run to be suggested: typos like "hlep", "emial" or "resetpassword"
+# are 0.75 or more; "hello" (help), "weather" (health) or "test" (testalert)
+# are 0.67 or less.
+SUGGEST_CUTOFF = 0.75
 # How often to check whether an hourly new-contact summary is due.
 SUMMARY_CHECK_SECONDS = 60
 
@@ -89,6 +95,19 @@ def parse_command(msg, commands):
         return None
     command = commands.get(parts[0].lower())
     return (command, parts[1].strip() if len(parts) > 1 else "") if command else None
+
+
+def nearest_command(word, names, disabled=()):
+    """The command in names a mistyped word was meant to be, or None: its new
+    name if it was renamed, else the closest. A disabled command's own name
+    gets no suggestion: it's not a typo for something else."""
+    word = word.lower()
+    if word in disabled:
+        return None
+    if RENAMED.get(word) in names:
+        return RENAMED[word]
+    close = difflib.get_close_matches(word, names, n=1, cutoff=SUGGEST_CUTOFF)
+    return close[0] if close else None
 
 
 def warn_if_shared(path):
@@ -490,8 +509,22 @@ async def _main():
         print(f"[{label}] {parsed[0].name + ' (private)' if private else msg.get('text', '')}", flush=True)
         state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         if parsed is None:
-            if msg.get("text", "").strip():
-                await reply_unrecognized(msg, sender, "unrecognized command")
+            words = msg.get("text", "").split()
+            if not words:
+                return
+            # Users and admins are told the nearest command they may run;
+            # strangers learn nothing about the commands there are.
+            if sender.public_key in directory.users or sender.public_key in directory.admins:
+                mine = [c.name for c in commands.values()
+                        if is_authorized(c, sender, directory.users, directory.admins)]
+                nearest = nearest_command(words[0], mine, registry.disabled)
+                if nearest:
+                    # Only the first word is repeated: the rest may be a passphrase.
+                    print(f"  -> unrecognized command; suggesting {nearest}", flush=True)
+                    await reply(msg, sender, f"unknown command {words[0][:30]}; did you mean {nearest}? "
+                                             "help lists yours")
+                    return
+            await reply_unrecognized(msg, sender, "unrecognized command")
             return
         command, text = parsed
         if not is_authorized(command, sender, directory.users, directory.admins):

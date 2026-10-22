@@ -24,6 +24,11 @@ may change how the bot is configured).
   Best on a separate disk; the bot notes at startup when it isn't. A failed
   backup is retried hourly and reported by the node watch.
 - **`backup`** (admins): make a backup now.
+- **Suggestions for mistyped commands:** a user or admin who sends
+  `resetpassword` gets `unknown command resetpassword; did you mean
+  resetpass? help lists yours`, naming only commands they may run (an old
+  name like `quickim` gets `qm`). Strangers still get only `unrecognized
+  user or function`.
 
 ### Changed
 
