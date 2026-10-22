@@ -213,8 +213,10 @@ class NodeWatch:
         self.voltage = millivolts / 1000 if millivolts else None
         now = time.time()
         restarted = self.check_restart(stats["uptime_secs"], now) if "uptime_secs" in stats else None
-        lost = self.store.data.pop("lost", None)
-        if isinstance(lost, dict) and isinstance(lost.get("time"), (int, float)):
+        lost = self.store.data.get("lost")
+        # Only one from before this run of the bot: the radio is back since.
+        if isinstance(lost, dict) and isinstance(lost.get("time"), (int, float)) and lost["time"] < self.state.started:
+            del self.store.data["lost"]
             also = ", and it restarted" if restarted else ""
             self.event("disconnected", f"the radio was disconnected for {duration(now - lost['time'])} "
                                        f"({lost.get('reason', '?')}){also}; back now", now)

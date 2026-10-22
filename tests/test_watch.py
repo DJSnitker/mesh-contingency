@@ -57,6 +57,7 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
     def new_watch(self, settings=None):
         """A watch as after a restart of the bot: new state, same files."""
         self.state = State(self.folder)
+        self.state.started = self.now
         return NodeWatch(self.radio, settings or WatchSettings(), self.state, self.directory, self.notices.append)
 
     def volts(self, volts):
@@ -188,6 +189,17 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.check(0),
                          ["Node problem: the radio was disconnected for 7m (reconnect_failed); back now"])
         self.assertEqual(await self.check(), [])  # said once
+
+    async def test_radio_lost_is_told_only_after_a_restart(self):
+        await self.check()
+        self.watch.lost_radio("reconnect_failed")  # the bot is stopping
+        self.assertEqual(await self.check(0), [])  # a check before it does says nothing
+        self.assertIn("lost", self.watch.store.data)
+        self.now += 60
+        self.uptime += 60
+        self.watch = self.new_watch()
+        self.assertEqual(await self.check(0),
+                         ["Node problem: the radio was disconnected for 1m (reconnect_failed); back now"])
 
     async def test_radio_lost_and_restarted(self):
         await self.check()
