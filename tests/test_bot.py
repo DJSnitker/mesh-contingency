@@ -202,6 +202,29 @@ class ParseCommandTest(unittest.TestCase):
         self.assertIsNone(bot.parse_command({}, self.COMMANDS))
 
 
+class NearestCommandTest(unittest.TestCase):
+    NAMES = ["help", "inbox", "qm", "setqm", "resetpass", "setpass", "checkins", "alert", "advert", "health"]
+
+    def test_close(self):
+        for word, expected in [("hlep", "help"), ("INBOX", "inbox"), ("resetpassword", "resetpass"),
+                               ("checkin", "checkins"), ("adver", "advert"), ("hello", None), ("weather", None),
+                               ("x", None)]:
+            self.assertEqual(bot.nearest_command(word, self.NAMES), expected, word)
+
+    def test_renamed(self):
+        self.assertEqual(bot.nearest_command("quickim", self.NAMES), "qm")
+        self.assertEqual(bot.nearest_command("setquickim", self.NAMES), "setqm")
+        self.assertIsNone(bot.nearest_command("quickim", ["help"]))  # qm not theirs
+
+    def test_a_disabled_command_is_not_a_typo(self):
+        self.assertIsNone(bot.nearest_command("advert", ["alert"], disabled=["advert"]))
+
+    def test_our_own_reply_is_not_a_command(self):
+        # A node that echoes our replies back can't start a loop.
+        self.assertIsNone(bot.nearest_command("unknown", self.NAMES))
+        self.assertIsNone(bot.nearest_command(bot.UNRECOGNIZED_REPLY.split()[0], self.NAMES))
+
+
 class MainTest(unittest.IsolatedAsyncioTestCase):
     """Runs bot.main() against a fake radio and drives it with messages."""
 
@@ -644,6 +667,48 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.clock += bot.UNRECOGNIZED_COOLDOWN
         await self.radio.dm(STRANGER, "hello again")
         self.assertEqual(self.radio.sent[-1], ("Stranger", bot.UNRECOGNIZED_REPLY))
+
+    # --- suggestions for mistyped commands
+
+    async def test_a_user_is_told_the_nearest_command(self):
+        await self.start()
+        await self.radio.dm(DANA, "inbx")
+        await self.radio.dm(DANA, "Quickim running late")  # its old name
+        await self.radio.dm(ADMIN_KEY, "resetpassword Dana")
+        self.assertEqual(self.radio.sent, [
+            ("Dana", "unknown command inbx; did you mean inbox? help lists yours"),
+            ("Dana", "unknown command Quickim; did you mean qm? help lists yours"),
+            ("Admin", "unknown command resetpassword; did you mean resetpass? help lists yours")])
+        self.assertIn("unrecognized command; suggesting inbox", self.out.getvalue())
+
+    async def test_suggestions_have_no_cooldown(self):
+        await self.start()
+        await self.radio.dm(DANA, "inbx")
+        await self.radio.dm(DANA, "inbx")
+        self.assertEqual(len(self.radio.sent), 2)
+
+    async def test_only_commands_the_sender_may_run_are_suggested(self):
+        await self.start()
+        await self.radio.dm(DANA, "adver")  # advert is for admins
+        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+        await self.radio.dm(ADMIN_KEY, "adver")
+        self.assertEqual(self.radio.sent[-1], ("Admin", "unknown command adver; did you mean advert? help lists yours"))
+
+    async def test_strangers_get_no_suggestion(self):
+        await self.start()
+        await self.radio.dm(STRANGER, "hepl")
+        self.assertEqual(self.radio.sent, [("Stranger", bot.UNRECOGNIZED_REPLY)])
+
+    async def test_nothing_close_gets_the_usual_reply(self):
+        await self.start()
+        await self.radio.dm(DANA, "good morning everyone")
+        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+
+    async def test_a_suggestion_repeats_only_the_first_word(self):
+        await self.start()
+        await self.radio.dm(DANA, "setpas correct horse battery")
+        self.assertEqual(self.replies(), ["unknown command setpas; did you mean setpass? help lists yours"])
+        self.assertNotIn("horse", self.replies()[0])
 
     # --- permissions
 
