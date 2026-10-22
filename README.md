@@ -62,7 +62,9 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `alert <message>` | admins | Post a message to the alert channel, `#contingency-wx` |
 | `alertmap [county, ST]` | admins | Look up the NWS codes of the [automatically watched](#automatic-weather-alerts) counties again |
 | `approve [name or key]` | admins | Approve a join request; alone, list them |
+| `checkins [page <n>]` | admins | Roll call: every user's check-in, or missing |
 | `clearstatus` | admins | Delete every check-in |
+| `comm <message>` | admins | Post a message to the [communications channel](#communications-channel), `#contingency-comm` |
 | `contacts [name or key] [page]` | admins | List the radio's contacts |
 | `deny <name or key>` | admins | Turn down a join request |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
@@ -165,8 +167,8 @@ saved in a `backups` folder next to it (e.g.
 `backups/users-20261020-221500.toml`, as private as the file); the newest 5
 are kept. To undo a change, copy a backup back over `users.toml`.
 
-`approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` (with the
-message), `alertmap` and `testalert` are recorded in `history.json` next to
+`approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` and `comm`
+(with the message), `alertmap` and `testalert` are recorded in `history.json` next to
 `config.toml`, with who did them and when, as are a user's `leave`, a radio's
 change of name, and the weather alerts and weekly tests the bot posts by
 itself (as "auto"); admins read it with `history`. The newest 200 are kept.
@@ -189,6 +191,22 @@ running. To use another channel:
 permission = "admin"
 channel = "#storm-watch"
 ```
+
+### Communications channel
+
+`comm <message>` posts an admin's message, exactly as typed, to a second
+hashtag channel, `#contingency-comm`, for news and updates everyone should see
+at once: `comm Shelter open at the high school gym`. One channel message
+costs far less airtime than a direct message to each user. It works like
+`alert`: the same one-message limit, the channel is added to the radio at
+startup if missing (the console says which slot), and `channel = "..."` under
+`[commands.comm]` uses another one. Anyone who adds `#contingency-comm` in
+their app can post there from their own radio too. Weather stays on
+`#contingency-wx`.
+
+`checkins [page <n>]` is the matching roll call: every user in name order,
+with their last check-in (`✓ Sam T-Deck: at the shelter (2h ago)`) or
+`✗ Alex Base: missing`, five to a page, then `1/2 checked in. Page 1/1.`
 
 ### Automatic weather alerts
 
@@ -367,6 +385,7 @@ reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
 clearstatus = { permission = "admin" }
+checkins = { permission = "admin" }
 roster = { permission = "admin" }
 health = { permission = "admin" }
 history = { permission = "admin" }
@@ -375,6 +394,9 @@ inbox = { permission = "user" }
 clearinbox = { permission = "user" }
 setpass = { permission = "user" }
 alert = { permission = "admin" }
+alertmap = { permission = "admin" }
+testalert = { permission = "admin" }
+comm = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
@@ -712,11 +734,12 @@ mesh_contingency/
     votd.py           verse-of-the-day list
   commands/           built-in commands, one module each
     help.py, wx.py, verse.py, advert.py, reload.py, roster.py, contacts.py, health.py, history.py
-    status.py         ok, status and clearstatus
+    status.py         ok, status, clearstatus and checkins
     mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          an admin's message to the alert channel
     alertmap.py       looking up the watched counties' NWS codes again
     testalert.py      posting the alert test now
+    comm.py           an admin's message to the communications channel
     join.py           join, approve and deny
     settings.py       setqm, addgroup and cleargroup
     users.py          users, whois, remove, resetpass, whoami and leave
