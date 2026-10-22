@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (after PR #34)
+Status: items 1–8 done, 0.6.0 released; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (0.6.0)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -20,10 +20,11 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 5a | Release 0.5.0 | release | small | done (v0.5.0) |
 | 6 | Alerts to admins about the node itself | feature | medium | done |
 | 7 | Backups of the bot's data | feature | small | done |
+| 7a | Release 0.6.0 | release | small | done (v0.6.0) |
 | 8 | Does the radio restart when the bot connects? | check, docs | small | done: no |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: everything but field testing is done; next is a 0.6.0 release.
+Recommended order: everything but field testing is done and released (0.6.0).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -32,15 +33,20 @@ Where things stood on 2026-10-22:
 
 - **Merged:** #29 (`comm` posting to `#contingency-comm`, `checkins` roll
   call; both admin), #30 (README for them) and #31 (email failures reported,
-  no queue), released as 0.5.0; since then #33 (node watch, item 6) and #34
-  (backups and the `backup` command, item 7). The wiki is published for all
-  of them.
+  no queue), released as 0.5.0; then #33 (node watch, item 6), #34
+  (backups and the `backup` command, item 7), #36 (watch fixes from field
+  testing, lost-radio notice) and #37 (suggestions for mistyped commands;
+  CI and a test keep the command lists in step), released as 0.6.0. The
+  wiki is published for all of them.
 - **The node** runs `main` with `comm`, `checkins` and `backup` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
-- **0.5.0** is released (#32, tag `v0.5.0`).
-- **Item 8 answered: no.** Opening the radio's USB port doesn't restart it
-  (checked 2026-10-22; details in item 8). The wiki says so.
+- **0.6.0** is released (this PR, tag `v0.6.0`).
+- **Item 8 answered: no, so far.** Opening the radio's USB port didn't restart
+  it (checked 2026-10-22; details in item 8), but once, at 13:11 on
+  2026-10-22, the radio started 2 s after a bot restart. **Monitor:** a
+  `Node problem: the radio restarted ...` right after a bot restart is the
+  pattern to note.
 
 Steps, in order:
 
@@ -50,7 +56,8 @@ Steps, in order:
 2. The node backs up daily to `~/MeshContingencyBackups` for now; move
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
-3. Release 0.6.0 (node watch, backups), as for 0.5.0.
+3. After Wednesday 2026-10-28, 17:00: check the weekly alert test arrived on
+   a radio, and record it in item 9.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -240,6 +247,14 @@ USB serial port does **not** restart it.
   USB, crash); item 6 can alert on uptime going backwards without excusing
   bot restarts. Documented in the wiki (Commands: `health`; Admin Guide:
   Check the node's health).
+- **To monitor:** on 2026-10-22 at 13:11:56 the bot was restarted (after
+  merging #37) and the radio itself started at 13:11:58; the first connect
+  failed, systemd's retry 30 s later worked, and the node watch's restart
+  notice was delivered. No USB disconnect in the kernel log, the button
+  wasn't touched; a system update had finished at 13:02. Restarts at 12:49
+  and 13:04 didn't do it. If it happens again after a bot restart, suspect
+  the USB chip's control lines resetting the ESP32 when the port is opened,
+  and hold them steady on open.
 
 ## 9. Field testing on real radios
 
@@ -300,9 +315,17 @@ journal checked:**
   link, not the bot). It tried `status` with the node's own name; `status`
   looks up users, so it said "no status for ..."
 - *Still to do:* reboot without logging in; the weekly alert test
-  (Wednesday 2026-10-28, 17:00) arriving on a radio; the new disconnect
-  notice for real (unplug the USB again); a real radio restart notice (needs
-  the radio to lose power: battery out, or reset button).
+  (Wednesday 2026-10-28, 17:00) arriving on a radio.
+
+**2026-10-22, 12:50–13:12, after #36 and #37:**
+
+- *Passed:* **disconnect notice for real:** USB unplugged 12:50:33–12:54:35;
+  once back, one DM, `Node problem: the radio was disconnected for 4m
+  (reconnect_failed); back now`, delivered; not repeated on later restarts.
+  **Suggestions:** `hlep` got `unknown command hlep; did you mean help?
+  help lists yours`, delivered. **Radio restart notice:** sent and
+  delivered when the radio restarted at 13:11:58 (not by power loss; see
+  item 8, to monitor).
 
 ### Checks
 
