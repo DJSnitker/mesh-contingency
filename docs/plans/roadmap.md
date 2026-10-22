@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–5 done (v0.5.0); field testing paused · Written 2026-10-21 · Updated 2026-10-22 (v0.5.0)
+Status: items 1–6 and 8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (items 6 and 8)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -18,15 +18,13 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 4 | Roll call of check-ins | feature | small | done |
 | 5 | Report email failures (no queue) | feature | small | done |
 | 5a | Release 0.5.0 | release | small | done (v0.5.0) |
-| 6 | Alerts to admins about the node itself | feature | medium | to do |
+| 6 | Alerts to admins about the node itself | feature | medium | done |
 | 7 | Off-machine backups of the bot's data | operations | small | to do |
-| 8 | Does the radio restart when the bot connects? | check, docs | small | to check: result not recorded |
+| 8 | Does the radio restart when the bot connects? | check, docs | small | done: no |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: item 6 (matters most when things go wrong), then 7.
-Item 8's result isn't written down yet (see its section); item 6's restart
-check needs it. Field testing (9) waits for more radio
-equipment; it was started 2026-10-21 and its results so far are kept below.
+Recommended order: item 7 (backups) is the last one before field testing.
+Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
@@ -38,20 +36,19 @@ Where things stood on 2026-10-22:
 - **The node** runs `main` with `comm` and `checkins` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
-- **0.5.0** is prepared in the PR that adds item 5a (version, changelog
-  entry with "Upgrading from 0.4.0"); tag `v0.5.0` and publish the GitHub
-  release once it merges, as for 0.4.0.
+- **0.5.0** is released (#32, tag `v0.5.0`).
+- **Item 8 answered: no.** Opening the radio's USB port doesn't restart it
+  (checked 2026-10-22; details in item 8). The wiki says so.
 
 Steps, in order:
 
 1. If the computer was restarted, check the service came back:
    `systemctl --user status mesh-contingency`; the journal should show
    `comm: #contingency-comm is channel slot 2.`
-2. Item 8, the check (two minutes with a radio): send `health`, note
-   `radio up`, `systemctl --user restart mesh-contingency`, send `health`
-   again, and write the answer in item 8 below.
-3. Then item 6 (admin alerts about the node), which uses item 8's answer
-   and folds in repeated email failures; then item 7 (backups).
+2. Item 6 (the node watch) is in the PR that updates this section; once
+   it merges, check the journal for `Watching the node every 5 min: ...`
+   and that `health` ends with `watch: no problems`.
+3. Then item 7 (backups), and a 0.6.0 release with the watch.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -182,22 +179,30 @@ to send is reported instead.
   message in `~/dead.letter`, unsealed.
 - Telling admins about repeated email failures belongs to item 6.
 
-## 6. Alerts to admins about the node itself
+## 6. Alerts to admins about the node itself (done)
 
-Problems shouldn't wait for someone to send `health`.
+*Built 2026-10-22* as the **node watch**, `[watch]` in `config.toml`, on by
+default (`mesh_contingency/watch.py`).
 
-- A background check every few minutes; each condition DMs every admin
-  once when it starts and once when it clears:
-  - battery below a threshold (e.g. 3.5 V; configurable);
-  - the radio restarted (its uptime went backwards) while the bot didn't;
-  - N undelivered replies in a row, or emails failing (item 5);
-  - repeated command errors (e.g. `wx` timing out = internet down);
-  - `users.toml` not reloadable (already sent today; fold in here).
-- At most one notice per condition per hour, so a flapping value can't
-  flood the mesh.
-- **Config:** `[watch]` with thresholds and an `enabled` switch.
-- **Depends on:** item 8 (whether a bot restart also restarts the radio)
-  for the restart check.
+- Every `every_minutes` (5) it reads the radio's battery and uptime and DMs
+  every admin `Node problem: ...` when a problem starts and `Node ok again:
+  ...` when it's over:
+  - battery below `battery_volts` (3.5 V), ok again 0.1 V above it;
+  - `undelivered_in_row` (5) messages in a row not acknowledged, until one is;
+  - email failing for a reason at the node (item 5; a refused address
+    doesn't count), until one is sent;
+  - `errors` (3) commands failed or timed out within 30 minutes;
+  - `users.toml` not reloadable, until it is (the old immediate notice
+    folded in; the watch is woken straight away for it).
+- A radio restart (uptime going backwards, item 8) is announced once, with
+  no "ok again"; the radio's start time is kept in `watch.json`, so one that
+  also restarted the bot (USB unplugged) is caught.
+- At most one announcement per problem per hour, each followed by one "ok
+  again"; what's been announced is in `watch.json`, so a bot restart doesn't
+  repeat an ongoing problem.
+- `health` shows `watch: no problems` or the current ones.
+- `enabled = false` turns it off; the users-file notice then goes out
+  immediately as before.
 
 ## 7. Off-machine backups of the bot's data
 
@@ -211,19 +216,22 @@ A dead disk would lose the users, messages, check-ins and history.
 - Warn in the docs: the copies hold email addresses, keys and messages
   (sealed ones stay sealed); keep the destination private.
 
-## 8. Does the radio restart when the bot connects?
+## 8. Does the radio restart when the bot connects? (done: no)
 
-`health` showed `radio up` close to the bot's own uptime, which suggests the
-Heltec V3 restarts whenever its USB serial port is opened (common on ESP32
-boards).
+*Checked 2026-10-22 on the node's Heltec V3 (firmware v1.18.0):* opening its
+USB serial port does **not** restart it.
 
-- Check: note the radio uptime from `health`, `systemctl --user restart
-  mesh-contingency`, send `health` again. If `radio up` reset, it restarts
-  on connect.
-- Document the result in the wiki (Commands: `health`; Admin Guide: Check the
-  node's health): when `radio up` shorter than `up` means a real radio
-  restart.
-- Feeds item 6's restart check.
+- With the service stopped, a script opened the port, read the radio's
+  uptime, closed it, and did the same 20 seconds later: 33445 s, then
+  33465 s.
+- The journal agrees: on 2026-10-20 `health` said `up 4m` but `radio up 13m`,
+  and several service restarts on 2026-10-21/22 didn't reset `radio up`. The
+  one `radio up 0m` (2026-10-21 23:06) followed the USB cable being unplugged
+  (kernel: `usb 3-1: USB disconnect`), which also made the bot exit.
+- So `radio up` shorter than the bot's `up` means a real radio restart (power,
+  USB, crash); item 6 can alert on uptime going backwards without excusing
+  bot restarts. Documented in the wiki (Commands: `health`; Admin Guide:
+  Check the node's health).
 
 ## 9. Field testing on real radios
 

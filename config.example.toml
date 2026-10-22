@@ -45,6 +45,18 @@ weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty f
 # timezone = "America/Chicago" # for weekly; defaults to the computer's
 # message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
 
+# The bot watches the node itself and sends every admin a direct message when
+# a problem starts ("Node problem: ...") and when it's over ("Node ok again:
+# ..."): a low battery, the radio restarting, messages not delivered, email
+# failing, repeated command errors, or a users file that can't be reloaded.
+# A problem is announced at most once an hour. These are the defaults.
+[watch]
+enabled = true
+every_minutes = 5        # how often to check; at least 1
+battery_volts = 3.5      # warn below this; 0 for no battery check
+undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
+errors = 3               # commands failed or timed out within 30 min; 0 for no check
+
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
 # emails_per_day caps each sender's qm, emailall and email commands (one

@@ -8,7 +8,7 @@ written readable only by their owner.
 import json
 import os
 import time
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
 
 from .limits import EmailLog
@@ -74,8 +74,11 @@ class State:
         # "undelivered" (of those) and "errors" (commands that failed or timed out).
         self.counts = Counter()
         self.last_error = None  # (time.time(), e.g. "wx failed")
+        self.error_times = deque()  # time.time() of each error in the last day, for the watch
+        self.undelivered_in_row = 0  # direct messages not acknowledged since the last one that was
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
+        self.watch = None  # the NodeWatch, if [watch] is enabled
         self._stores = {}
 
     def saw(self, key, name):
@@ -87,6 +90,14 @@ class State:
         """Record a command that failed or timed out, e.g. "wx failed"."""
         self.counts["errors"] += 1
         self.last_error = (time.time(), what)
+        self.error_times.append(self.last_error[0])
+        while self.error_times[0] < self.last_error[0] - 86400:
+            self.error_times.popleft()
+
+    def recent_errors(self, seconds, now=None):
+        """How many commands failed or timed out in the last `seconds`."""
+        cutoff = (time.time() if now is None else now) - seconds
+        return sum(1 for t in self.error_times if t >= cutoff)
 
     def record(self, by, what):
         """Add an action to the history, e.g. record("Doug", "approved Sam

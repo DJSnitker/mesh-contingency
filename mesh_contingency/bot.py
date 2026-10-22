@@ -45,6 +45,7 @@ from .names import name_problem
 from .output import SafeOutput
 from .registry import RENAMED, Registry
 from .state import State
+from .watch import NodeWatch, load_watch
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -133,6 +134,7 @@ async def _main():
     advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
     alert_settings = load_alerts(config)
     test_settings = load_alert_test(config, alert_settings.channel)
+    watch_settings = load_watch(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -178,8 +180,10 @@ async def _main():
             result = await mc.commands.send_msg_with_retry(contact, text)
         if result is None:
             state.counts["undelivered"] += 1
+            state.undelivered_in_row += 1
             print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
         else:
+            state.undelivered_in_row = 0
             print(f"  ({what} to {prefix} delivered)", flush=True)
 
     background = set()  # running background tasks, kept so they aren't garbage collected
@@ -294,12 +298,17 @@ async def _main():
             warn_if_shared(directory.path)
         warn_unconfigured()
         check_shared_prefixes()
+        if state.watch and "users" in state.watch.announced:
+            state.watch.wake.set()  # so it says the file is fixed
 
     def on_users_error(reason):
         """A new version of the users file can't be used: say so, and keep
         the current users."""
         print(f"Warning: {directory.name} not reloaded: {reason}; keeping the current users.", flush=True)
-        tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
+        if state.watch:
+            state.watch.wake.set()  # it tells the admins, and again when it's fixed
+        else:
+            tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
 
     convert_settings()
     warn_unconfigured()
@@ -337,6 +346,15 @@ async def _main():
     if test_settings.weekly:
         print(f"Weekly alert test: {alert_test.describe()}.")
         alert_tests = asyncio.create_task(alert_test.run())
+    node_watch = None
+    if watch_settings.enabled:
+        def tell_watch(text):
+            print(f"Watch: {text}", flush=True)
+            tell_admins(text, "watch notice")
+
+        state.watch = NodeWatch(mc, watch_settings, state, directory, tell_watch)
+        print(f"Watching the node {state.watch.describe()}; problems go to {len(directory.admins)} admin(s).")
+        node_watch = asyncio.create_task(state.watch.run())
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
@@ -538,6 +556,8 @@ async def _main():
             auto_alerts.cancel()
         if alert_tests:
             alert_tests.cancel()
+        if node_watch:
+            node_watch.cancel()
         if stop_console:
             stop_console()
         with contextlib.suppress(AttributeError, NotImplementedError):

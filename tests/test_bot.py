@@ -27,7 +27,8 @@ from mesh_contingency.api import (
     split_reply,
 )
 from mesh_contingency.commands.mail import NO_INTERNET, SendError
-from mesh_contingency.testing import FakeMeshCore, full_key, make_contact
+from mesh_contingency.state import State
+from mesh_contingency.testing import FakeMeshCore, event, full_key, make_contact
 
 
 async def echo(text, sender, ctx):
@@ -472,10 +473,22 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.wait_for_output("Warning: users.toml not reloaded: ")
         await self.settle()
         self.assertEqual(self.radio.sent, [
-            ("Admin", "users.toml not reloaded: [users]: 'd0d0' is not a full public key (64 hex characters)")])
+            ("Admin", "Node problem: users.toml not reloaded: [users]: 'd0d0' is not a full public key "
+                      "(64 hex characters)")])
         with mock.patch("mesh_contingency.commands.mail.send_email") as send_email:
             await self.radio.dm(DANA, "qm hi")
         send_email.assert_called_once()  # Dana is still a user
+        self.edit_users(USERS)
+        await self.wait_for_output("users.toml reloaded")
+        await self.wait_for_output("Watch: Node ok again: users.toml reloaded")
+
+    async def test_bad_edit_without_the_watch(self):
+        await self.start(CONFIG + self.FAST_RELOAD + "[watch]\nenabled = false\n")
+        self.edit_users(USERS + "[users.d0d0]\n")
+        await self.wait_for_output("Warning: users.toml not reloaded: ")
+        await self.settle()
+        self.assertEqual(self.radio.sent, [
+            ("Admin", "users.toml not reloaded: [users]: 'd0d0' is not a full public key (64 hex characters)")])
 
     async def test_reload_command(self):
         await self.start()  # polls every 5s, so only the command reloads in time
@@ -838,7 +851,7 @@ permission = "public"
         self.assertEqual(self.replies()[-1], "msg: saved for Dana (1 in their inbox)")
         folder = self.users_file.parent
         self.assertEqual({p.name for p in folder.iterdir()}, {"config.toml", "users.toml", "status.json",
-                                                              "mailbox.json"})
+                                                              "mailbox.json", "watch.json"})
         self.assertNotIn(full_key(STRANGER)[:12] + "\n", self.out.getvalue())
         self.assertNotIn(full_key(STRANGER), self.out.getvalue())  # full keys are only in the files
         await self.radio.dm(DANA, "inbox")
@@ -987,6 +1000,35 @@ permission = "public"
         await self.start()
         await self.radio.dm(STRANGER, "hello")
         self.assertIn(f"(reply to {STRANGER} delivered)", self.out.getvalue())
+
+    async def test_watch_hears_of_undelivered_messages(self):
+        states = []  # the bot's State, to look inside
+
+        def new_state(*args):
+            states.append(State(*args))
+            return states[-1]
+
+        self.enterContext(mock.patch.object(bot, "State", side_effect=new_state))
+        await self.start()
+        self.assertIn("Watching the node every 5 min: battery below 3.5V, radio restarts, 5 undelivered in a row, "
+                      "email failing, 3 errors in 30 min, users.toml not reloading; problems go to 1 admin(s).",
+                      self.out.getvalue())
+        (state,) = states
+        self.radio.ack_result = None
+        for _ in range(5):
+            await self.radio.dm(STRANGER, "help")
+        self.assertEqual(state.undelivered_in_row, 5)
+        state.watch.wake.set()
+        await self.wait_for_output("Watch: Node problem: 5 messages in a row not delivered")
+        await self.settle()
+        self.assertIn(("Admin", "Node problem: 5 messages in a row not delivered"), self.radio.sent)
+        self.radio.ack_result = event(EventType.MSG_SENT)
+        await self.radio.dm(STRANGER, "help")
+        self.assertEqual(state.undelivered_in_row, 0)
+
+    async def test_watch_off(self):
+        await self.start(CONFIG + "[watch]\nenabled = false\n")
+        self.assertNotIn("Watching the node", self.out.getvalue())
 
     async def test_reply_not_acknowledged_is_logged(self):
         await self.start()

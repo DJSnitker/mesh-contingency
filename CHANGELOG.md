@@ -7,6 +7,21 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+
+- **Node watch** (`[watch]` in `config.toml`, on by default): every admin gets
+  a direct message when a problem with the node starts and when it's over: a
+  low battery, the radio restarting, messages not delivered, email failing,
+  repeated command errors, or a users file that can't be reloaded. Each
+  problem is announced at most once an hour. `health` shows `watch: no
+  problems` or the current ones.
+
+### Changed
+
+- The users-file notice to admins now reads `Node problem: users.toml not
+  reloaded: ...`, and is followed by `Node ok again: users.toml reloaded`
+  once the file is fixed (unless `[watch] enabled = false`).
+
 ## [0.5.0] - 2026-10-22
 
 Admins can now reach everyone at once with news on a second public channel,
