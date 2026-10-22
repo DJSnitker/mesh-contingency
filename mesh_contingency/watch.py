@@ -11,7 +11,8 @@ when it's over ("Node ok again: ..."):
 - email: an email couldn't be sent for a reason at the node (no internet,
   login refused...), until one is sent;
 - errors: `errors` commands failed or timed out within ERROR_WINDOW;
-- users: the users file can't be reloaded, until it can.
+- users: the users file can't be reloaded, until it can;
+- backup: a backup of the bot's data failed, until one works.
 
 It also says when the radio has restarted: its uptime went backwards.
 Restarting the bot doesn't restart the radio, so this is always a real
@@ -45,7 +46,7 @@ RESTART_SLACK = 120
 RADIO_SECONDS = 5  # how long to wait for the radio to answer
 # Each problem's name in health, and what the "ok again" notice says.
 LABELS = {"battery": "battery low", "undelivered": "replies undelivered", "email": "email failing",
-          "errors": "command errors", "users": "users file"}
+          "errors": "command errors", "users": "users file", "backup": "backup failing"}
 
 
 async def ask_radio(request, wanted, seconds=RADIO_SECONDS):
@@ -121,7 +122,8 @@ class NodeWatch:
                   else "",
                   "email failing",
                   f"{self.settings.errors} errors in {ERROR_WINDOW // 60} min" if self.settings.errors else "",
-                  f"{self.directory.name} not reloading"]
+                  f"{self.directory.name} not reloading",
+                  "backups failing" if self.state.backups else ""]
         return f"every {self.settings.every_minutes:g} min: {', '.join(c for c in checks if c)}"
 
     def problems(self, now):
@@ -145,13 +147,16 @@ class NodeWatch:
                                    f"last {state.last_error[1]}")
         if self.directory.problem:
             found["users"] = f"{self.directory.name} not reloaded: {self.directory.problem[1]}"
+        if state.backups and state.backups.failing:
+            found["backup"] = f"backup to {state.backups.settings.to} failing: {state.backups.failing}"
         return found
 
     def ok_text(self, problem):
         if problem == "battery":
             return f"battery {self.voltage:.2f}V" if self.voltage is not None else "battery ok"
         return {"undelivered": "messages delivered", "email": "an email was sent",
-                "errors": "no more command errors", "users": f"{self.directory.name} reloaded"}[problem]
+                "errors": "no more command errors", "users": f"{self.directory.name} reloaded",
+                "backup": "a backup was made"}[problem]
 
     def check_restart(self, uptime, now):
         """Announce a radio restart if its uptime went backwards since the

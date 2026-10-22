@@ -29,6 +29,7 @@ from .api import (
     is_authorized,
     to_messages,
 )
+from .backup import Backups, load_backup
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -135,6 +136,7 @@ async def _main():
     alert_settings = load_alerts(config)
     test_settings = load_alert_test(config, alert_settings.channel)
     watch_settings = load_watch(config)
+    backup_settings = load_backup(config, args.config.resolve().parent)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -346,6 +348,17 @@ async def _main():
     if test_settings.weekly:
         print(f"Weekly alert test: {alert_test.describe()}.")
         alert_tests = asyncio.create_task(alert_test.run())
+    backups = state.backups = Backups(backup_settings, state, args.config.resolve(), directory)
+    scheduled_backups = None
+    if backup_settings.every_hours:
+        wait = backups.seconds_until_due()
+        print(f"Backups: {backups.describe()}; next {'now' if not wait else 'in ' + wait_text(wait)}.")
+        scheduled_backups = asyncio.create_task(backups.run())
+    else:
+        print(f"Backups: {backups.describe()}.")
+    if backups.same_disk():
+        print(f"Note: {backup_settings.to} is on the same disk as the bot's data; a backup on another disk "
+              "(a USB stick, a second drive) survives that disk failing.")
     node_watch = None
     if watch_settings.enabled:
         def tell_watch(text):
@@ -558,6 +571,8 @@ async def _main():
             alert_tests.cancel()
         if node_watch:
             node_watch.cancel()
+        if scheduled_backups:
+            scheduled_backups.cancel()
         if stop_console:
             stop_console()
         with contextlib.suppress(AttributeError, NotImplementedError):

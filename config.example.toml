@@ -45,10 +45,21 @@ weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty f
 # timezone = "America/Chicago" # for weekly; defaults to the computer's
 # message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
 
+# Backups of the bot's data (config.toml, users.toml, the JSON files next to
+# config.toml and the users file's backups folder), each a new folder named
+# for the time, inside `to`; admins can make one now with the backup command.
+# Put `to` on another disk if you can (a USB stick, a second drive, a network
+# share): a backup on the same disk is lost with it.
+[backup]
+to = "~/MeshContingencyBackups"   # e.g. "/mnt/usb/MeshContingencyBackups"
+every_hours = 24                  # 0 for only with the backup command
+keep = 7                          # newest backups kept
+
 # The bot watches the node itself and sends every admin a direct message when
 # a problem starts ("Node problem: ...") and when it's over ("Node ok again:
 # ..."): a low battery, the radio restarting, messages not delivered, email
-# failing, repeated command errors, or a users file that can't be reloaded.
+# failing, repeated command errors, a users file that can't be reloaded, or a
+# backup failing.
 # A problem is announced at most once an hour. These are the defaults.
 [watch]
 enabled = true
@@ -105,6 +116,7 @@ alert = { permission = "admin" }
 alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
 comm = { permission = "admin" }
+backup = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }

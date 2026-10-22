@@ -62,6 +62,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `alert <message>` | admins | Post a message to the alert channel, `#contingency-wx` |
 | `alertmap [county, ST]` | admins | Look up the NWS codes of the [automatically watched](#automatic-weather-alerts) counties again |
 | `approve [name or key]` | admins | Approve a join request; alone, list them |
+| `backup` | admins | Make a [backup](#backups) of the bot's data now |
 | `checkins [page <n>]` | admins | Roll call: every user's check-in, or missing |
 | `clearstatus` | admins | Delete every check-in |
 | `comm <message>` | admins | Post a message to the [communications channel](#communications-channel), `#contingency-comm` |
@@ -168,10 +169,10 @@ saved in a `backups` folder next to it (e.g.
 are kept. To undo a change, copy a backup back over `users.toml`.
 
 `approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` and `comm`
-(with the message), `alertmap` and `testalert` are recorded in `history.json` next to
+(with the message), `alertmap`, `testalert` and `backup` are recorded in `history.json` next to
 `config.toml`, with who did them and when, as are a user's `leave`, a radio's
-change of name, and the weather alerts and weekly tests the bot posts by
-itself (as "auto"); admins read it with `history`. The newest 200 are kept.
+change of name, and the weather alerts, weekly tests and backups the bot makes
+by itself (as "auto"); admins read it with `history`. The newest 200 are kept.
 
 Join requests wait in `requests.json` next to
 `config.toml` until approved or denied, at most 20 at a time.
@@ -274,6 +275,7 @@ direct message when a problem starts and when it's over:
 | Email failing | an email can't be sent for a reason at the node (no internet, login refused...; not a refused address) | one is sent |
 | Command errors | `errors` commands fail or time out within 30 minutes | there are fewer |
 | Users file | `users.toml` has a mistake and isn't reloaded | it's reloaded |
+| Backup failing | a [backup](#backups) can't be made | one is |
 
 ```
 Node problem: battery low, 3.42V (below 3.50V)
@@ -301,6 +303,54 @@ errors = 3               # commands failed or timed out within 30 min; 0 for no 
 
 With `enabled = false`, a users file that can't be reloaded is still sent to
 the admins straight away, as before, but nothing else is.
+
+### Backups
+
+A dead disk would lose the users, messages, check-ins and history, so the bot
+backs up its data by itself, once a day by default, and admins can make a
+backup at any time with `backup`:
+
+```
+backup
+→ backup: 9 file(s) saved in ~/MeshContingencyBackups/20261022-031500; newest 7 kept
+```
+
+Each backup is a new folder named for the time, inside the `to` folder:
+`config.toml`, the users file, every JSON file next to `config.toml`
+(check-ins, the mailbox, history, join requests...) and the users file's
+`backups` folder. The newest `keep` are kept; other folders in `to` are left
+alone. A backup is made `every_hours` after the last one, even across
+restarts, so a restart only backs up if one is due.
+
+```toml
+[backup]
+to = "~/MeshContingencyBackups"   # e.g. "/mnt/usb/MeshContingencyBackups"
+every_hours = 24                  # 0 for only with the backup command
+keep = 7                          # newest backups kept
+```
+
+**Put `to` on a separate disk if you can**: a USB stick, a second drive or a
+network share mounted on the node's computer, e.g.
+`to = "/mnt/usb/MeshContingencyBackups"`. A backup on the same disk as the
+bot's data is lost along with it when that disk fails; the default,
+`~/MeshContingencyBackups`, only protects against mistakes. At startup the
+bot says so if `to` is on the same disk:
+`Note: ~/MeshContingencyBackups is on the same disk as the bot's data; ...`.
+A relative `to` is relative to the folder of `config.toml`.
+
+The backups hold everything the bot keeps: email addresses, node keys, check-ins
+and messages (sealed messages stay sealed). Files keep their permissions, and
+the folders the bot makes are readable only by their owner; keep the disk
+private too. Your mail client's own config (with the SMTP password) isn't
+included.
+
+`history` lists each backup, `health` shows `last backup 3h ago`, and a backup
+that fails (the disk isn't mounted, or is full) is logged with the reason and
+tried again an hour later; the [node watch](#node-watch) tells the admins
+(`Node problem: backup to /mnt/usb/... failing: No such file or directory`)
+until one works. To restore, stop the bot, copy the files from a backup folder
+back next to `config.toml` (`users.toml` where it was, and its `backups`
+folder next to it), and start the bot again.
 
 Example `wx` reply:
 
@@ -438,6 +488,7 @@ alert = { permission = "admin" }
 alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
 comm = { permission = "admin" }
+backup = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
@@ -770,6 +821,7 @@ mesh_contingency/
   directory.py        the users file: checking it and reloading it while running
   state.py            senders seen since startup; status.json and mailbox.json
   watch.py            the node watch: problems with the node, sent to the admins
+  backup.py           backups of the bot's data, on a schedule and with the backup command
   sealing.py          sealing mailbox messages to a passphrase
   limits.py           rate limits and email caps
   names.py            checking radios' names at join: control characters, profanity

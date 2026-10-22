@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–6 and 8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (items 6 and 8)
+Status: items 1–8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (item 7)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -19,11 +19,11 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 5 | Report email failures (no queue) | feature | small | done |
 | 5a | Release 0.5.0 | release | small | done (v0.5.0) |
 | 6 | Alerts to admins about the node itself | feature | medium | done |
-| 7 | Off-machine backups of the bot's data | operations | small | to do |
+| 7 | Backups of the bot's data | feature | small | done |
 | 8 | Does the radio restart when the bot connects? | check, docs | small | done: no |
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 
-Recommended order: item 7 (backups) is the last one before field testing.
+Recommended order: everything but field testing is done; next is a 0.6.0 release.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -45,10 +45,11 @@ Steps, in order:
 1. If the computer was restarted, check the service came back:
    `systemctl --user status mesh-contingency`; the journal should show
    `comm: #contingency-comm is channel slot 2.`
-2. Item 6 (the node watch) is in the PR that updates this section; once
-   it merges, check the journal for `Watching the node every 5 min: ...`
-   and that `health` ends with `watch: no problems`.
-3. Then item 7 (backups), and a 0.6.0 release with the watch.
+2. Items 6 (node watch, #33) and 7 (backups) are merged or in the PR that
+   updates this section. The node backs up daily to `~/MeshContingencyBackups`
+   for now; move `[backup] to` to a separate disk (USB stick, second drive)
+   when there is one.
+3. Release 0.6.0 (node watch, backups), as for 0.5.0.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -204,17 +205,23 @@ default (`mesh_contingency/watch.py`).
 - `enabled = false` turns it off; the users-file notice then goes out
   immediately as before.
 
-## 7. Off-machine backups of the bot's data
+## 7. Backups of the bot's data (done)
 
-A dead disk would lose the users, messages, check-ins and history.
+*Built 2026-10-22,* in the bot rather than as a systemd timer, so the same
+code makes the scheduled backup and the admins' `backup` command
+(`mesh_contingency/backup.py`).
 
-- Document (wiki, Admin Guide or the systemd page) a nightly copy with a
-  systemd user timer: `config.toml`, `users.toml`, `*.json`, `backups/` to
-  another disk, USB stick or machine (`rsync`), keeping permissions.
-- Optionally ship `deploy/mesh-contingency-backup.service` and `.timer`
-  using `rsync -a` to a destination set in one line.
-- Warn in the docs: the copies hold email addresses, keys and messages
-  (sealed ones stay sealed); keep the destination private.
+- `[backup]`: `to` (default `~/MeshContingencyBackups`, the user's choice
+  for now), `every_hours` (24; 0 for only the command), `keep` (7).
+- Each backup is a new folder named for the time in `to`: `config.toml`, the
+  users file, the JSON state files and the users file's `backups/`, with
+  their permissions; folders made 0700. Only the folders it made are pruned.
+- `backup` (admin) makes one now and says where; `history` records each
+  (scheduled ones as "auto"); `health` shows `last backup 3h ago`.
+- A failure (disk not mounted, full) is logged with the reason, retried in an
+  hour, and becomes a node-watch problem until a backup works.
+- At startup the bot notes when `to` is on the same disk as the data; the
+  README and wiki say to put it on a separate disk.
 
 ## 8. Does the radio restart when the bot connects? (done: no)
 

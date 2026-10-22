@@ -79,6 +79,7 @@ class State:
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
         self.watch = None  # the NodeWatch, if [watch] is enabled
+        self.backups = None  # the Backups, for the backup command and the schedule
         self._stores = {}
 
     def saw(self, key, name):

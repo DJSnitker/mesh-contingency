@@ -92,6 +92,12 @@ class HealthCommand(Command):
         test = state.alert_test
         if test and test.settings.weekly:
             items.append(f"next alert test {when_text(test.next_time(), test.settings.zone)}")
+        backups = state.backups
+        if backups:
+            if backups.failing:
+                items.append(f"backup failing: {backups.failing}")
+            else:
+                items.append(f"last backup {ago(backups.last)}" if backups.last else "no backup yet")
         if state.watch:
             items.append(f"watch: {', '.join(LABELS[p] for p in state.watch.active) or 'no problems'}")
         last = state.store(ADVERTS_FILE).data.get("last_flood")

@@ -56,6 +56,11 @@ ADMIN_KEY = "adadadadadad"  # admin only
 STRANGER = "ffeeddccbbaa"  # in contacts, but neither user nor admin
 
 CONFIG = """
+# Backups next to the test's config, and only when asked.
+[backup]
+to = "test-backups"
+every_hours = 0
+
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
@@ -81,6 +86,7 @@ alert = { permission = "admin" }
 alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
 comm = { permission = "admin" }
+backup = { permission = "admin" }
 join = { permission = "public" }
 approve = { permission = "admin" }
 deny = { permission = "admin" }
@@ -267,7 +273,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, checkins, health, history, "
-                      "alert, alertmap, testalert, comm, approve, deny, users, whois, remove, resetpass\n", out)
+                      "alert, alertmap, testalert, comm, backup, approve, deny, users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -820,15 +826,14 @@ permission = "public"
         replies = self.replies()
         self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
-        # Too long for one message, so it comes in two.
-        self.assertEqual(replies[1:3], split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, "
-                                                   "clearstatus, checkins, health, history, alert, alertmap, "
-                                                   "testalert, comm, join, "
-                                                   "approve, deny, users, whois, remove, resetpass, echo, slow, "
-                                                   "secret. "
-                                                   "Send help <command> for usage"))
-        self.assertEqual(replies[3], "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
-        self.assertEqual(replies[4], "help: no command secret")
+        # Too long for one message, so it comes in parts.
+        parts = split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, clearstatus, "
+                            "checkins, health, history, alert, alertmap, testalert, comm, backup, join, approve, "
+                            "deny, users, whois, remove, resetpass, echo, slow, secret. Send help <command> for usage")
+        self.assertGreater(len(parts), 1)
+        self.assertEqual(replies[1:1 + len(parts)], parts)
+        self.assertEqual(replies[1 + len(parts):], ["wx <zipcode> - Weather, precipitation and alerts for a US zipcode",
+                                                    "help: no command secret"])
 
     # --- check-ins, roster and mailbox
 
@@ -1012,7 +1017,8 @@ permission = "public"
         self.enterContext(mock.patch.object(bot, "State", side_effect=new_state))
         await self.start()
         self.assertIn("Watching the node every 5 min: battery below 3.5V, radio restarts, 5 undelivered in a row, "
-                      "email failing, 3 errors in 30 min, users.toml not reloading; problems go to 1 admin(s).",
+                      "email failing, 3 errors in 30 min, users.toml not reloading, backups failing; "
+                      "problems go to 1 admin(s).",
                       self.out.getvalue())
         (state,) = states
         self.radio.ack_result = None
