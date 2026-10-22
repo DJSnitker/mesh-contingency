@@ -68,6 +68,14 @@ battery_volts = 3.5      # warn below this; 0 for no battery check
 undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
 errors = 3               # commands failed or timed out within 30 min; 0 for no check
 
+# The web console (in progress; read-only for now): the node in a browser on
+# this computer. Needs aiohttp: pip install -e ".[console]". Each start
+# writes the link to open it, with a new key, to console.url next to this
+# file. It listens on 127.0.0.1 only; host may be 127.0.0.1 or localhost.
+[console]
+enabled = false
+port = 8737
+
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
 # emails_per_day caps each sender's qm, emailall and email commands (one
