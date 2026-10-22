@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (item 7)
+Status: items 1–8 done; field testing paused · Written 2026-10-21 · Updated 2026-10-22 (after PR #34)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -32,8 +32,10 @@ Where things stood on 2026-10-22:
 
 - **Merged:** #29 (`comm` posting to `#contingency-comm`, `checkins` roll
   call; both admin), #30 (README for them) and #31 (email failures reported,
-  no queue). The wiki is published for all three.
-- **The node** runs `main` with `comm` and `checkins` as admin in its
+  no queue), released as 0.5.0; since then #33 (node watch, item 6) and #34
+  (backups and the `backup` command, item 7). The wiki is published for all
+  of them.
+- **The node** runs `main` with `comm`, `checkins` and `backup` as admin in its
   `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
   slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
 - **0.5.0** is released (#32, tag `v0.5.0`).
@@ -45,10 +47,9 @@ Steps, in order:
 1. If the computer was restarted, check the service came back:
    `systemctl --user status mesh-contingency`; the journal should show
    `comm: #contingency-comm is channel slot 2.`
-2. Items 6 (node watch, #33) and 7 (backups) are merged or in the PR that
-   updates this section. The node backs up daily to `~/MeshContingencyBackups`
-   for now; move `[backup] to` to a separate disk (USB stick, second drive)
-   when there is one.
+2. The node backs up daily to `~/MeshContingencyBackups` for now; move
+   `[backup] to` to a separate disk (USB stick, second drive) when there is
+   one.
 3. Release 0.6.0 (node watch, backups), as for 0.5.0.
 
 Paused: item 9, field testing, until more radios arrive.
