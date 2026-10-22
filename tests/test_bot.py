@@ -654,7 +654,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.sent, [("Dana", "qm: sent")])
 
     async def test_failed_email_says_why(self):
-        await self.start()
+        # Without the watch, which may tell the admin "email failing" too.
+        await self.start(CONFIG + "[watch]\nenabled = false\n")
         failure = SendError("`mail` failed: msmtp: cannot connect to smtp.example.com, port 587: "
                             "Network is unreachable", NO_INTERNET)
         with mock.patch("mesh_contingency.commands.mail.send_email", side_effect=failure):
