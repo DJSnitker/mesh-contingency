@@ -25,14 +25,13 @@ from pathlib import Path
 from aiohttp import web
 
 from ..limits import RateLimiter
-from . import HOSTS
+from . import HOSTS, URL_FILE
 from .api import routes
 
-URL_FILE = "console.url"
 COOKIE = "mesh_console"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-NOT_LOGGED_IN = ("Open the console with the link in console.url, next to config.toml (also printed when the "
-                 "bot starts). A restart of the bot makes a new link.\n")
+NOT_LOGGED_IN = ("Open the console with mesh-contingency-console, or the link in console.url next to "
+                 "config.toml (also printed when the bot starts). A restart of the bot makes a new link.\n")
 NO_APP = "The web console's API is running, but its app isn't built: in console/, run npm ci and npm run build.\n"
 # The app's build (console/ builds into it).
 STATIC = Path(__file__).resolve().parent / "static"

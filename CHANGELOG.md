@@ -9,6 +9,11 @@ may change how the bot is configured).
 
 ### Added
 
+- **`mesh-contingency-console`** opens the web console in the browser, on
+  the node's computer: no more copying the link out of `console.url`. It
+  checks the bot answers the link first, and says why if not (console off,
+  bot not running, an old link), then opens it. The "Open the console's
+  link" page mentions it.
 - `scripts/demo_console.py`: the web console on made-up data, to try it
   without a node and to take the wiki's screenshots (`--screenshots DIR`).
 

@@ -28,6 +28,7 @@ Repository = "https://github.com/DJSnitker/mesh-contingency"
 
 [project.scripts]
 mesh-contingency = "mesh_contingency.bot:run"
+mesh-contingency-console = "mesh_contingency.web.launch:run"
 
 # Built-in commands, registered the same way a third-party package would.
 [project.entry-points."mesh_contingency.commands"]

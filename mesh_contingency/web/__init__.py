@@ -22,6 +22,8 @@ from dataclasses import dataclass
 CONSOLE_KEYS = {"enabled", "port", "host"}
 DEFAULT_PORT = 8737
 HOSTS = ("127.0.0.1", "localhost")
+# The link to open, with its key, beside config.toml.
+URL_FILE = "console.url"
 INSTALL = 'pip install -e ".[console]"'
 
 

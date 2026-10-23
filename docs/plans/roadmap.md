@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8 and 10 done, 0.7.0 released; 11–13 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
+Status: items 1–8, 10 and 11 done, 0.7.0 released; 12–13 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -25,11 +25,11 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 | 10 | Web console on the node (Angular) | feature | large | done: [web-console.md](web-console.md) |
 | 10a | Release 0.7.0 | release | small | done (v0.7.0) |
-| 11 | Open the console with one command | feature | small | backlog |
+| 11 | Open the console with one command | feature | small | done |
 | 12 | Manage the radio from the console: contacts and settings | feature | large | backlog |
 | 13 | The weather now on the dashboard | feature | medium | backlog |
 
-Recommended order: everything but field testing is done and released (0.7.0). Next, the web console backlog: 11 (small, and makes the console easier to reach every day), then 13, then 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
+Recommended order: everything but field testing is done and released (0.7.0). Next, the rest of the web console backlog (11 is done): 13, then 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -395,7 +395,26 @@ journal checked:**
 - **Limits:** a burst of `wx` from a public sender gets one "limit reached"
   reply, then silence.
 
-## 11. Open the console with one command (backlog)
+## 11. Open the console with one command (done)
+
+*Built 2026-10-23* as `mesh-contingency-console` (`mesh_contingency/web/launch.py`), a
+second command rather than a flag, since it neither connects to the radio nor
+runs for long. Decided while building it:
+
+- **It opens the link itself,** as `console.url` has it, with Python's
+  `webbrowser`. A first version gave the browser a `file://` page that went
+  on to the link, to keep the key out of `ps`; but a browser sent on from
+  another page doesn't send the `SameSite=Strict` cookie along the redirect
+  after the key, so it landed on *Open the console's link*. The cost: other
+  accounts on this computer can see the key in `ps` (for as long as the
+  browser runs, if this started it), though not read `console.url`. Fine
+  for a node with one account; if that changes, see the first version, with
+  the bot answering a cross-site key with a page that goes on from its own
+  address.
+- **No desktop launcher yet:** its messages (bot not running...) would have
+  nowhere to show. Later, if wanted, with a notification for those.
+
+The plan, as written before:
 
 *Asked 2026-10-23.* Today the link has to be copied out of `console.url` or
 the journal, and it changes at every restart. Instead, one command on the

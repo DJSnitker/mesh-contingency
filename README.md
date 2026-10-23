@@ -832,10 +832,17 @@ on:
    ```
    Web console: http://127.0.0.1:8737/?key=... (also in /home/you/mesh-contingency/console.url)
    ```
-   Open it in a browser on that computer. The key moves into a cookie and
-   leaves the address bar, so after that `http://127.0.0.1:8737/` is enough,
-   until the bot restarts: each start makes a new key, and the page then
-   says to open the new link.
+4. Open it in a browser on that computer, with one command:
+   ```sh
+   .venv/bin/mesh-contingency-console      # -c path/to/config.toml if it isn't the default
+   ```
+   It reads `console.url`, checks the bot answers that link, and opens it in
+   your browser. If it can't, it says why: the console is off, the bot isn't
+   running, or the link is old. (Or open the link from `console.url`
+   yourself.) The key moves into a cookie and leaves the address bar, so
+   after that `http://127.0.0.1:8737/` is enough, until the bot restarts:
+   each start makes a new key, and the page then says to open the console
+   again.
 
 Its pages:
 
@@ -925,7 +932,8 @@ mesh_contingency/
   weather.py          api.weather.gov / zipcode lookups (data only)
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
   web/                the web console: [console] settings, server.py (key, cookie and
-                      host checks; serving the app), api.py (the JSON API), static/ (the build)
+                      host checks; serving the app), api.py (the JSON API), launch.py
+                      (mesh-contingency-console), static/ (the build)
   bible/
     __init__.py       reference parsing and verse lookup
     bsb.json.gz       the bundled Berean Standard Bible
