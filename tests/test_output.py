@@ -31,6 +31,34 @@ class SafeOutputTest(unittest.TestCase):
         self.assertEqual(buffer.getvalue(), "[a1b2] \\x1b[2Jhi\n")
         self.assertFalse(out.isatty())
 
+    def test_keeps_nothing_by_default(self):
+        out = SafeOutput(io.StringIO())
+        print("hello", file=out)
+        self.assertEqual(list(out.lines), [])
+
+    def test_keeps_the_last_lines_whole_and_escaped(self):
+        out = SafeOutput(io.StringIO(), keep=2)
+        print("one", file=out)
+        print("two", "parts", file=out)  # written as several pieces
+        out.write("three \x1b[2J")
+        self.assertEqual([line for _, line in out.lines], ["one", "two parts"])
+        out.write("end\nfour\n")
+        self.assertEqual([line for _, line in out.lines], ["three \\x1b[2Jend", "four"])
+
+    def test_listeners_get_each_new_line(self):
+        out = SafeOutput(io.StringIO(), keep=5)
+        print("old", file=out)
+        heard = []
+
+        def listener(when, line):
+            heard.append(line)
+
+        self.assertEqual([line for _, line in out.listen(listener)], ["old"])
+        print("new", file=out)
+        out.unlisten(listener)
+        print("after", file=out)
+        self.assertEqual(heard, ["new"])
+
 
 if __name__ == "__main__":
     unittest.main()

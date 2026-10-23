@@ -34,6 +34,7 @@ class StatusBase(Command):
 class OkCommand(StatusBase):
     args = "[status]"
     summary = "Check in: tell others you're ok, or how you are"
+    own = True
 
     async def execute(self, text, sender):
         if sender.public_key is None:

@@ -1,28 +1,45 @@
-"""What the web console can read, as JSON: the same things health, whois,
-checkins, inbox and history show over the radio, as tables instead of
-140-character pages.
+"""The web console's API, as JSON.
 
-Times are time.time() seconds. Keys are full public keys. Nothing here
-changes anything, and a sealed message's text, a user's sealing key and
-message text in general never leave the node this way: the inbox lists who
-has mail, from whom and when, as inbox does without a passphrase.
+Reading: the same things health, whois, checkins, inbox and history show
+over the radio, as tables instead of 140-character pages. Times are
+time.time() seconds; keys are full public keys. A sealed message's text, a
+user's sealing key and message text in general never leave the node this
+way: the inbox lists who has mail, from whom and when, as inbox does without
+a passphrase.
+
+Doing: /api/run runs a command as the admin "console" (api.CONSOLE), through
+the same run_command as a direct message, so its checks, confirmations and
+history entries (by console) are the radio's. It offers the admin and public
+commands that don't act on the sender's own records (Command.own), since the
+console has none.
+
+Watching: /api/log sends the lines the bot prints, as server-sent events.
 """
 
+import asyncio
+import json
 import time
 
 from aiohttp import web
 
+from ..api import ADMIN, CONSOLE, PUBLIC, is_authorized
 from ..commands.health import activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
 from ..commands.mailbox import FILENAME as MAILBOX
 from ..commands.mailbox import INBOX_KEY
 from ..commands.status import FILENAME as STATUSES
+from ..limits import wait_text
+from ..running import run_command
 from ..state import HISTORY_FILE
 from ..watch import LABELS
 
 routes = web.RouteTableDef()
 # Settings of a user that are about them, not for the console to show.
 HIDDEN_SETTINGS = {"name", INBOX_KEY}
+# The longest text /api/run takes: more than a direct message can hold.
+MAX_TEXT = 500
+# Seconds between keep-alives on a quiet log, so the connection stays open.
+KEEPALIVE_SECONDS = 15
 
 
 def _ctx(request):
@@ -121,3 +138,92 @@ async def history(request):
     """Admin actions (and users leaving), newest first."""
     entries = _ctx(request).state.store(HISTORY_FILE).data.get("entries", [])
     return web.json_response([{"time": e["time"], "by": e["by"], "what": e["what"]} for e in reversed(entries)])
+
+
+def offered(ctx):
+    """{name: command} the console may run."""
+    return {name: command for name, command in ctx.commands.items()
+            if command.permission in (ADMIN, PUBLIC) and not command.own
+            and is_authorized(command, CONSOLE, ctx.users, ctx.admins)}
+
+
+@routes.get("/api/commands")
+async def commands(request):
+    """What /api/run can run, by name."""
+    return web.json_response([
+        {"name": name, "permission": command.permission, "usage": command.usage, "summary": command.summary}
+        for name, command in sorted(offered(_ctx(request)).items())
+    ])
+
+
+def _error(status, text):
+    return web.json_response({"error": text}, status=status)
+
+
+@routes.post("/api/run")
+async def run(request):
+    """{"command": name, "text": what follows it} -> {"messages": the reply}."""
+    ctx = _ctx(request)
+    try:
+        asked = await request.json()
+    except ValueError:
+        return _error(400, "send JSON: {\"command\": ..., \"text\": ...}")
+    if not isinstance(asked, dict) or not isinstance(asked.get("command"), str) \
+            or not isinstance(asked.get("text", ""), str):
+        return _error(400, "command and text must be strings")
+    name, text = asked["command"].strip().lower(), asked.get("text", "").strip()
+    command = offered(ctx).get(name)
+    if command is None:
+        return _error(404, f"no command {name[:30]} for the console")
+    if len(text) > MAX_TEXT:
+        return _error(400, f"text too long ({len(text)} characters; at most {MAX_TEXT})")
+    print(f"[{CONSOLE.name}] {name + ' (private)' if command.private else (name + ' ' + text).strip()}", flush=True)
+    wait, _ = request.app["limiter"].check(CONSOLE.public_key, command.name, command.rate)
+    if wait:
+        print(f"  -> {command.name} limit reached", flush=True)
+        return _error(429, f"{command.name}: limit reached, try again in {wait_text(wait)}")
+    messages = await run_command(command, text, CONSOLE, ctx.state)
+    if messages:
+        print(f"  -> answered the console ({len(messages)} message(s))", flush=True)
+    return web.json_response({"command": command.name, "messages": messages})
+
+
+@routes.get("/api/log")
+async def log(request):
+    """The lines kept so far, then each new one as it's printed, as
+    server-sent events: data: {"time", "line"}."""
+    output = request.app["output"]
+    if output is None:
+        return _error(404, "no log kept")
+    response = web.StreamResponse(headers={"Content-Type": "text/event-stream", "Cache-Control": "no-cache"})
+    await response.prepare(request)
+    queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def listener(when, line):  # may be called from another thread
+        loop.call_soon_threadsafe(queue.put_nowait, (when, line))
+
+    streams = request.app["log_streams"]
+    streams.add(queue)
+    try:
+        for when, line in output.listen(listener):
+            await response.write(_event(when, line))
+        while True:
+            try:
+                entry = await asyncio.wait_for(queue.get(), KEEPALIVE_SECONDS)
+            except TimeoutError:
+                await response.write(b": keep-alive\n\n")
+                continue
+            if entry is None:  # the bot is stopping
+                break
+            await response.write(_event(*entry))
+    except ConnectionError:  # the page was closed
+        pass
+    finally:
+        output.unlisten(listener)
+        streams.discard(queue)
+    return response
+
+
+def _event(when, line):
+    return f"data: {json.dumps({'time': when, 'line': line}, ensure_ascii=False)}\n\n".encode()
