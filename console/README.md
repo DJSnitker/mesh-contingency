@@ -21,3 +21,19 @@ and the browser sends the same cookie, since cookies don't go by port.
 The proxy also sends the bot's own `Origin`, so commands run from the dev
 server; other sites still can't use it, since the cookie is `SameSite=Strict`
 and never goes with their requests.
+
+## Demo and screenshots
+
+`scripts/demo_console.py` runs the console on a fake radio with made-up
+users, messages and history: the real server and the built app, nothing of
+a real node's read or written. Use it to try the app without a node, and for
+the screenshots in the wiki (they never show real users).
+
+```sh
+.venv/bin/python scripts/demo_console.py                     # prints a link; Ctrl+C stops it
+.venv/bin/python scripts/demo_console.py --screenshots /tmp/shots   # a PNG of each page, then stops
+```
+
+Build the app first. Screenshots need Chrome or Chromium; they're the Admin
+Guide's `images/console-*.png` in the wiki, so retake them when a page
+changes how it looks.
