@@ -82,6 +82,7 @@ class State:
         self.watch = None  # the NodeWatch, if [watch] is enabled
         self.backups = None  # the Backups, for the backup command and the schedule
         self.area_weather = None  # the AreaWeather, if the web console and [alerts] are on
+        self.channel_log = None  # the ChannelLog, if the web console is on
         self._stores = {}
 
     def saw(self, key, name):

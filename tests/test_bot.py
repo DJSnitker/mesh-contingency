@@ -5,6 +5,7 @@ import io
 import json
 import os
 import signal
+import socket
 import tempfile
 import tomllib
 import unittest
@@ -30,6 +31,7 @@ from mesh_contingency.api import (
 from mesh_contingency.commands.mail import NO_INTERNET, SendError
 from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event, full_key, make_contact
+from mesh_contingency.web import aiohttp_missing
 
 
 async def echo(text, sender, ctx):
@@ -71,6 +73,7 @@ emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
 contacts = { permission = "admin" }
+contact = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -287,6 +290,32 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
 
     # --- startup and shutdown
 
+    async def test_channel_messages_only_with_the_web_console(self):
+        await self.start()
+        self.assertNotIn(EventType.CHANNEL_MSG_RECV, self.radio.handlers)
+        await self.stop()
+
+    @unittest.skipIf(aiohttp_missing(), "the web console needs aiohttp")
+    async def test_channel_messages_kept_for_the_web_console(self):
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        state = {}
+        real_state = bot.State
+
+        def keep(*args, **kwargs):
+            state["it"] = real_state(*args, **kwargs)
+            return state["it"]
+
+        self.enterContext(mock.patch("mesh_contingency.bot.State", keep))
+        await self.start(CONFIG + f"\n[console]\nenabled = true\nport = {port}\n")
+        self.assertIn("Channel messages for the web console: the newest 200 of each channel, in memory only.",
+                      self.out.getvalue())
+        await self.radio.deliver(EventType.CHANNEL_MSG_RECV, {"channel_idx": 0, "text": "Alice: hello", "path_len": 1})
+        self.assertEqual([(m["sender"], m["text"]) for m in state["it"].channel_log.messages(0)], [("Alice", "hello")])
+        # Not taken as a command, nor answered.
+        self.assertEqual(self.replies(), [])
+
     async def test_startup(self):
         await self.start()
         # No channel messages
@@ -296,8 +325,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
-        self.assertIn("admin commands (1 admin(s)): advert, contacts, reload, clearstatus, checkins, health, history, "
-                      "alert, alertmap, testalert, comm, backup, approve, deny, users, whois, remove, resetpass\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, reload, clearstatus, checkins, health, "
+                      "history, alert, alertmap, testalert, comm, backup, approve, deny, users, whois, remove, "
+                      "resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -896,7 +926,7 @@ permission = "public"
         self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in parts.
-        parts = split_reply("commands: help, wx, verse, advert, contacts, reload, ok, status, clearstatus, "
+        parts = split_reply("commands: help, wx, verse, advert, contacts, contact, reload, ok, status, clearstatus, "
                             "checkins, health, history, alert, alertmap, testalert, comm, backup, join, approve, "
                             "deny, users, whois, remove, resetpass, echo, slow, secret. Send help <command> for usage")
         self.assertGreater(len(parts), 1)

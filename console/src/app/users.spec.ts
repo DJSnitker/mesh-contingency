@@ -125,4 +125,24 @@ describe('Users', () => {
     const element: HTMLElement = (await render()).nativeElement;
     expect(element.querySelector('.requests')).toBeNull();
   });
+
+  it('reloads the users file, and reads the users again', async () => {
+    let reads = 0;
+    api.users = () => {
+      reads++;
+      return of([]);
+    };
+    const fixture = await render();
+    const element: HTMLElement = fixture.nativeElement;
+    button(element, '.title', 'Reload users file').click();
+    await fixture.whenStable();
+    expect(api.ran).toEqual([['reload', '']]);
+    expect(reads).toBe(2);
+  });
+
+  it('offers reload only if the console may run it', async () => {
+    api.commands = () => of([]);
+    const fixture = await render();
+    expect(fixture.nativeElement.querySelector('.title button')).toBeNull();
+  });
 });

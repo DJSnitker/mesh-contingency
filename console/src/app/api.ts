@@ -79,6 +79,62 @@ export interface Weather {
   alerts_problem: string | null;
 }
 
+/** One of the radio's contacts, from GET /api/contacts. */
+export interface Contact {
+  key: string;
+  name: string | null;
+  /** chat, repeater, room, sensor or unknown. */
+  type: string;
+  user: boolean;
+  admin: boolean;
+  /** The length of the path the radio keeps to it, or null if a message to it floods. */
+  hops: number | null;
+  /** When the radio last heard its advert (by the radio's clock), or null. */
+  last_advert: number | null;
+}
+
+/** GET /api/contacts. max is how many the radio can hold, null if it doesn't say. */
+export interface Contacts {
+  max: number | null;
+  contacts: Contact[];
+}
+
+/** One of the radio's channel slots, from GET /api/channels; never its key. */
+export interface Channel {
+  slot: number;
+  name: string;
+  /** public (the usual Public), hashtag (its key comes from its #name), private, or empty. */
+  kind: 'public' | 'hashtag' | 'private' | 'empty';
+  /** What the bot posts to it: alert, comm, testalert, weekly test, automatic alerts. */
+  uses: string[];
+  /** Its messages kept since the bot started, or null if none are kept. */
+  messages: number | null;
+  /** When the newest of them came, or null. */
+  last: number | null;
+}
+
+/** A message on a channel, as GET /api/channels/{slot}/messages lists them. */
+export interface ChannelMessage {
+  time: number;
+  /** Who sent it, or null if it didn't say. */
+  sender: string | null;
+  text: string;
+  /** The repeaters it came through (0: direct), or null for this node's own posts. */
+  hops: number | null;
+  /** The signal-to-noise ratio it came in at (dB), or null. */
+  snr: number | null;
+  /** This node posted it (alert, comm, the automatic alerts, the weekly test). */
+  own: boolean;
+}
+
+/** GET /api/channels/{slot}/messages: newest first; messages is null if none are kept. */
+export interface ChannelMessages {
+  slot: number;
+  /** How many are kept per channel. */
+  keep: number | null;
+  messages: ChannelMessage[] | null;
+}
+
 /** One of GET /api/users: a user, an admin, or both. */
 export interface User {
   key: string;
@@ -190,6 +246,18 @@ export class Api {
 
   weather(): Observable<Weather> {
     return this.get<Weather>('/api/weather');
+  }
+
+  contacts(): Observable<Contacts> {
+    return this.get<Contacts>('/api/contacts');
+  }
+
+  channels(): Observable<Channel[]> {
+    return this.get<Channel[]>('/api/channels');
+  }
+
+  channelMessages(slot: number): Observable<ChannelMessages> {
+    return this.get<ChannelMessages>(`/api/channels/${slot}/messages`);
   }
 
   commands(): Observable<CommandInfo[]> {

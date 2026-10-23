@@ -5,15 +5,16 @@ import { Api } from './api';
 import { Icon } from './icon';
 
 /** The pages, in the order of the rail. */
+/** The rail's pages: the Dashboard first, set apart, then the rest A–Z. */
 export const PAGES = [
   { path: '/', label: 'Dashboard', icon: 'gauge' },
   { path: '/weather', label: 'Area Weather', icon: 'cloud' },
-  { path: '/users', label: 'Users', icon: 'users' },
   { path: '/checkins', label: 'Check-ins', icon: 'check' },
-  { path: '/inbox', label: 'Inbox', icon: 'inbox' },
   { path: '/history', label: 'History', icon: 'clock' },
-  { path: '/send', label: 'Send', icon: 'send' },
+  { path: '/inbox', label: 'Inbox', icon: 'inbox' },
   { path: '/radio', label: 'Radio', icon: 'radio' },
+  { path: '/send', label: 'Send', icon: 'send' },
+  { path: '/users', label: 'Users', icon: 'users' },
 ];
 
 @Component({

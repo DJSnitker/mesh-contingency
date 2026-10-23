@@ -102,3 +102,27 @@
   color: var(--orange);
   font-size: 0.85rem;
 }
+
+.alert-setup {
+  display: grid;
+  gap: 12px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+// Before posting on the air: what will happen, and the way out.
+.confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgb(255 95 31 / 45%);
+  border-radius: 10px;
+}

@@ -13,6 +13,13 @@
   }
 </header>
 
+<mc-reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
 @if (weather(); as w) {
   @if (w.areas === null) {
     <p class="panel muted">
@@ -105,4 +112,54 @@
   }
 } @else if (!problem()) {
   <p class="muted">Reading the weather…</p>
+}
+
+@if (has('testalert') || has('alertmap')) {
+  <section class="panel alert-setup" aria-labelledby="alert-setup-title">
+    <h2 id="alert-setup-title"><mc-icon name="alert" /> Weather alerts</h2>
+    <p class="muted">
+      New NWS alerts for these counties are posted to <code>{{ channel() }}</code
+      >. Post the test message to check radios get it, or look up the counties' NWS codes again if
+      the NWS changed them.
+    </p>
+    @if (confirmingTest()) {
+      <div class="confirm" role="alert">
+        <p>
+          This posts the test message to <code>{{ channel() }}</code> now, on the air, for everyone
+          on the channel.
+        </p>
+        <div class="buttons">
+          <button class="btn btn-sm" type="button" [disabled]="runner.busy()" (click)="postTest()">
+            Post it
+          </button>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="confirmingTest.set(false)">
+            Cancel
+          </button>
+        </div>
+      </div>
+    } @else {
+      <div class="buttons">
+        @if (has('testalert')) {
+          <button
+            class="btn btn-ghost"
+            type="button"
+            [disabled]="runner.busy()"
+            (click)="confirmingTest.set(true)"
+          >
+            Post alert test
+          </button>
+        }
+        @if (has('alertmap')) {
+          <button
+            class="btn btn-ghost"
+            type="button"
+            [disabled]="runner.busy()"
+            (click)="runner.run('alertmap')"
+          >
+            Look up counties again
+          </button>
+        }
+      </div>
+    }
+  </section>
 }

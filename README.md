@@ -66,6 +66,8 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `checkins [page <n>]` | admins | Roll call: every user's check-in, or missing |
 | `clearstatus` | admins | Delete every check-in |
 | `comm <message>` | admins | Post a message to the [communications channel](#communications-channel), `#contingency-comm` |
+| `contact path <name or key>` | admins | Reset the radio's path to a contact whose messages stopped getting through |
+| `contact remove <name or key>` | admins | Remove a contact from the radio (it asks first) |
 | `contacts [name or key] [page]` | admins | List the radio's contacts |
 | `deny <name or key>` | admins | Turn down a join request |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
@@ -495,6 +497,7 @@ emailall = { permission = "user" }
 email = { permission = "user" }
 advert = { permission = "admin" }
 contacts = { permission = "admin" }
+contact = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -704,6 +707,21 @@ summary when the hour is up, e.g. `In the last hour: 14 more new contact(s);
 3 new node(s) not added (over max_new_per_hour)`. These are the defaults; 0
 means no limit.
 
+The radio holds only so many contacts (`health` shows e.g. `contacts 41/350`).
+`contacts` lists them, and admins manage one with `contact`:
+
+- `contact remove <name or key>` takes it off the radio. It asks first, and
+  says if it's a user or an admin: they can't be messaged until they advert
+  again. A node of a type `auto_add` takes comes back by itself when it next
+  adverts.
+- `contact path <name or key>` resets the route the radio keeps to it, for one
+  whose messages stopped getting through: the next message floods to find a
+  new one.
+
+A contact is named by its name, the start of its name, or 4 or more hex digits
+of its key; when several match, give more of the key. The web console's Radio
+page lists the contacts with a **Remove** and a **Reset path** button for each.
+
 ### Email
 
 Mail is sent by running `mail -s <subject> <addresses...>`, so `mail` must be
@@ -844,7 +862,7 @@ on:
    each start makes a new key, and the page then says to open the console
    again.
 
-Its pages:
+Its pages, in the order of the menu (the Dashboard first, then A–Z):
 
 - **Dashboard:** users, join requests, check-ins and messages waiting, the
   weather alerts out now for the counties in `[alerts]` (each with its
@@ -856,18 +874,32 @@ Its pages:
   forecast periods, and any alert out for it. The bot asks the NWS every 15
   min and keeps the last report, so a card says how old it is, and why if
   it couldn't be updated (no internet, say). Without counties in `[alerts]`
-  there's nothing to show.
-- **Users:** every user and admin with their settings, last seen, check-in
-  and messages, with **Whois**, **Reset passphrase** and **Remove**; and the
-  join requests waiting, with **Approve** and **Deny**.
+  there's nothing to show. Below the cards: **Post alert test** (`testalert`;
+  the page asks first, since it goes out on the air) and **Look up counties
+  again** (`alertmap`).
 - **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
   **Clear check-ins**.
+- **History:** what admins have done, newest first, with a filter.
 - **Inbox:** who has messages waiting, from whom, read or not, sealed or not.
   Never what they say: that stays for the recipient, over the radio.
-- **History:** what admins have done, newest first, with a filter.
+- **Radio:** **Advert**, **Flood advert** and **Back up now**, and the
+  radio's contacts (with a filter): each one's type, whether it's a user or an
+  admin, its path and when it was last heard, with **Reset path** and
+  **Remove** ([`contact`](#contacts)), on one tab; on the other, the radio's
+  channel slots in use: each one's name, whether it's the usual Public
+  channel, a hashtag channel or a private one, and what the bot posts there
+  (`alert`, `comm`, the automatic alerts, the weekly test), but never its
+  key. A channel opens to what the radio heard on it since the bot started,
+  newest first, with who sent it, the hops and the signal, and what this
+  node posted there. The bot keeps the last 200 of each channel while the
+  console is on, in memory only: a restart forgets them, and none are
+  written to disk. It takes no commands from channels.
 - **Send:** post to `#contingency-wx` or `#contingency-comm` (with a count
   against the one-message limit), or leave a message in a user's inbox.
-- **Radio:** **Advert**, **Flood advert** and **Back up now**.
+- **Users:** every user and admin with their settings, last seen, check-in
+  and messages, with **Whois**, **Reset passphrase** and **Remove**; the
+  join requests waiting, with **Approve** and **Deny**; and **Reload users
+  file** (`reload`), after editing it.
 
 Everything it does runs the same commands as over the radio, as an admin
 called `console`: the same checks, rate limits and confirmations (`remove`

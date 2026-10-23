@@ -4,7 +4,7 @@ import { of, throwError } from 'rxjs';
 
 import { Api } from './api';
 import { AreaWeather } from './area-weather';
-import { FakeApi, WEATHER } from '../testing/fakes';
+import { COMMANDS, FakeApi, WEATHER } from '../testing/fakes';
 
 /** Text with its runs of spaces made one. */
 function text(element: Element | null | undefined): string {
@@ -103,5 +103,66 @@ describe('AreaWeather', () => {
     api.weather = () => throwError(() => new HttpErrorResponse({ status: 0 }));
     const element = await render();
     expect(text(element.querySelector('[role=alert]'))).toBe("can't reach the bot");
+  });
+
+  describe('the alert buttons', () => {
+    async function fixture() {
+      const f = TestBed.createComponent(AreaWeather);
+      await f.whenStable();
+      return f;
+    }
+
+    async function click(f: Awaited<ReturnType<typeof fixture>>, label: string) {
+      const found = [...(f.nativeElement as HTMLElement).querySelectorAll('button')].find(
+        (b) => text(b) === label,
+      );
+      if (!found) {
+        throw new Error(`no ${label} button`);
+      }
+      found.click();
+      await f.whenStable();
+    }
+
+    it('asks before posting the alert test, on the alert channel', async () => {
+      const f = await fixture();
+      const element: HTMLElement = f.nativeElement;
+      expect(text(element.querySelector('.alert-setup p'))).toContain('posted to #contingency-wx');
+      await click(f, 'Post alert test');
+      expect(api.ran).toEqual([]);
+      expect(text(element.querySelector('.confirm'))).toContain(
+        'This posts the test message to #contingency-wx now, on the air',
+      );
+      await click(f, 'Cancel');
+      expect(element.querySelector('.confirm')).toBeNull();
+      expect(api.ran).toEqual([]);
+
+      await click(f, 'Post alert test');
+      await click(f, 'Post it');
+      expect(api.ran).toEqual([['testalert', '']]);
+      expect(element.querySelector('.confirm')).toBeNull();
+      expect(text(element.querySelector('.reply'))).toContain('testalert: done');
+    });
+
+    it('looks the counties up again', async () => {
+      const f = await fixture();
+      await click(f, 'Look up counties again');
+      expect(api.ran).toEqual([['alertmap', '']]);
+    });
+
+    it('offers only what the console may run', async () => {
+      api.commands = () => of(COMMANDS.filter((c) => c.name === 'alertmap'));
+      const f = await fixture();
+      const element: HTMLElement = f.nativeElement;
+      expect([...element.querySelectorAll('.alert-setup button')].map(text)).toEqual([
+        'Look up counties again',
+      ]);
+      expect(text(element.querySelector('.alert-setup p'))).toContain(
+        'posted to the alert channel',
+      );
+
+      api.commands = () => of(COMMANDS.filter((c) => c.name === 'whois'));
+      const none: HTMLElement = (await fixture()).nativeElement;
+      expect(none.querySelector('.alert-setup')).toBeNull();
+    });
   });
 });

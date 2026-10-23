@@ -25,8 +25,10 @@ from types import SimpleNamespace
 
 from aiohttp import web
 
+from mesh_contingency.alerts import hashtag_secret
 from mesh_contingency.area_weather import AreaWeather
 from mesh_contingency.backup import Backups, BackupSettings
+from mesh_contingency.channel_log import ChannelLog
 from mesh_contingency.commands.join import FILENAME as REQUESTS
 from mesh_contingency.commands.mailbox import FILENAME as MAILBOX
 from mesh_contingency.commands.status import FILENAME as STATUSES
@@ -78,6 +80,23 @@ AREAS = {
 }
 STALE = {"Howard, MO": "HTTP Error 503: Service Unavailable"}
 
+# The radio's contacts besides the users' radios: (name, type, hops or None, heard how long ago).
+NODES = [("Ridge Top Repeater", 2, 0, 20 * MIN), ("Hwy 63 Repeater", 2, 1, 2 * HOUR),
+         ("County EOC Room", 3, 2, 5 * HOUR), ("River Gauge 4", 4, None, 3 * DAY), ("Fulton Relay", 2, None, None)]
+# Channel messages since the bot started, oldest first: (slot, minutes ago,
+# sender or None for this node, text, hops, SNR).
+CHANNEL_MESSAGES = [
+    (0, 170, "Hwy 63 Repeater", "Repeater on battery power, solar charging", 1, 4.25),
+    (0, 95, "tom-hh", "Anyone copy near Ashland? Cell is down here", 2, -2.5),
+    (0, 88, "maria-hh", "Copy Tom, we hear you in Columbia", 1, 6.0),
+    (1, 75, None, "Callaway, MO ALERT: Wind Advisory until Fri 3:10PM", None, None),
+    (2, 40, None, "Net check-in at 19:00 on this channel. Send ok to the node if you can't make it.", None, None),
+    (2, 31, "james-hh", "At the shelter, 14 people, water OK", 2, 3.5),
+    (2, 18, "priya-hh", "Power out on the east side; I'm on battery", 255, 9.75),
+    (3, 12, "County EOC", "EOC open until 22:00. Report road closures here.", 2, 1.5),
+]
+NODE_KEYS = ["".join(_random.choice("0123456789abcdef") for _ in range(64)) for _ in NODES]
+
 
 def area_report(county, now):
     """What AreaWeather would have for one of AREAS."""
@@ -103,6 +122,16 @@ def demo_context(folder, now=None):
     state.started = now - (2 * DAY + 5 * HOUR)
     radio = FakeMeshCore()
     radio.self_info["name"] = "Ridgeview Relay"
+    # The bot's two channels, as it adds them at startup, and a private one.
+    radio.channels[1:4] = [(name, hashtag_secret(name)) for name in ("#contingency-wx", "#contingency-comm")] + [
+        ("Ridgeview ARES", bytes(range(1, 17)))]
+    for n, key in enumerate([ADMIN, MARIA, JAMES, PRIYA, TOM, LENA, RAY]):
+        radio.known[key] = "Net Control" if key == ADMIN else USERS[key]["name"].split()[0].lower() + "-hh"
+        radio.details[key] = {"out_path_len": n % 3, "last_advert": int(now - (n + 1) * 47 * MIN)}
+    for (name, kind, hops, heard), key in zip(NODES, NODE_KEYS, strict=True):
+        radio.known[key] = name
+        radio.details[key] = {"type": kind, "out_path_len": -1 if hops is None else hops,
+                              "last_advert": int(now - heard) if heard else 0}
     directory = Directory(USERS, {ADMIN})
     commands = Registry(config).build(directory, radio, state)
     ctx = make_context("console", directory=directory, state=state, radio=radio, commands=commands)
@@ -112,11 +141,20 @@ def demo_context(folder, now=None):
     # works, into the folder).
     state.watch = SimpleNamespace(active=[])
     state.alert_watcher = SimpleNamespace(
-        last_check=now - 3 * MIN, problem=None, unmapped=[], settings=SimpleNamespace(counties=list(AREAS)),
+        last_check=now - 3 * MIN, problem=None, unmapped=[],
+        settings=SimpleNamespace(counties=list(AREAS), channel="#contingency-wx"),
         codes={county: {"code": f"MOC{n:03}"} for n, county in enumerate(AREAS)},
         current={"Callaway, MO": [{"event": "Wind Advisory", "severity": "Minor", "headline": None,
                                    "ends": now + 5 * HOUR}]})
     state.area_weather = AreaWeather(state.alert_watcher, state)
+    # What the radio heard on its channels: (slot, minutes ago, sender, text, hops, SNR); None: this node.
+    state.channel_log = ChannelLog()
+    for slot, ago, sender, text, hops, snr in CHANNEL_MESSAGES:
+        if sender is None:
+            state.channel_log.sent(slot, "Ridgeview Relay", text, now - ago * MIN)
+        else:
+            state.channel_log.heard({"channel_idx": slot, "text": f"{sender}: {text}", "path_len": hops, "SNR": snr},
+                                    now - ago * MIN)
     state.area_weather.reports = {county: area_report(county, now) for county in AREAS}
     backups_folder = folder / "backups"
     state.backups = Backups(BackupSettings(to=str(backups_folder), folder=backups_folder), state, config_path,

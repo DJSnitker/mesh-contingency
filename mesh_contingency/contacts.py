@@ -113,6 +113,30 @@ def contact_rows(mc, wanted=""):
     return [row for row in rows if not wanted or row[0].lower().startswith(wanted) or row[1].startswith(wanted)]
 
 
+class ContactNotFound(Exception):
+    """No contact, or more than one, matches; the message says which."""
+
+
+def find_contact(mc, text):
+    """The one radio contact that text names: a name (any case), a key or the
+    start of one (at least 4 hex digits), or the start of a name. Raises
+    ContactNotFound, saying why, if none or several match."""
+    wanted = text.strip().lower()
+    if not wanted:
+        raise ContactNotFound("give a name or key")
+    contacts = list(mc.contacts.values())
+    tries = [[c for c in contacts if (c.get("adv_name") or "").lower() == wanted]]
+    if len(wanted) >= 4 and all(ch in "0123456789abcdef" for ch in wanted):
+        tries.append([c for c in contacts if c["public_key"].lower().startswith(wanted)])
+    tries.append([c for c in contacts if (c.get("adv_name") or "").lower().startswith(wanted)])
+    for found in tries:
+        if len(found) == 1:
+            return found[0]
+        if found:
+            raise ContactNotFound(f"{len(found)} contacts match {text.strip()}; give more of the key")
+    raise ContactNotFound(f"no contact {text.strip()}")
+
+
 def lookalike_of(public_key, protected):
     """Return the key in `protected` that public_key shares a 12-hex prefix
     with but doesn't equal, or None."""

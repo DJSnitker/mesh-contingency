@@ -1,8 +1,9 @@
 """Weather alerts on a public channel: shared by the alert command and the
 automatic alert watcher.
 
-The bot never reads channels; it only sends to one. The channel is a hashtag
-channel (#name), which anyone can join by adding the same name. If the radio
+The bot takes no commands from channels; it only sends to one (it keeps what
+it hears on them only for the web console, channel_log.py). The channel is a
+hashtag channel (#name), which anyone can join by adding the same name. If the radio
 doesn't have it, it is added to the first empty channel slot.
 
 The watcher ([alerts] in config.toml) watches counties. It looks up each
@@ -35,6 +36,8 @@ from .weather import NWS_API, STATE_FIPS, alert_counties, county_alerts, county_
 DEFAULT_CHANNEL = "#contingency-wx"
 # Channel slots to look through if the radio doesn't say how many it has.
 DEFAULT_SLOTS = 8
+# The key of MeshCore's usual Public channel, the same on every radio.
+PUBLIC_SECRET = bytes.fromhex("8b3387e9c5cdea6ac9e5edbaa115cd72")
 ALERTS_FILE = "alerts.json"
 ALERTS_KEYS = {"counties", "every_minutes", "channel"}
 DEFAULT_EVERY_MINUTES = 10
@@ -107,23 +110,34 @@ def message_limit(radio):
     return MAX_REPLY_LEN - len(radio.self_info.get("name", "")) - 2
 
 
+async def read_channels(radio):
+    """The radio's channel slots in order, as [(name, 16-byte key)], with
+    ("", 16 zero bytes) for an empty one; as far as the radio answers."""
+    info = await radio.commands.send_device_query()
+    slots = DEFAULT_SLOTS if info.type == EventType.ERROR else info.payload.get("max_channels", DEFAULT_SLOTS)
+    found = []
+    for slot in range(slots):
+        res = await radio.commands.get_channel(slot)
+        if res.type == EventType.ERROR:
+            break
+        found.append((res.payload.get("channel_name", ""), res.payload.get("channel_secret", bytes(16))))
+    return found
+
+
+def is_empty(name, secret):
+    return not name and not any(secret)
+
+
 async def channel_slot(radio, channel):
     """Return (slot, added): the radio's slot for the channel, adding it to
     the first empty slot if it isn't there. Raises NoChannelSlot if there is
     no room, or RuntimeError if the radio refuses."""
     secret = hashtag_secret(channel)
-    info = await radio.commands.send_device_query()
-    slots = DEFAULT_SLOTS if info.type == EventType.ERROR else info.payload.get("max_channels", DEFAULT_SLOTS)
-    empty = None
-    for slot in range(slots):
-        res = await radio.commands.get_channel(slot)
-        if res.type == EventType.ERROR:
-            break
-        if res.payload.get("channel_secret") == secret:
+    slots = await read_channels(radio)
+    for slot, (_, key) in enumerate(slots):
+        if key == secret:
             return slot, False
-        unused = not res.payload.get("channel_name") and not any(res.payload.get("channel_secret", b""))
-        if empty is None and unused:
-            empty = slot
+    empty = next((slot for slot, (name, key) in enumerate(slots) if is_empty(name, key)), None)
     if empty is None:
         raise NoChannelSlot(f"no free channel slot on the radio for {channel}")
     res = await radio.commands.set_channel(empty, channel)
@@ -132,14 +146,17 @@ async def channel_slot(radio, channel):
     return empty, True
 
 
-async def post(radio, slot, messages):
-    """Send messages to a channel slot, a little apart."""
+async def post(radio, slot, messages, log=None):
+    """Send messages to a channel slot, a little apart, adding each one sent
+    to log (the ChannelLog, if any)."""
     for i, message in enumerate(messages):
         if i:
             await asyncio.sleep(SEND_GAP)
         res = await radio.commands.send_chan_msg(slot, message)
         if res.type == EventType.ERROR:
             raise RuntimeError(f"radio rejected channel message {i + 1} of {len(messages)}: {res.payload}")
+        if log:
+            log.sent(slot, radio.self_info.get("name"), message)
 
 
 def parse_county(text):
@@ -361,7 +378,7 @@ class AlertWatcher:
                     print(f"Auto alerts: added {self.settings.channel} to channel slot {slot}", flush=True)
             for county, entries in new.items():
                 messages = format_alerts(county, [alert for _, _, alert in entries], message_limit(self.radio))
-                await post(self.radio, slot, messages)
+                await post(self.radio, slot, messages, self.state.channel_log)
                 # Only now, so alerts that couldn't be posted are tried again next round.
                 self.posted.update((key, until) for key, until, _ in entries)
                 sent += len(messages)
@@ -541,7 +558,7 @@ class AlertTest:
         schedule). Returns (slot, added, the messages posted)."""
         slot, added = await channel_slot(self.radio, self.settings.channel)
         messages = self.messages()
-        await post(self.radio, slot, messages)
+        await post(self.radio, slot, messages, self.state.channel_log)
         self.store.data["last_test"] = time.time()
         self.store.save()
         self.state.record(by, f"posted the alert test to {self.settings.channel}")

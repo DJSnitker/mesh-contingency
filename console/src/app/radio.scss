@@ -17,3 +17,175 @@ section {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+// Contacts and channels: one panel, a tab each, like the section titles.
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: -4px 0 4px;
+  border-bottom: 1px solid var(--line);
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: -1px;
+    padding: 6px 14px 10px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--muted);
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &[aria-selected='true'] {
+      border-bottom-color: var(--orange);
+      color: var(--text);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+    }
+  }
+
+  .count {
+    padding: 1px 8px;
+    border-radius: 99px;
+    background: rgb(255 255 255 / 6%);
+    color: var(--muted);
+    font-family: var(--body);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+}
+
+.tab-panel {
+  display: grid;
+  gap: 12px;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.contacts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+// One contact a row: who it is, its path and when it was heard, then the
+// actions; on a phone the actions go under the rest.
+.contact-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px 18px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+
+  strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+.about {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.channel-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 1.1rem;
+}
+
+// A channel's messages, newest first: who and when, then what they said.
+.messages {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    gap: 4px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .from {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+
+    time {
+      margin-left: auto;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+  }
+
+  .text {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .route {
+    font-size: 0.8rem;
+  }
+
+  // This node's own posts, marked down the side.
+  .own {
+    padding-left: 12px;
+    border-left: 2px solid var(--orange);
+  }
+}
+
+@media (max-width: 640px) {
+  .contact-list li {
+    grid-template-columns: 1fr;
+  }
+}

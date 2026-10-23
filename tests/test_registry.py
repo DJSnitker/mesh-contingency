@@ -21,6 +21,7 @@ from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.alertmap import AlertMapCommand
 from mesh_contingency.commands.backup import BackupCommand
 from mesh_contingency.commands.comm import CommCommand
+from mesh_contingency.commands.contact import ContactCommand
 from mesh_contingency.commands.contacts import ContactsCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
@@ -52,7 +53,8 @@ FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "qm": QmCommand, "emailall": EmailAllCommand,
-            "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "reload": ReloadCommand,
+            "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "contact": ContactCommand,
+            "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand, "checkins": CheckinsCommand,
             "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,
             "msg": MsgCommand, "inbox": InboxCommand,

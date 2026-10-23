@@ -61,9 +61,222 @@
     </section>
   }
 
-  @if (!has('advert') && !has('backup')) {
-    <p class="panel muted">Nothing here: advert and backup are both turned off.</p>
-  }
+  <section class="panel radio-tabs">
+    <div class="tabs" role="tablist" aria-label="The radio's contacts and channels">
+      @for (t of tabs; track t.id) {
+        <button
+          type="button"
+          role="tab"
+          [id]="t.id + '-tab'"
+          [attr.aria-controls]="t.id + '-panel'"
+          [attr.aria-selected]="tab() === t.id"
+          [tabindex]="tab() === t.id ? 0 : -1"
+          (click)="tab.set(t.id)"
+          (keydown)="arrow($event)"
+        >
+          <mc-icon [name]="t.icon" /> {{ t.label }}
+          @if (count(t.id); as n) {
+            <span class="count">{{ n }}</span>
+          }
+        </button>
+      }
+    </div>
+
+    @if (tab() === 'contacts') {
+      <div
+        class="tab-panel contacts"
+        role="tabpanel"
+        id="contacts-panel"
+        aria-labelledby="contacts-tab"
+      >
+        <div class="contacts-head">
+          @if (contacts(); as c) {
+            <span class="muted"
+              >{{ c.contacts.length }}{{ c.max ? ' of ' + c.max : '' }} on the radio</span
+            >
+          }
+        </div>
+        <p class="muted">
+          The nodes the radio can message. It holds only so many: remove ones you don't need. A node
+          that [contacts] auto_add takes comes back when it next adverts; a user or admin you remove
+          can't be messaged until they advert again. If messages to one stop getting through, reset
+          its path: the next message floods to find a new one.
+        </p>
+        @if (contactsProblem()) {
+          <p class="problem" role="alert"><mc-icon name="alert" /> {{ contactsProblem() }}</p>
+        }
+        @if (contacts(); as c) {
+          <label>
+            <span class="sr-only">Filter the contacts</span>
+            <input
+              class="filter"
+              type="search"
+              placeholder="Filter: a name, key, repeater, user…"
+              [value]="filter()"
+              (input)="filter.set($any($event.target).value)"
+            />
+          </label>
+          <ul class="contact-list" aria-label="The radio's contacts">
+            @for (contact of shown(); track contact.key) {
+              <li>
+                <div class="who">
+                  <strong>{{ contact.name ?? '?' }}</strong>
+                  @for (flag of flags(contact); track flag) {
+                    <span class="badge" [class.muted-badge]="flag !== 'admin' && flag !== 'user'">{{
+                      flag
+                    }}</span>
+                  }
+                  <code [title]="contact.key">{{ contact.key.slice(0, 12) }}</code>
+                </div>
+                <div class="muted about">
+                  <span>{{ path(contact) }}</span>
+                  <span>{{
+                    contact.last_advert
+                      ? 'heard ' + ago(contact.last_advert, now())
+                      : 'no advert heard'
+                  }}</span>
+                </div>
+                @if (has('contact')) {
+                  <div class="actions">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      type="button"
+                      [disabled]="runner.busy()"
+                      (click)="runner.run('contact', 'path ' + contact.key)"
+                    >
+                      Reset path
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm danger"
+                      type="button"
+                      [disabled]="runner.busy()"
+                      (click)="runner.run('contact', 'remove ' + contact.key)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                }
+              </li>
+            } @empty {
+              <li class="muted">
+                {{
+                  c.contacts.length ? 'Nothing matches the filter.' : 'No contacts on the radio.'
+                }}
+              </li>
+            }
+          </ul>
+        } @else if (!contactsProblem()) {
+          <p class="muted">Reading the radio's contacts…</p>
+        }
+      </div>
+    } @else {
+      <div
+        class="tab-panel channels"
+        role="tabpanel"
+        id="channels-panel"
+        aria-labelledby="channels-tab"
+      >
+        @if (openChannel(); as channel) {
+          <div class="contacts-head">
+            <button class="btn btn-ghost btn-sm" type="button" (click)="closeChannel()">
+              ← All channels
+            </button>
+            <span class="muted">{{ kindText(channel.kind) }}</span>
+          </div>
+          <h3 class="channel-title">
+            <code title="Slot">{{ channel.slot }}</code> {{ channel.name || '(no name)' }}
+          </h3>
+          @if (messagesProblem()) {
+            <p class="problem" role="alert"><mc-icon name="alert" /> {{ messagesProblem() }}</p>
+          }
+          @if (messages(); as m) {
+            @if (m.messages; as list) {
+              <p class="muted">
+                What the radio heard here since the bot started, newest first, and what this node
+                posted: the last {{ m.keep }}, in the bot's memory only. Read again every 10 s.
+              </p>
+              <ul class="messages" aria-label="Messages">
+                @for (message of list; track $index) {
+                  <li [class.own]="message.own">
+                    <div class="from">
+                      <strong>{{ message.sender ?? '?' }}</strong>
+                      @if (message.own) {
+                        <span class="badge">this node</span>
+                      }
+                      <time class="muted" [title]="when(message.time)">{{
+                        ago(message.time, now())
+                      }}</time>
+                    </div>
+                    <p class="text">{{ message.text }}</p>
+                    @if (route(message.hops, message.snr); as r) {
+                      <span class="muted route">{{ r }}</span>
+                    }
+                  </li>
+                } @empty {
+                  <li class="muted">Nothing heard on this channel since the bot started.</li>
+                }
+              </ul>
+            } @else {
+              <p class="muted">The bot isn't keeping channel messages.</p>
+            }
+          } @else if (!messagesProblem()) {
+            <p class="muted">Reading the messages…</p>
+          }
+        } @else {
+          <div class="contacts-head">
+            @if (channels(); as all) {
+              <span class="muted"
+                >{{ usedChannels().length }} of {{ all.length }} slots in use</span
+              >
+            }
+          </div>
+          <p class="muted">
+            The group channels on the radio, by slot. The bot adds the ones it posts to itself; to
+            add or change others, use the MeshCore app. Their keys aren't shown here. Open one to
+            read what was said on it since the bot started.
+          </p>
+          @if (channelsProblem()) {
+            <p class="problem" role="alert"><mc-icon name="alert" /> {{ channelsProblem() }}</p>
+          }
+          @if (channels()) {
+            <ul class="contact-list channel-list" aria-label="The radio's channels">
+              @for (channel of usedChannels(); track channel.slot) {
+                <li>
+                  <div class="who">
+                    <code title="Slot">{{ channel.slot }}</code>
+                    <strong>{{ channel.name || '(no name)' }}</strong>
+                    @for (use of channel.uses; track use) {
+                      <span class="badge">{{ use }}</span>
+                    }
+                  </div>
+                  <div class="muted about">
+                    <span>{{ kindText(channel.kind) }}</span>
+                    @if (channel.last) {
+                      <span>last {{ ago(channel.last, now()) }}</span>
+                    }
+                  </div>
+                  <div class="actions">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      type="button"
+                      [attr.aria-label]="'Messages on ' + (channel.name || 'slot ' + channel.slot)"
+                      (click)="open(channel.slot)"
+                    >
+                      Messages{{ channel.messages ? ' (' + channel.messages + ')' : '' }}
+                    </button>
+                  </div>
+                </li>
+              } @empty {
+                <li class="muted">No channels on the radio.</li>
+              }
+            </ul>
+          } @else if (!channelsProblem()) {
+            <p class="muted">Reading the radio's channels…</p>
+          }
+        }
+      </div>
+    }
+  </section>
 } @else if (!problem()) {
   <p class="muted">Reading what the console may run…</p>
 }

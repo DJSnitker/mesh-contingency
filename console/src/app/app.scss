@@ -25,6 +25,13 @@
     list-style: none;
   }
 
+  // The Dashboard, set apart from the other pages by a line.
+  li:first-child {
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
   ul a {
     display: flex;
     align-items: center;
@@ -62,7 +69,7 @@
     border-right: 0;
     border-bottom: 1px solid var(--line);
 
-    // Five pages don't fit a phone in one row: they wrap, whole.
+    // The pages don't fit a phone in one row: they wrap, whole.
     ul {
       display: flex;
       flex-wrap: wrap;
@@ -72,6 +79,14 @@
     ul a {
       padding: 7px 10px;
       white-space: nowrap;
+    }
+
+    // In a row the line stands up, after the Dashboard.
+    li:first-child {
+      margin: 0 6px 0 0;
+      padding: 0 6px 0 0;
+      border-right: 1px solid var(--line);
+      border-bottom: 0;
     }
   }
 }

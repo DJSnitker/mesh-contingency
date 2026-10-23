@@ -12,13 +12,14 @@ from types import SimpleNamespace
 
 from meshcore import EventType
 
+from .alerts import PUBLIC_SECRET
 from .api import Context
 from .directory import Directory
 from .limits import Limits
 from .state import State
 
 # The well-known key of MeshCore's default Public channel.
-PUBLIC_CHANNEL_SECRET = "8b3387e9c5cdea6ac9e5edbaa115cd72"
+PUBLIC_CHANNEL_SECRET = PUBLIC_SECRET.hex()
 
 
 def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None,
@@ -87,6 +88,18 @@ class FakeCommands:
             self.radio.stored[contact["public_key"]] = contact["adv_name"]
         return self.radio.add_contact_result
 
+    async def remove_contact(self, key):
+        self.radio.removed.append(key)
+        if self.radio.remove_contact_result.type != EventType.ERROR:
+            for known in (self.radio.known, self.radio.stored):
+                for k in [k for k in known if full_key(k) == key]:
+                    del known[k]
+        return self.radio.remove_contact_result
+
+    async def reset_path(self, key):
+        self.radio.paths_reset.append(key)
+        return self.radio.reset_path_result
+
     async def send_advert(self, flood=False):
         self.radio.adverts.append(flood)
         return self.radio.advert_result
@@ -124,6 +137,9 @@ class FakeMeshCore:
     def __init__(self, contacts=None, manual_add_contacts=False):
         # Contacts as {prefix or full public key: name}; a prefix gets full_key(prefix).
         self.known = dict(contacts or {})  # as cached by the library
+        # More of a contact's record than its name, by full key, e.g.
+        # {"type": 2, "out_path_len": 1, "last_advert": ...}.
+        self.details = {}
         self.stored = dict(self.known)  # what the radio itself holds
         self.self_info = {"name": "test-node", "manual_add_contacts": manual_add_contacts}
         self.auto_update_contacts = False
@@ -140,12 +156,16 @@ class FakeMeshCore:
         self.adverts = []
         self.manual_add_calls = []
         self.channel_sent = []  # (slot, text)
+        self.removed = []  # keys
+        self.paths_reset = []  # keys
         self.get_contacts_calls = 0
         # Results the radio returns
         self.ack_result = event(EventType.MSG_SENT)
         self.manual_add_result = event(EventType.OK)
         self.add_contact_result = event(EventType.OK)
         self.advert_result = event(EventType.OK)
+        self.remove_contact_result = event(EventType.OK)
+        self.reset_path_result = event(EventType.OK)
         self.channel_result = event(EventType.OK)
         self.device_info = {"max_contacts": 350, "model": "Test Board", "ver": "v1.9"}
         self.battery_result = event(EventType.BATTERY, {"level": 4050})
@@ -154,7 +174,8 @@ class FakeMeshCore:
 
     @property
     def contacts(self):
-        return {full_key(k): {"public_key": full_key(k), "adv_name": name} for k, name in self.known.items()}
+        return {full_key(k): {**make_contact(k, name), **self.details.get(full_key(k), {})}
+                for k, name in self.known.items()}
 
     def get_contact_by_key_prefix(self, prefix):
         # Like the library: the first contact whose key starts with prefix.
