@@ -99,6 +99,7 @@ deny = { permission = "admin" }
 setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+setemail = { permission = "admin" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }
@@ -352,8 +353,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, radio, reload, clearstatus, checkins, "
-                      "health, history, alert, alertmap, testalert, comm, backup, approve, deny, users, whois, "
-                      "remove, resetpass\n", out)
+                      "health, history, alert, alertmap, testalert, comm, backup, approve, deny, setemail, "
+                      "users, whois, remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -986,8 +987,8 @@ permission = "public"
         # Too long for one message, so it comes in parts.
         parts = split_reply("commands: help, wx, verse, advert, contacts, contact, radio, reload, ok, status, "
                             "clearstatus, checkins, health, history, alert, alertmap, testalert, comm, backup, join, "
-                            "approve, deny, users, whois, remove, resetpass, echo, slow, secret. Send help <command> "
-                            "for usage")
+                            "approve, deny, setemail, users, whois, remove, resetpass, echo, slow, secret. "
+                            "Send help <command> for usage")
         self.assertGreater(len(parts), 1)
         self.assertEqual(replies[1:1 + len(parts)], parts)
         self.assertEqual(replies[1 + len(parts):],

@@ -7,10 +7,17 @@ section of the users file:
 
 Each command reads and writes the key of the command it serves, set with
 `command = "<name>"` in its config entry (qm or emailall by default).
+
+Admins set anyone's, as the console's Users page does:
+
+    setemail <name or key> qm [address] group [address ...]
+
+Either part may be left out; a part with no address clears it. The user is
+told what changed.
 """
 
 from ..api import Command, CommandError, CommandResult
-from ..directory import DirectoryError
+from ..directory import AmbiguousUser, DirectoryError, describe, find_user, possessive
 from .mail import ADDRESS_RE
 
 # Addresses in a group at most.
@@ -100,4 +107,76 @@ class ClearGroupCommand(SettingsCommand):
         if count:
             self.save(sender, None)
         reply = f"{self.name}: removed {count} address(es)"
+        return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)
+
+
+class SetEmailCommand(Command):
+    """An admin setting a user's qm address and emailall group. The keys it
+    writes are set with qm = "<name>" and group = "<name>" in its config
+    entry (qm and emailall by default)."""
+
+    args = "<name or key> qm [address] group [address ...]"
+    summary = "Set a user's qm address and emailall group; no address clears it"
+
+    def __init__(self, ctx):
+        super().__init__(ctx)
+        self.settings = {"qm": ctx.options.get("qm", "qm"), "group": ctx.options.get("group", "emailall")}
+
+    def parse(self, text):
+        """(key, {"qm"/"group": [addresses]}) for text; raises CommandError."""
+        if not text:
+            raise CommandError(f"usage: {self.usage}")
+        try:
+            found = find_user(self.ctx.users, text)
+        except AmbiguousUser as e:
+            raise CommandError(f"{self.name}: {e}") from None
+        if found is None:
+            raise CommandError(f"{self.name}: no user {text}")
+        key, rest = found
+        parts, part = {}, None
+        for word in rest.split():
+            if word.lower() in self.settings:
+                part = word.lower()
+                if part in parts:
+                    raise CommandError(f"{self.name}: {part} given twice")
+                parts[part] = []
+            elif part is None:
+                raise CommandError(f"usage: {self.usage}")
+            elif not ADDRESS_RE.fullmatch(word):
+                raise CommandError(f"{self.name}: not an email address: {word}")
+            elif word.lower() not in (a.lower() for a in parts[part]):
+                parts[part].append(word)
+        if not parts:
+            raise CommandError(f"usage: {self.usage}")
+        if len(parts.get("qm", [])) > 1:
+            raise CommandError(f"{self.name}: qm takes one address")
+        if len(parts.get("group", [])) > MAX_GROUP:
+            raise CommandError(f"{self.name}: a group holds at most {MAX_GROUP} addresses")
+        return key, parts
+
+    async def execute(self, text, sender):
+        key, parts = self.parse(text)
+        settings = dict(self.ctx.users[key])
+        said = []
+        for part, addresses in parts.items():
+            setting = self.settings[part]
+            if not addresses:
+                settings.pop(setting, None)
+                said.append(f"{setting} cleared")
+            elif part == "qm":
+                settings[setting] = addresses[0]
+                said.append(f"{setting} {addresses[0]}")
+            else:
+                settings[setting] = addresses
+                said.append(f"{setting} {', '.join(addresses)}")
+        directory = self.ctx.directory
+        try:
+            directory.save_user(key, settings)
+        except DirectoryError as e:
+            raise CommandError(f"{self.name}: {directory.name} {e}") from None
+        name = describe(key, self.ctx.users)
+        changes = "; ".join(said)
+        self.ctx.send(key, f"An admin changed your email addresses: {changes}")
+        reply = f"{self.name}: {possessive(name)} {changes}"
+        self.ctx.state.record(self.ctx.name_of(sender), f"set {possessive(name)} {changes} ({key[:12]})")
         return CommandResult(console=f"{self.ctx.name_of(sender)}: {reply}", reply=reply)

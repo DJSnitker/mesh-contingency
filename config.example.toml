@@ -136,6 +136,7 @@ deny = { permission = "admin" }
 setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+setemail = { permission = "admin" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }

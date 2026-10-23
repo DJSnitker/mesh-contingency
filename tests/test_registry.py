@@ -34,7 +34,7 @@ from mesh_contingency.commands.qm import QmCommand
 from mesh_contingency.commands.radio import RadioCommand
 from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
-from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQmCommand
+from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetEmailCommand, SetQmCommand
 from mesh_contingency.commands.status import CheckinsCommand, ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.commands.testalert import TestAlertCommand
 from mesh_contingency.commands.users import (
@@ -63,7 +63,8 @@ BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
             "alertmap": AlertMapCommand, "testalert": TestAlertCommand, "comm": CommCommand, "backup": BackupCommand,
             "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setqm": SetQmCommand,
-            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "users": UsersCommand,
+            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "setemail": SetEmailCommand,
+            "users": UsersCommand,
             "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,
             "whoami": WhoAmICommand, "leave": LeaveCommand}
 EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"

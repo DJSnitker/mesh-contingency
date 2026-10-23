@@ -229,6 +229,7 @@ export const COMMANDS: CommandInfo[] = [
   offer('contact', 'contact remove|path <name or key>'),
   offer('radio', 'radio [name|power|position|clock|reboot|freq ...]'),
   offer('reload', 'reload'),
+  offer('setemail', 'setemail <name or key> qm [address] group [address ...]'),
   offer('testalert', 'testalert'),
   { ...offer('msg', 'msg <name> <message>'), permission: 'user' },
   offer('whois', 'whois <name or key>'),

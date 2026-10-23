@@ -145,4 +145,67 @@ describe('Users', () => {
     const fixture = await render();
     expect(fixture.nativeElement.querySelector('.title button')).toBeNull();
   });
+
+  it("edits a user's qm address and group, sending only what changed", async () => {
+    let reads = 0;
+    api.users = () => {
+      reads++;
+      return of([ALICE]);
+    };
+    const fixture = await render();
+    const element: HTMLElement = fixture.nativeElement;
+    button(element, '.list', 'Edit emails').click();
+    await fixture.whenStable();
+    const qm = element.querySelector<HTMLInputElement>('.emails input')!;
+    const group = element.querySelector<HTMLTextAreaElement>('.emails textarea')!;
+    expect(qm.value).toBe('alice@example.com');
+    expect(group.value).toBe('a@example.com\nb@example.com');
+
+    // Nothing changed: nothing sent.
+    button(element, '.emails', 'Save').click();
+    await fixture.whenStable();
+    expect(api.ran).toEqual([]);
+    expect(element.querySelector('.emails')).toBeNull();
+
+    button(element, '.list', 'Edit emails').click();
+    await fixture.whenStable();
+    const edited = element.querySelector<HTMLTextAreaElement>('.emails textarea')!;
+    edited.value = 'a@example.com, c@example.com\n';
+    edited.dispatchEvent(new Event('input'));
+    button(element, '.emails', 'Save').click();
+    await fixture.whenStable();
+    expect(api.ran).toEqual([['setemail', `${ALICE.key} group a@example.com c@example.com`]]);
+    expect(element.querySelector('.emails')).toBeNull();
+    expect(reads).toBe(2);
+
+    button(element, '.list', 'Edit emails').click();
+    await fixture.whenStable();
+    const field = element.querySelector<HTMLInputElement>('.emails input')!;
+    field.value = '';
+    field.dispatchEvent(new Event('input'));
+    button(element, '.emails', 'Save').click();
+    expect(api.ran[1]).toEqual(['setemail', `${ALICE.key} qm`]);
+  });
+
+  it('keeps the form open when setemail refuses', async () => {
+    api.answer = (command) =>
+      of({ command, messages: ['setemail: not an email address: nope'], asks: false, ok: false });
+    const fixture = await render();
+    const element: HTMLElement = fixture.nativeElement;
+    button(element, '.list', 'Edit emails').click();
+    await fixture.whenStable();
+    const field = element.querySelector<HTMLTextAreaElement>('.emails textarea')!;
+    field.value = 'nope';
+    field.dispatchEvent(new Event('input'));
+    button(element, '.emails', 'Save').click();
+    await fixture.whenStable();
+    expect(element.querySelector('.reply')?.textContent).toContain('not an email address');
+    expect(element.querySelector('.emails')).not.toBeNull();
+  });
+
+  it('offers Edit emails only if the console may run setemail', async () => {
+    api.commands = () => of([]);
+    const element: HTMLElement = (await render()).nativeElement;
+    expect(element.textContent).not.toContain('Edit emails');
+  });
 });
