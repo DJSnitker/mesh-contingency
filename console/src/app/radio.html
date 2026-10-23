@@ -1,0 +1,69 @@
+<header class="title">
+  <div>
+    <h1>Radio</h1>
+    <p class="muted">Controlling the node, not messaging anyone.</p>
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+<mc-reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
+@if (offered()) {
+  @if (has('advert')) {
+    <section class="panel" aria-labelledby="advert-title">
+      <h2 id="advert-title"><mc-icon name="radio" /> Advertise</h2>
+      <p class="muted">
+        Tell other nodes this one is here, so they can add it to their contacts. A flood advert goes
+        across the whole mesh, through the repeaters; use it sparingly.
+      </p>
+      <div class="buttons">
+        <button
+          class="btn btn-ghost"
+          type="button"
+          [disabled]="runner.busy()"
+          (click)="runner.run('advert')"
+        >
+          Advert
+        </button>
+        <button
+          class="btn btn-ghost"
+          type="button"
+          [disabled]="runner.busy()"
+          (click)="runner.run('advert', 'flood')"
+        >
+          Flood advert
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (has('backup')) {
+    <section class="panel" aria-labelledby="backup-title">
+      <h2 id="backup-title"><mc-icon name="archive" /> Backup</h2>
+      <p class="muted">Copy the bot's data (users, messages, check-ins, history) now.</p>
+      <div class="buttons">
+        <button
+          class="btn btn-ghost"
+          type="button"
+          [disabled]="runner.busy()"
+          (click)="runner.run('backup')"
+        >
+          Back up now
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (!has('advert') && !has('backup')) {
+    <p class="panel muted">Nothing here: advert and backup are both turned off.</p>
+  }
+} @else if (!problem()) {
+  <p class="muted">Reading what the console may run…</p>
+}

@@ -1,0 +1,109 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+section {
+  display: grid;
+  gap: 12px;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+
+  label {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    align-items: center;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+
+    &.on {
+      border-color: var(--orange);
+      background: rgb(255 95 31 / 8%);
+    }
+
+    code {
+      justify-self: start;
+    }
+
+    .muted {
+      grid-column: 2;
+      font-size: 0.85rem;
+    }
+  }
+
+  input {
+    accent-color: var(--orange);
+  }
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+
+  .label {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+textarea,
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--text);
+  font: inherit;
+
+  &::placeholder {
+    color: var(--muted);
+  }
+}
+
+select {
+  max-width: 360px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+
+  &.over {
+    color: var(--orange);
+    font-weight: 600;
+  }
+}
+
+.hint {
+  margin: 0;
+  color: var(--orange);
+  font-size: 0.9rem;
+}

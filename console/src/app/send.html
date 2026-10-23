@@ -1,0 +1,113 @@
+<header class="title">
+  <div>
+    <h1>Send</h1>
+    <p class="muted">
+      Everything here goes out as <strong>console</strong>, as an admin would over the radio.
+    </p>
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+@if (offered()) {
+  @if (channels().length) {
+    <section class="panel" aria-labelledby="post-title">
+      <h2 id="post-title"><mc-icon name="send" /> Post to a channel</h2>
+      <p class="muted">Everyone on the channel sees it, under the node's name, at once.</p>
+
+      <div class="choice" role="radiogroup" aria-label="Channel">
+        @for (c of channels(); track c.name) {
+          <label [class.on]="picked()?.name === c.name">
+            <input
+              type="radio"
+              name="channel"
+              [value]="c.name"
+              [checked]="picked()?.name === c.name"
+              (change)="channel.set(c.name)"
+            />
+            <code>{{ c.channel }}</code>
+            <span class="muted">{{ c.summary }}</span>
+          </label>
+        }
+      </div>
+
+      <label class="field">
+        <span class="sr-only">Message to post</span>
+        <textarea
+          rows="3"
+          placeholder="What to post"
+          [value]="post()"
+          (input)="post.set(value($event))"
+          (keydown.control.enter)="sendPost()"
+        ></textarea>
+      </label>
+      <div class="row">
+        <span class="count" [class.over]="tooLong(post().trim(), limit())">
+          {{ post().trim().length }}{{ limit() === null ? '' : ' / ' + limit() }} characters
+        </span>
+        <button class="btn" type="button" [disabled]="!canPost()" (click)="sendPost()">
+          <mc-icon name="send" /> Post to {{ picked()?.channel }}
+        </button>
+      </div>
+      @if (tooLong(post().trim(), limit())) {
+        <p class="hint">A channel post is one message: shorten it, or post it in parts.</p>
+      }
+      <mc-reply
+        [ran]="posting.last()"
+        [busy]="posting.busy()"
+        (confirmed)="posting.confirm()"
+        (dismissed)="posting.dismiss()"
+      />
+    </section>
+  }
+
+  @if (has('msg')) {
+    <section class="panel" aria-labelledby="msg-title">
+      <h2 id="msg-title"><mc-icon name="mail" /> Leave a message</h2>
+      <p class="muted">
+        It waits in their inbox, from console, and they're told it's there. A sealed inbox seals it.
+      </p>
+
+      <label class="field">
+        <span class="label">For</span>
+        <select [value]="to()" (change)="to.set(value($event))">
+          <option value="">Pick a user…</option>
+          @for (u of recipients(); track u.key) {
+            <option [value]="u.key">{{ u.name ?? '?' }} ({{ u.key.slice(0, 8) }})</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span class="sr-only">Message</span>
+        <textarea
+          rows="3"
+          placeholder="The message"
+          [value]="message()"
+          (input)="message.set(value($event))"
+          (keydown.control.enter)="sendMessage()"
+        ></textarea>
+      </label>
+      <div class="row">
+        <span class="count" [class.over]="tooLong(message().trim(), messageLimit)">
+          {{ message().trim().length }} / {{ messageLimit }} characters
+        </span>
+        <button class="btn" type="button" [disabled]="!canMessage()" (click)="sendMessage()">
+          <mc-icon name="mail" /> Leave message
+        </button>
+      </div>
+      <mc-reply
+        [ran]="messaging.last()"
+        [busy]="messaging.busy()"
+        (confirmed)="messaging.confirm()"
+        (dismissed)="messaging.dismiss()"
+      />
+    </section>
+  }
+
+  @if (!channels().length && !has('msg')) {
+    <p class="panel muted">Nothing to send: alert, comm and msg are all turned off.</p>
+  }
+} @else if (!problem()) {
+  <p class="muted">Reading what the console may send…</p>
+}

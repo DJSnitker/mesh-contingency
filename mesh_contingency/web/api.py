@@ -11,7 +11,8 @@ Doing: /api/run runs a command as the admin "console" (api.CONSOLE), through
 the same run_command as a direct message, so its checks, confirmations and
 history entries (by console) are the radio's. It offers the admin and public
 commands that don't act on the sender's own records (Command.own), since the
-console has none.
+console has none, and user commands that only leave something for someone
+else (Command.sends: msg, from "console").
 
 Watching: /api/log sends the lines the bot prints, as server-sent events.
 """
@@ -22,7 +23,8 @@ import time
 
 from aiohttp import web
 
-from ..api import ADMIN, CONSOLE, PUBLIC, is_authorized
+from ..alerts import message_limit
+from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
 from ..commands.health import activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
 from ..commands.mailbox import FILENAME as MAILBOX
@@ -56,6 +58,8 @@ async def overview(request):
     backups = state.backups
     return web.json_response({
         "node": ctx.radio.self_info.get("name") if ctx.radio else None,
+        # The longest channel post (alert, comm) from this node.
+        "channel_limit": message_limit(ctx.radio) if ctx.radio else None,
         "started": state.started,
         "now": time.time(),
         "health": [*await radio_items(ctx), *people_items(ctx), *activity_items(ctx)],
@@ -142,16 +146,21 @@ async def history(request):
 
 def offered(ctx):
     """{name: command} the console may run."""
-    return {name: command for name, command in ctx.commands.items()
-            if command.permission in (ADMIN, PUBLIC) and not command.own
-            and is_authorized(command, CONSOLE, ctx.users, ctx.admins)}
+    def may(command):
+        if command.own:
+            return False
+        if command.permission == USER:
+            return command.sends
+        return command.permission in (ADMIN, PUBLIC) and is_authorized(command, CONSOLE, ctx.users, ctx.admins)
+    return {name: command for name, command in ctx.commands.items() if may(command)}
 
 
 @routes.get("/api/commands")
 async def commands(request):
-    """What /api/run can run, by name."""
+    """What /api/run can run, by name, and where a channel command posts."""
     return web.json_response([
-        {"name": name, "permission": command.permission, "usage": command.usage, "summary": command.summary}
+        {"name": name, "permission": command.permission, "usage": command.usage, "summary": command.summary,
+         "channel": getattr(command, "channel", None)}
         for name, command in sorted(offered(_ctx(request)).items())
     ])
 
@@ -163,7 +172,8 @@ def _error(status, text):
 @routes.post("/api/run")
 async def run(request):
     """{"command": name, "text": what follows it} -> {"messages": the reply,
-    "asks": whether it only asks to send the same again to confirm}."""
+    "asks": whether it only asks to send the same again to confirm, "ok":
+    False if it refused, failed or timed out}."""
     ctx = _ctx(request)
     try:
         asked = await request.json()
@@ -186,7 +196,8 @@ async def run(request):
     answer = await run_command(command, text, CONSOLE, ctx.state)
     if answer.messages:
         print(f"  -> answered the console ({len(answer.messages)} message(s))", flush=True)
-    return web.json_response({"command": command.name, "messages": answer.messages, "asks": answer.asks})
+    return web.json_response({"command": command.name, "messages": answer.messages, "asks": answer.asks,
+                              "ok": answer.ok})
 
 
 @routes.get("/api/log")

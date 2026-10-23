@@ -1,10 +1,20 @@
 import { signal } from '@angular/core';
 import { Observable, of } from 'rxjs';
 
-import { Answer, Checkins, HistoryEntry, JoinRequest, Mailbox, Overview, User } from '../app/api';
+import {
+  Answer,
+  Checkins,
+  CommandInfo,
+  HistoryEntry,
+  JoinRequest,
+  Mailbox,
+  Overview,
+  User,
+} from '../app/api';
 
 export const OVERVIEW: Overview = {
   node: 'Hilltop Node',
+  channel_limit: 119,
   started: 1000,
   now: 1000 + 3 * 3600 + 5 * 60,
   health: ['radio Hilltop Node', 'battery 4.10V', 'users 2 (1 admin)'],
@@ -71,6 +81,19 @@ export const HISTORY: HistoryEntry[] = [
   { time: 800, by: 'KE5ABC', what: 'posted an alert to #contingency-wx' },
 ];
 
+function offer(name: string, usage: string, channel: string | null = null): CommandInfo {
+  return { name, permission: 'admin', usage, summary: `${name} summary`, channel };
+}
+
+export const COMMANDS: CommandInfo[] = [
+  offer('advert', 'advert [flood]'),
+  offer('alert', 'alert <message>', '#contingency-wx'),
+  offer('backup', 'backup'),
+  offer('comm', 'comm <message>', '#contingency-comm'),
+  { ...offer('msg', 'msg <name> <message>'), permission: 'user' },
+  offer('whois', 'whois <name or key>'),
+];
+
 /** Stands in for EventSource, which jsdom doesn't have. */
 export class FakeEventSource {
   onopen: (() => void) | null = null;
@@ -105,10 +128,11 @@ export class FakeApi {
   users: () => Observable<User[]> = () => of([ADMIN, ALICE]);
   requests: () => Observable<JoinRequest[]> = () => of([CAROL]);
   checkins: () => Observable<Checkins> = () => of(CHECKINS);
+  commands: () => Observable<CommandInfo[]> = () => of(COMMANDS);
   inbox: () => Observable<Mailbox[]> = () => of(MAILBOXES);
   history: () => Observable<HistoryEntry[]> = () => of(HISTORY);
   answer: (command: string, text: string) => Observable<Answer> = (command) =>
-    of({ command, messages: [`${command}: done`], asks: false });
+    of({ command, messages: [`${command}: done`], asks: false, ok: true });
   readonly ran: [string, string][] = [];
   run(command: string, text = ''): Observable<Answer> {
     this.ran.push([command, text]);

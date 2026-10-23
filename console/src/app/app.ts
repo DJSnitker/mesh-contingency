@@ -11,6 +11,8 @@ export const PAGES = [
   { path: '/checkins', label: 'Check-ins', icon: 'check' },
   { path: '/inbox', label: 'Inbox', icon: 'inbox' },
   { path: '/history', label: 'History', icon: 'clock' },
+  { path: '/send', label: 'Send', icon: 'send' },
+  { path: '/radio', label: 'Radio', icon: 'radio' },
 ];
 
 @Component({

@@ -5,6 +5,8 @@ import { Observable, catchError, throwError } from 'rxjs';
 /** GET /api/overview (mesh_contingency/web/api.py). Times are seconds since 1970. */
 export interface Overview {
   node: string | null;
+  /** The longest channel post (alert, comm) from this node, or null with no radio. */
+  channel_limit: number | null;
   started: number;
   now: number;
   health: string[];
@@ -68,7 +70,22 @@ export interface Answer {
   messages: string[];
   /** The reply only asks to send the same again to confirm. */
   asks: boolean;
+  /** False if it refused, failed or timed out: the messages say why. */
+  ok: boolean;
 }
+
+/** One of GET /api/commands: what /api/run can run. */
+export interface CommandInfo {
+  name: string;
+  permission: string;
+  usage: string;
+  summary: string;
+  /** Where a channel command (alert, comm) posts. */
+  channel: string | null;
+}
+
+/** The longest text /api/run takes. */
+export const MAX_TEXT = 500;
 
 /** One line of GET /api/log. */
 export interface LogLine {
@@ -111,6 +128,10 @@ export class Api {
 
   history(): Observable<HistoryEntry[]> {
     return this.get<HistoryEntry[]>('/api/history');
+  }
+
+  commands(): Observable<CommandInfo[]> {
+    return this.get<CommandInfo[]>('/api/commands');
   }
 
   /** Run a command as the admin "console", as if sent over the radio. */

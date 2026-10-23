@@ -43,6 +43,16 @@ may change how the bot is configured).
   they say. History lists admin actions, newest first, with a filter. The
   dashboard's check-ins and messages tiles link to them, and on a phone the
   page links wrap instead of running off the screen.
+- **Web console, part 6: send and radio.** A Send page posts to
+  `#contingency-wx` or `#contingency-comm`, with a character count against
+  the one-message limit, or leaves a message in a user's inbox (from
+  `console`; they're told it's waiting). It offers only what the console may
+  run, and keeps the text when the bot refuses. A Radio page, apart from the
+  messages, has the controls: Advert, Flood advert and Back up now.
+  `/api/run` now also says `"ok": false` when a command refused, failed or
+  timed out; `/api/commands` gives each channel command's `channel`;
+  `/api/overview` gives `channel_limit`. A user command can set
+  `Command.sends = True` (as `msg` does) to be offered to the console.
 
 ### Changed
 

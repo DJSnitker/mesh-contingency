@@ -28,10 +28,12 @@ describe('Runner', () => {
   });
 
   it('waits for confirm when the command asks, then sends the same again', () => {
-    api.answer = (command) => of({ command, messages: ['remove: this removes Bob…'], asks: true });
+    api.answer = (command) =>
+      of({ command, messages: ['remove: this removes Bob…'], asks: true, ok: true });
     runner.run('remove', 'b0');
     expect(done).toBe(0);
-    api.answer = (command) => of({ command, messages: ['remove: Bob removed'], asks: false });
+    api.answer = (command) =>
+      of({ command, messages: ['remove: Bob removed'], asks: false, ok: true });
     runner.confirm();
     expect(api.ran).toEqual([
       ['remove', 'b0'],

@@ -240,6 +240,10 @@ class Command(ABC):
     # Set True when the command acts on the sender's own records (join asks
     # to join, ok checks in): the web console, which has none, doesn't offer it.
     own = False
+    # Set True when the command only leaves something for someone else (msg)
+    # and touches nothing of the sender's: the web console then offers it even
+    # where only users may run it.
+    sends = False
     # Uses allowed per sender, as (count, seconds), or None for no limit; set
     # from the config when the command is loaded.
     rate = None

@@ -32,7 +32,7 @@ export class Runner {
   readonly busy = signal(false);
   readonly last = signal<Ran | null>(null);
   /** Called after a command that may have changed something has run. */
-  onDone: () => void = () => undefined;
+  onDone: (answer: Answer) => void = () => undefined;
 
   run(command: string, text = ''): void {
     if (this.busy()) {
@@ -44,7 +44,7 @@ export class Runner {
         this.busy.set(false);
         this.last.set({ command, text, answer });
         if (!answer.asks) {
-          this.onDone();
+          this.onDone(answer);
         }
       },
       error: (error: HttpErrorResponse) => {
@@ -84,7 +84,7 @@ export class Runner {
       <section
         class="panel reply"
         [class.asks]="r.answer?.asks"
-        [class.failed]="r.error"
+        [class.failed]="r.error || r.answer?.ok === false"
         role="status"
         aria-live="polite"
       >

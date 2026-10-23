@@ -27,6 +27,8 @@ describe('App', () => {
       'Check-ins',
       'Inbox',
       'History',
+      'Send',
+      'Radio',
     ]);
   });
 

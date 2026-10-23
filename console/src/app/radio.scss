@@ -1,0 +1,19 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+section {
+  display: grid;
+  gap: 12px;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
