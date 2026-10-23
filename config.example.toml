@@ -71,8 +71,9 @@ errors = 3               # commands failed or timed out within 30 min; 0 for no 
 # The web console: the node in a browser on this computer (see "Web console"
 # in the README). Needs aiohttp, pip install -e ".[console]", and its app
 # built: npm ci && npm run build in console/. Each start writes the link to
-# open it, with a new key, to console.url next to this file. It listens on
-# 127.0.0.1 only; host may be 127.0.0.1 or localhost.
+# open it, with a new key, to console.url next to this file; the
+# mesh-contingency-console command opens it. It listens on 127.0.0.1 only;
+# host may be 127.0.0.1 or localhost.
 [console]
 enabled = false
 port = 8737

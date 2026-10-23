@@ -117,6 +117,7 @@ jobs:
         working-directory: /tmp
         run: |
           /tmp/venv/bin/mesh-contingency --help
+          /tmp/venv/bin/mesh-contingency-console --help
           /tmp/venv/bin/python - <<'EOF'
           import asyncio
           import os
