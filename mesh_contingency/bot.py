@@ -557,9 +557,9 @@ async def _main(output):
             else:
                 print(f"  -> {command.name} limit reached; not replying", flush=True)
             return
-        messages = await run_command(command, text, sender, state)
+        answer = await run_command(command, text, sender, state)
         # A long reply comes as several messages, sent in order.
-        for text in messages:
+        for text in answer.messages:
             await reply(msg, sender, text)
             print(f"  -> replied ({len(text)} chars)" + ("" if private else f": {text}"), flush=True)
 

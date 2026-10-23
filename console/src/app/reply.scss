@@ -1,0 +1,60 @@
+// No box of its own, so an empty reply leaves no gap in the page's grid.
+:host {
+  display: contents;
+}
+
+.reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-color: rgb(56 189 248 / 35%);
+
+  > mc-icon {
+    margin-top: 2px;
+    color: var(--sky);
+  }
+
+  &.asks,
+  &.failed {
+    border-color: rgb(255 95 31 / 50%);
+
+    > mc-icon {
+      color: var(--orange);
+    }
+  }
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+
+  p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  p + p {
+    margin-top: 4px;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.close {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+  }
+}

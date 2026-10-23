@@ -162,7 +162,8 @@ def _error(status, text):
 
 @routes.post("/api/run")
 async def run(request):
-    """{"command": name, "text": what follows it} -> {"messages": the reply}."""
+    """{"command": name, "text": what follows it} -> {"messages": the reply,
+    "asks": whether it only asks to send the same again to confirm}."""
     ctx = _ctx(request)
     try:
         asked = await request.json()
@@ -182,10 +183,10 @@ async def run(request):
     if wait:
         print(f"  -> {command.name} limit reached", flush=True)
         return _error(429, f"{command.name}: limit reached, try again in {wait_text(wait)}")
-    messages = await run_command(command, text, CONSOLE, ctx.state)
-    if messages:
-        print(f"  -> answered the console ({len(messages)} message(s))", flush=True)
-    return web.json_response({"command": command.name, "messages": messages})
+    answer = await run_command(command, text, CONSOLE, ctx.state)
+    if answer.messages:
+        print(f"  -> answered the console ({len(answer.messages)} message(s))", flush=True)
+    return web.json_response({"command": command.name, "messages": answer.messages, "asks": answer.asks})
 
 
 @routes.get("/api/log")

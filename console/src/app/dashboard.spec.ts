@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { Api } from './api';
@@ -19,7 +20,9 @@ describe('Dashboard', () => {
 
   beforeEach(() => {
     api = new FakeApi();
-    TestBed.configureTestingModule({ providers: [{ provide: Api, useValue: api }] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: Api, useValue: api }],
+    });
   });
 
   async function render(): Promise<HTMLElement> {
