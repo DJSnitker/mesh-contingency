@@ -458,6 +458,10 @@ them automatically.
 - Internet access for `wx` ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)
   and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys).
   `verse` works offline.
+- Optional, for the [web console](#web-console): [Node.js](https://nodejs.org)
+  22.22+ or 24.15+ with npm, to build its app from this folder (only once per
+  update; the bot doesn't need Node.js to run). Its fonts are bundled, so it
+  works without the internet.
 
 ## Setup
 
@@ -805,12 +809,76 @@ learns the node from its advert, and the node adds theirs when it hears it
 So for a new user: ask them to advert from their app, send `advert flood` (or
 `advert` if they're in range), and check with `contacts <their name>`.
 
+### Web console
+
+The node can also be run from a browser on its own computer, without a radio
+in hand and without 133-character replies. It's off by default. To turn it
+on:
+
+1. Install its extra, and build the app (needs [Node.js](#requirements); a
+   wheel built with `python -m build` already has the app inside):
+   ```sh
+   .venv/bin/pip install -e ".[console]"
+   cd console && npm ci && npm run build && cd ..
+   ```
+2. In `config.toml`:
+   ```toml
+   [console]
+   enabled = true
+   port = 8737          # the default
+   ```
+3. Restart the bot. It prints the link, with a key, and writes it to
+   `console.url` next to `config.toml` (readable only by you):
+   ```
+   Web console: http://127.0.0.1:8737/?key=... (also in /home/you/mesh-contingency/console.url)
+   ```
+   Open it in a browser on that computer. The key moves into a cookie and
+   leaves the address bar, so after that `http://127.0.0.1:8737/` is enough,
+   until the bot restarts: each start makes a new key, and the page then
+   says to open the new link.
+
+Its pages:
+
+- **Dashboard:** users, join requests, check-ins and messages waiting, the
+  node watch, the last backup, `health`, and a live log of what the bot
+  prints (as in the journal, with private commands' text left out).
+- **Users:** every user and admin with their settings, last seen, check-in
+  and messages, with **Whois**, **Reset passphrase** and **Remove**; and the
+  join requests waiting, with **Approve** and **Deny**.
+- **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
+  **Clear check-ins**.
+- **Inbox:** who has messages waiting, from whom, read or not, sealed or not.
+  Never what they say: that stays for the recipient, over the radio.
+- **History:** what admins have done, newest first, with a filter.
+- **Send:** post to `#contingency-wx` or `#contingency-comm` (with a count
+  against the one-message limit), or leave a message in a user's inbox.
+- **Radio:** **Advert**, **Flood advert** and **Back up now**.
+
+Everything it does runs the same commands as over the radio, as an admin
+called `console`: the same checks, rate limits and confirmations (`remove`
+asks first, and the page shows a **Confirm** button), and `history` records
+them `by console`. A message left from the Send page is `from console`.
+Commands turned off in `config.toml` aren't offered. It doesn't edit
+`config.toml`, and it can't read sealed messages.
+
+It answers only on `127.0.0.1` (`host = "localhost"` is the only other
+choice), so other computers can't reach it; see
+[Security notes](#security-notes). If the port is taken, the bot says
+`Warning: web console not started: port 8737 can't be used (...)` and runs
+without it; set another `port`. Without a build it says `Note: the web
+console's app isn't built, so only its API answers`. After a `git pull` that
+changes `console/`, build again and restart the bot. Working on the app
+itself: see [`console/README.md`](console/README.md).
+
 ## Testing
 
 ```sh
 .venv/bin/python -m unittest
 .venv/bin/pip install -e ".[dev]" && .venv/bin/ruff check .   # lint
 ```
+
+The web console's tests need aiohttp (`pip install -e ".[console]"`) and are
+skipped without it; its app has its own (`npm test` in `console/`).
 
 The tests use only the standard library. Network calls, the `mail` command
 and the radio are all faked (see `mesh_contingency/testing.py`), so they run
@@ -823,13 +891,17 @@ Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
 
 - **Tests** on Python 3.11, 3.12, 3.13 and 3.14.
 - **Lint** with [ruff](https://docs.astral.sh/ruff/); the rules are in `pyproject.toml`.
-- **Package**: builds the wheel, checks the Bible data and command
-  registrations are inside it, installs it with `examples/mesh-dice`, and runs
-  a verse lookup and a dice roll through the installed commands.
+- **Package**: builds the web console's app and the wheel, checks the Bible
+  data, the app and the command registrations are inside it, installs it
+  with `examples/mesh-dice`, and runs a verse lookup and a dice roll through
+  the installed commands.
+- **Web console app**: formatting (Prettier), unit tests (Vitest) and the
+  build, in `console/`.
 
 The PR template has a short checklist. Never include real data (your
 `config.toml` or `users.toml`, email addresses, node keys) in code, tests or issues.
-Dependabot opens weekly PRs to update GitHub Actions and Python dependencies.
+Dependabot opens weekly PRs to update GitHub Actions, Python dependencies and
+the web console's npm packages.
 
 ## Project layout
 
@@ -847,10 +919,13 @@ mesh_contingency/
   output.py           escaping terminal control codes in everything printed
   console.py          commands typed into the bot's terminal, scheduled adverts
   bot.py              entry point: radio connection, permissions, dispatch, replies
+  running.py          running a command and turning its result into reply messages
   testing.py          fake radio and make_context() for testing commands
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
+  web/                the web console: [console] settings, server.py (key, cookie and
+                      host checks; serving the app), api.py (the JSON API), static/ (the build)
   bible/
     __init__.py       reference parsing and verse lookup
     bsb.json.gz       the bundled Berean Standard Bible
@@ -869,6 +944,7 @@ mesh_contingency/
     users.py          users, whois, remove, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
     qm.py, emailall.py, email.py
+console/              the web console's Angular app (see console/README.md)
 examples/mesh-dice/   an example third-party command package
 .github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
@@ -935,7 +1011,14 @@ your `CommandResult` free of that text too.
 For something that can't be undone, `Confirmations` from `mesh_contingency.api`
 asks first: `if not self.confirmations.confirmed(sender.public_key, what):`
 reply with what would happen; the same request again within 5 minutes
-confirms it.
+confirms it. Return that question as `CommandResult(..., asks=True)`, so the
+[web console](#web-console) shows a **Confirm** button.
+
+The web console runs admin and public commands as the admin `console`. Set
+`own = True` on a command that acts on the sender's own records (as `join`
+and `ok` do), which the console has none of, so it isn't offered there; and
+`sends = True` on a user command that only leaves something for someone else
+(as `msg` does), so it is.
 
 ### What a command gets and returns
 
@@ -1042,6 +1125,17 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
   pinned to commit SHAs; Dependabot proposes updates to both.
 - Rate limits and email caps (see [Limits](#limits)) are per sender and kept
   in memory; restarting the bot resets them.
+- The [web console](#web-console) listens only on `127.0.0.1`, never the
+  network. Every request needs the key the bot makes at each start (in the
+  link, then an `HttpOnly`, `SameSite=Strict` cookie), so other accounts on
+  the computer can't use it; `console.url` is readable only by you. Only
+  requests addressed to `127.0.0.1:<port>` or `localhost:<port>` are
+  answered, and anything that changes something needs the console's own
+  `Origin`, so web pages in your browser can't use it either, even with DNS
+  rebinding. Every response forbids loading anything from elsewhere and
+  being framed. Sealed text, sealing keys and message text never leave the
+  node this way. Anyone who can use your account on that computer can use
+  the console as an admin, as they could edit `users.toml`.
 
 ## License
 
