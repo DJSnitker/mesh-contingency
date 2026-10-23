@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing done, 0.8.1 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.1)
+Status: every item but field testing done, 0.8.2 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.2)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -30,8 +30,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 13 | The weather now on the dashboard | feature | medium | done |
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
+| 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
 
-Recommended order: everything but field testing is done and released (0.8.1). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
+Recommended order: everything but field testing is done and released (0.8.2). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -44,7 +45,9 @@ Where things stood on 2026-10-23:
   settings), released as **0.8.0** (#59, tag `v0.8.0`). The wiki's Admin
   Guide has "Use the web console" and "Change the radio's settings". Then
   #60 (`wx Taylor, TX`: a county as well as a zipcode), released as
-  **0.8.1** (this PR, tag `v0.8.1`); the wiki's Commands page covers it.
+  **0.8.1** (#61, tag `v0.8.1`); the wiki's Commands page covers it. Then
+  #62 (`setemail` and the console's Edit emails), released as **0.8.2** (this
+  PR, tag `v0.8.2`); the wiki's Commands page and Admin Guide cover it.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is

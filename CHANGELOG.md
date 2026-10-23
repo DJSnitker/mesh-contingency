@@ -7,6 +7,11 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-23
+
+Admins can set a user's email addresses, over the radio or from the console.
+Pull request #62.
+
 ### Added
 
 - **Admins can set a user's email addresses:** `setemail <name or key> qm
@@ -15,9 +20,13 @@ may change how the bot is configured).
   user what changed. The console's Users page has an Edit emails button on
   each user that does the same.
 
-### Upgrading
+### Upgrading from 0.8.1
 
-Add `setemail = { permission = "admin" }` under `[commands]` in
+```sh
+git pull
+```
+
+Then add `setemail = { permission = "admin" }` under `[commands]` in
 `config.toml` (without it the command is off, with a warning at startup),
 rebuild the console (`npm ci && npm run build` in `console/`) and restart the
 bot.
@@ -514,6 +523,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.8.2]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.2
 [0.8.1]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.1
 [0.8.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.0
 [0.7.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.7.0
