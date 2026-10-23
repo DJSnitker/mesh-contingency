@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 import tempfile
+import time
 import tomllib
 import unittest
 from pathlib import Path
@@ -74,6 +75,7 @@ email = { permission = "user" }
 advert = { permission = "admin" }
 contacts = { permission = "admin" }
 contact = { permission = "admin" }
+radio = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -241,7 +243,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.clock = 1000.0
         self.out = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.out))
-        self.enterContext(mock.patch("mesh_contingency.bot.time", SimpleNamespace(monotonic=lambda: self.clock)))
+        self.enterContext(mock.patch("mesh_contingency.bot.time",
+                                     SimpleNamespace(monotonic=lambda: self.clock, time=time.time)))
         self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial",
                                      mock.AsyncMock(return_value=self.radio)))
         self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", str(config_file)]
@@ -316,6 +319,29 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         # Not taken as a command, nor answered.
         self.assertEqual(self.replies(), [])
 
+    async def test_a_right_clock_is_left_alone(self):
+        await self.start()
+        self.assertEqual([c for c, _ in self.radio.settings_calls], [])
+        self.assertNotIn("radio's clock", self.out.getvalue())
+
+    async def test_the_radios_clock_is_set_at_startup(self):
+        radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
+        radio.clock = time.time() - 4 * 3600 - 125  # after a reboot: it keeps no time
+        await self.start(radio=radio)
+        [(call, (when,))] = self.radio.settings_calls
+        self.assertEqual(call, "set_time")
+        self.assertAlmostEqual(when, time.time(), delta=5)
+        self.assertIn("Set the radio's clock from the computer's: it was 4h 2m behind.\n", self.out.getvalue())
+
+    async def test_a_clock_the_radio_wont_take_is_a_warning(self):
+        radio = FakeMeshCore({DANA: "Dana", ADMIN_KEY: "Admin"})
+        radio.clock = 1000.0
+        radio.settings_result = event(EventType.ERROR, {})
+        await self.start(radio=radio)
+        self.assertIn("Warning: couldn't set the radio's clock; set it from the web console (radio clock).\n",
+                      self.out.getvalue())
+        self.assertFalse(self.task.done())  # it runs on
+
     async def test_startup(self):
         await self.start()
         # No channel messages
@@ -325,9 +351,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
-        self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, reload, clearstatus, checkins, health, "
-                      "history, alert, alertmap, testalert, comm, backup, approve, deny, users, whois, remove, "
-                      "resetpass\n", out)
+        self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, radio, reload, clearstatus, checkins, "
+                      "health, history, alert, alertmap, testalert, comm, backup, approve, deny, users, whois, "
+                      "remove, resetpass\n", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
         self.assertIn("disabled commands (nobody): none", out)
         self.assertIn("Warning: no user has emailall addresses in users.toml.", out)
@@ -576,6 +602,38 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         # Kept for the next start, which tells the admins how long it was gone.
         lost = json.loads((self.users_file.parent / "watch.json").read_text())["lost"]
         self.assertEqual(lost["reason"], "reconnect_failed")
+
+    async def restart_hook(self):
+        """Start the bot, and return the state.restart it sets."""
+        states = []
+        real_state = bot.State
+
+        def keep(*args, **kwargs):
+            states.append(real_state(*args, **kwargs))
+            return states[-1]
+
+        self.enterContext(mock.patch("mesh_contingency.bot.State", keep))
+        self.enterContext(mock.patch("mesh_contingency.bot.RESTART_SECONDS", 0))
+        await self.start()
+        return states[0].restart
+
+    async def test_a_restart_asked_for_stops_the_bot_with_an_error(self):
+        restart = await self.restart_hook()
+        restart("the radio was rebooted from the console")
+        self.assertEqual(await self.task, 1)  # so the service starts it again
+        self.assertIn("Restarting: the radio was rebooted from the console.", self.out.getvalue())
+        watch = self.users_file.parent / "watch.json"
+        self.assertNotIn("lost", json.loads(watch.read_text()) if watch.exists() else {})  # not told to the admins
+
+    async def test_the_radio_dropping_during_a_restart_isnt_a_lost_radio(self):
+        restart = await self.restart_hook()
+        with mock.patch("mesh_contingency.bot.RESTART_SECONDS", 60):  # the drop comes first
+            restart("the radio was rebooted from the console")
+        await self.radio.deliver(EventType.DISCONNECTED, {"reason": "reconnect_failed"})
+        self.assertEqual(await self.task, 1)
+        self.assertNotIn("Lost the radio", self.out.getvalue())
+        watch = self.users_file.parent / "watch.json"
+        self.assertNotIn("lost", json.loads(watch.read_text()) if watch.exists() else {})
 
     async def test_our_own_disconnect_isnt_a_lost_radio(self):
         await self.start()
@@ -926,9 +984,10 @@ permission = "public"
         self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in parts.
-        parts = split_reply("commands: help, wx, verse, advert, contacts, contact, reload, ok, status, clearstatus, "
-                            "checkins, health, history, alert, alertmap, testalert, comm, backup, join, approve, "
-                            "deny, users, whois, remove, resetpass, echo, slow, secret. Send help <command> for usage")
+        parts = split_reply("commands: help, wx, verse, advert, contacts, contact, radio, reload, ok, status, "
+                            "clearstatus, checkins, health, history, alert, alertmap, testalert, comm, backup, join, "
+                            "approve, deny, users, whois, remove, resetpass, echo, slow, secret. Send help <command> "
+                            "for usage")
         self.assertGreater(len(parts), 1)
         self.assertEqual(replies[1:1 + len(parts)], parts)
         self.assertEqual(replies[1 + len(parts):], ["wx <zipcode> - Weather, precipitation and alerts for a US zipcode",

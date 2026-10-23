@@ -21,6 +21,8 @@ radio started along with the computer (a power cut, an update, someone
 rebooting it), that's what it says instead: not a problem with the radio. And when
 the bot stopped because it lost the radio (an unplugged USB cable), it says
 for how long once the radio is back, since nobody could be told meanwhile.
+A reboot asked for from the web console (radio reboot, radio freq) is only
+logged: whoever asked knows.
 
 A problem is announced at most once an hour, so a value going back and forth
 can't flood the mesh; its "ok again" follows once, and only on evidence that
@@ -201,6 +203,12 @@ class NodeWatch:
         self.store.data["lost"] = {"time": time.time(), "reason": reason}
         self.store.save()
 
+    def rebooting(self, why):
+        """The radio is about to be rebooted on purpose (and the bot with
+        it): its restart, seen by the next run of the bot, isn't news."""
+        self.store.data["rebooting"] = {"time": time.time(), "why": why}
+        self.store.save()
+
     def event(self, kind, text, now, heading="Node problem"):
         """A one-off notice (no "ok again"), at most once an hour per kind."""
         text = f"{heading}: {text}"
@@ -229,6 +237,14 @@ class NodeWatch:
         now = time.time()
         restarted = self.check_restart(stats["uptime_secs"], now) if "uptime_secs" in stats else None
         lost = self.store.data.get("lost")
+        planned = self.store.data.get("rebooting")
+        # Only one from before this run of the bot, and only for its first check.
+        if isinstance(planned, dict) and isinstance(planned.get("time"), (int, float)) and \
+                planned["time"] < self.state.started:
+            del self.store.data["rebooting"]
+            if restarted and restarted >= planned["time"] - RESTART_SLACK:
+                print(f"Watch: the radio restarted {ago(restarted, now)}: {planned.get('why', '?')}", flush=True)
+                restarted = None
         # Only one from before this run of the bot: the radio is back since.
         if isinstance(lost, dict) and isinstance(lost.get("time"), (int, float)) and lost["time"] < self.state.started:
             del self.store.data["lost"]

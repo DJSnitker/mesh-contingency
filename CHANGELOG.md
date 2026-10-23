@@ -56,9 +56,27 @@ may change how the bot is configured).
   (`testalert`, which asks first, as it goes out on the air) and **Look up
   counties again** (`alertmap`) on Area Weather, and **Reload users file**
   (`reload`) on Users.
+- **`radio`**, an admin command (`radio = { permission = "admin" }` under
+  `[commands]`): the radio's name, frequency, bandwidth, SF and CR with the
+  MeshCore presets that match, TX power, position, clock and firmware. Over
+  the mesh it only shows them; from the web console it changes them:
+  `radio name`, `power`, `position`, `clock`, `reboot` (asks first) and
+  `freq` (a preset or the four values; asks first and says how to go back).
+  After a reboot or a new frequency the bot stops with an error, for the
+  service to start it again. The console's Radio page has a **Settings** tab,
+  first, with a form for each, and the frequency set apart: it waits for the
+  node's name to be typed. New in the API: `/api/radio` (never the radio's
+  Bluetooth PIN).
+
+- **The radio's clock is set at startup** from the computer's when it's 5 s
+  or more off (`Set the radio's clock from the computer's: it was 4h 2m
+  behind.`): the radio keeps no time across a reboot or a power cut, and
+  dates its messages and adverts by it.
 
 ### Changed
 
+- **The node watch doesn't announce a reboot from the web console**
+  (`radio reboot`, `radio freq`) as a problem; it's only logged.
 - **The web console's menu:** the Dashboard first, set apart by a line, then
   the other pages A–Z.
 - `scripts/demo_console.py`: the web console on made-up data, to try it

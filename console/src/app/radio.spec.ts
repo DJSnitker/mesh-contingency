@@ -19,9 +19,13 @@ describe('Radio', () => {
     TestBed.configureTestingModule({ providers: [{ provide: Api, useValue: api }] });
   });
 
-  async function render() {
+  /** The page, on a tab (Settings, the first, opens by itself). */
+  async function render(tab = 'contacts') {
     const fixture = TestBed.createComponent(Radio);
     await fixture.whenStable();
+    if (tab !== 'settings') {
+      await open(fixture, tab);
+    }
     return fixture;
   }
 
@@ -215,13 +219,16 @@ describe('Radio', () => {
     );
   });
 
-  it('shows contacts or channels, a tab each, with their counts', async () => {
-    const fixture = await render();
+  it('shows settings, contacts or channels, a tab each, with their counts', async () => {
+    const fixture = await render('settings');
     const element: HTMLElement = fixture.nativeElement;
-    expect(tabs(element)).toEqual(['Contacts 2 *', 'Channels 3']);
+    expect(tabs(element)).toEqual(['Settings *', 'Contacts 2', 'Channels 3']);
+    expect(element.querySelector('[role=tabpanel] mc-radio-settings')).not.toBeNull();
+    await open(fixture, 'contacts');
+    expect(tabs(element)).toEqual(['Settings', 'Contacts 2 *', 'Channels 3']);
     expect(element.querySelector('[role=tabpanel]')?.id).toBe('contacts-panel');
     await open(fixture, 'channels');
-    expect(tabs(element)).toEqual(['Contacts 2', 'Channels 3 *']);
+    expect(tabs(element)).toEqual(['Settings', 'Contacts 2', 'Channels 3 *']);
     expect(element.querySelector('.contacts')).toBeNull();
     expect(element.querySelector('[role=tabpanel]')?.getAttribute('aria-labelledby')).toBe(
       'channels-tab',
@@ -236,13 +243,13 @@ describe('Radio', () => {
     const contacts = element.querySelector<HTMLElement>('#contacts-tab')!;
     contacts.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     await fixture.whenStable();
-    expect(tabs(element)[1]).toBe('Channels 3 *');
+    expect(tabs(element)[2]).toBe('Channels 3 *');
     expect(document.activeElement?.id).toBe('channels-tab');
     element
       .querySelector<HTMLElement>('#channels-tab')!
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     await fixture.whenStable();
-    expect(tabs(element)[0]).toBe('Contacts 2 *'); // round to the first
+    expect(tabs(element)[0]).toBe('Settings *'); // round to the first
   });
 
   async function openMessages(fixture: Awaited<ReturnType<typeof render>>, label: string) {

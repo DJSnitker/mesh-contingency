@@ -2,7 +2,7 @@
 
 Reading: the same things health, whois, checkins, inbox, history and
 contacts show over the radio, as tables instead of 140-character pages, and
-the radio's channel slots (not their keys).
+the radio's channel slots (not their keys) and settings.
 Times are time.time() seconds; keys are full public keys. A sealed message's text, a
 user's sealing key and message text in general never leave the node this
 way: the inbox lists who has mail, from whom and when, as inbox does without
@@ -32,9 +32,12 @@ from ..commands.health import RADIO_SECONDS, activity_items, people_items, radio
 from ..commands.join import FILENAME as REQUESTS
 from ..commands.mailbox import FILENAME as MAILBOX
 from ..commands.mailbox import INBOX_KEY
+from ..commands.radio import BANDWIDTHS, matching_presets
 from ..commands.status import FILENAME as STATUSES
 from ..contacts import TYPE_NAMES
 from ..limits import wait_text
+from ..radio_presets import PRESETS
+from ..radio_presets import TAKEN as PRESETS_TAKEN
 from ..running import run_command
 from ..state import HISTORY_FILE
 from ..watch import LABELS, ask_radio
@@ -270,6 +273,36 @@ async def channel_messages(request):
         return _error(404, "no such channel slot")
     return web.json_response({"slot": slot, "keep": log.keep if log else None,
                               "messages": log.messages(slot) if log else None})
+
+
+@routes.get("/api/radio")
+async def radio(request):
+    """The radio's own settings, as radio shows them, and MeshCore's presets
+    for the console to offer. clock_offset is the radio's clock minus the
+    computer's, in seconds (null if it didn't say). Never its Bluetooth PIN."""
+    radio = _ctx(request).radio
+    if radio is None:
+        return web.json_response(None)
+    info = radio.self_info
+    device = await ask_radio(radio.commands.send_device_query, EventType.DEVICE_INFO, RADIO_SECONDS) or {}
+    clock = await ask_radio(radio.commands.get_time, EventType.CURRENT_TIME, RADIO_SECONDS) or {}
+    four = [info.get(k) for k in ("radio_freq", "radio_bw", "radio_sf", "radio_cr")]
+    return web.json_response({
+        "name": info.get("name"),
+        "freq": four[0], "bw": four[1], "sf": four[2], "cr": four[3],
+        "presets_matching": matching_presets(*four) if None not in four else [],
+        "tx_power": info.get("tx_power"), "max_tx_power": info.get("max_tx_power"),
+        "lat": info.get("adv_lat"), "lon": info.get("adv_lon"),
+        "shares_position": bool(info.get("adv_loc_policy")),
+        "clock_offset": clock["time"] - time.time() if clock.get("time") else None,
+        "model": device.get("model"), "version": device.get("ver"), "build": device.get("fw_build"),
+        "path_hash_mode": device.get("path_hash_mode"),
+        "manual_add_contacts": info.get("manual_add_contacts"),
+        "bandwidths": list(BANDWIDTHS),
+        "presets": [{"title": title, "freq": freq, "bw": bw, "sf": sf, "cr": cr, "path_hash_size": size}
+                    for title, freq, bw, sf, cr, size in PRESETS],
+        "presets_taken": PRESETS_TAKEN,
+    })
 
 
 def offered(ctx):

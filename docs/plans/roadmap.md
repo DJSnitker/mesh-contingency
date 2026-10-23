@@ -516,6 +516,30 @@ API adds the radio's settings to an `/api/radio` read. Tests with
 `FakeMeshCore` (it needs the new calls); then try each on the node's Heltec
 V3, the frequency change last and on a spare radio if one arrives.
 
+- **Done (12b):** decided 2026-10-23: **everything console only** (over the
+  mesh `radio` only shows the settings), and the frequency change included.
+  The console reaches the radio over USB, so a wrong frequency cuts off the
+  mesh, not the console: the confirm says what to send to go back. The
+  presets are MeshCore's (radio_presets.py, copied from
+  api.meshcore.nz/api/v1/config on 2026-10-23; a preset's path hash size is
+  left alone). `radio reboot` and `radio freq` ask first, then call
+  `state.restart`: the bot stops 2 s later with exit 1 for systemd to start
+  it again, and the radio dropping meanwhile isn't a lost radio. The
+  Settings tab is first on the Radio page; the frequency button waits for
+  the node's name. `/api/radio` never includes `ble_pin`. Changing channels
+  still stays with the MeshCore app.
+- **Tried on the node's Heltec V3 (2026-10-23):** the read (USA preset, 22/22
+  dBm, no position, firmware v1.18.0); `radio clock` (it was 3h 26m behind);
+  rename and back; `radio reboot` twice. The bot stopped 2 s after, and came
+  back 67 s after the reboot: both times its first reconnect, 30 s on,
+  failed ("Could not connect"), as after #41's computer reboot, and the next
+  worked. The first reboot DM'd the admin "Node problem: the radio
+  restarted", so `radio` now tells the watch first (`rebooting` in
+  watch.json) and the next run only logs it; the second reboot showed that.
+  **A reboot resets the radio's clock** (4h behind after), so the bot now
+  sets it at each start when it's 5 s or more off (asked 2026-10-23). Not
+  tried: TX power, position, `radio freq`.
+
 ## 13. The weather now on the dashboard (done)
 
 *Built 2026-10-23* as **Area Weather**, a page of its own after the Dashboard

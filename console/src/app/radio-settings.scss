@@ -1,0 +1,149 @@
+:host {
+  display: grid;
+  gap: 16px;
+}
+
+p {
+  margin: 0;
+}
+
+// What the radio is set to, a row each.
+.settings {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+
+  div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .attention {
+    color: var(--orange);
+  }
+}
+
+// A change a row: what, its field, its button.
+.changes {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.change {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+
+  .label,
+  label {
+    font-weight: 600;
+  }
+
+  .hint {
+    grid-column: 2 / -1;
+    font-size: 0.85rem;
+  }
+}
+
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+// The settings that can cut the node off, set apart.
+.frequency {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 95 31 / 45%);
+  border-radius: 12px;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+    text-transform: uppercase;
+
+    mc-icon {
+      color: var(--orange);
+    }
+  }
+
+  .pick {
+    display: grid;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  .custom {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+
+    label {
+      display: grid;
+      gap: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+  }
+
+  .change {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    border-bottom: 0;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings div,
+  .change,
+  .frequency .change {
+    grid-template-columns: 1fr;
+  }
+
+  .frequency .custom {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .change .hint {
+    grid-column: auto;
+  }
+}

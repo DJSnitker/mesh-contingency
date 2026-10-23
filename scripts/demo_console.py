@@ -121,7 +121,8 @@ def demo_context(folder, now=None):
     state = State(folder)
     state.started = now - (2 * DAY + 5 * HOUR)
     radio = FakeMeshCore()
-    radio.self_info["name"] = "Ridgeview Relay"
+    radio.self_info.update(name="Ridgeview Relay", adv_lat=38.8462, adv_lon=-91.9488, adv_loc_policy=1)
+    radio.device_info.update(model="Heltec V3", ver="v1.9.1", fw_build="12-Oct-2026")
     # The bot's two channels, as it adds them at startup, and a private one.
     radio.channels[1:4] = [(name, hashtag_secret(name)) for name in ("#contingency-wx", "#contingency-comm")] + [
         ("Ridgeview ARES", bytes(range(1, 17)))]

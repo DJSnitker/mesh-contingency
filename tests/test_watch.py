@@ -1,3 +1,4 @@
+import io
 import tempfile
 import time
 import unittest
@@ -221,6 +222,33 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
         self.watch = self.new_watch()
         self.assertEqual(await self.check(0),
                          ["Node problem: the radio was disconnected for 1m (reconnect_failed); back now"])
+
+    async def test_a_reboot_from_the_console_is_only_logged(self):
+        await self.check()
+        self.watch.rebooting("the radio was rebooted from the console")
+        self.now += 30
+        self.watch = self.new_watch()  # the bot restarted with it
+        self.uptime = -30  # the radio started about when the bot did
+        out = self.enterContext(mock.patch("sys.stdout", new_callable=io.StringIO))
+        self.assertEqual(await self.check(1), [])
+        self.assertIn("Watch: the radio restarted just now: the radio was rebooted from the console", out.getvalue())
+        self.assertNotIn("rebooting", self.watch.store.data)
+        self.assertEqual(await self.check(), [])
+        self.uptime = 0  # a later restart is news again
+        self.assertEqual(await self.check(1), ["Node problem: the radio restarted 1m ago (power, USB or a crash)"])
+
+    async def test_a_reboot_asked_for_counts_only_for_the_next_run(self):
+        await self.check()
+        self.watch.rebooting("the radio was rebooted from the console")
+        self.assertEqual(await self.check(0), [])  # this run: not used up
+        self.assertIn("rebooting", self.watch.store.data)
+        self.now += 30
+        self.watch = self.new_watch()
+        self.assertEqual(await self.check(1), [])  # the radio didn't restart after all: forgotten
+        self.assertNotIn("rebooting", self.watch.store.data)
+        self.watch = self.new_watch()
+        self.uptime = 0
+        self.assertEqual(await self.check(1), ["Node problem: the radio restarted 1m ago (power, USB or a crash)"])
 
     async def test_radio_lost_and_restarted(self):
         await self.check()
