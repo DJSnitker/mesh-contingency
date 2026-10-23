@@ -25,11 +25,9 @@ from .api import (
     PUBLIC,
     USER,
     CommandError,
-    CommandResult,
     Context,
     Sender,
     is_authorized,
-    to_messages,
 )
 from .backup import Backups, load_backup
 from .console import (
@@ -47,6 +45,7 @@ from .limits import RateLimiter, describe_rate, wait_text
 from .names import name_problem
 from .output import SafeOutput
 from .registry import RENAMED, Registry
+from .running import run_command
 from .state import State
 from .watch import NodeWatch, load_watch
 from .web import INSTALL, aiohttp_missing, load_console
@@ -68,6 +67,8 @@ UNRECOGNIZED_COOLDOWN = 300
 SUGGEST_CUTOFF = 0.75
 # How often to check whether an hourly new-contact summary is due.
 SUMMARY_CHECK_SECONDS = 60
+# Lines of the log kept for the web console's live log.
+LOG_LINES = 500
 
 
 def find_serial_port():
@@ -132,11 +133,12 @@ def mailrc_path():
 async def main():
     # Everything printed may include text from the mesh; escape any terminal
     # control sequences in it.
-    with contextlib.redirect_stdout(SafeOutput(sys.stdout)):
-        return await _main()
+    output = SafeOutput(sys.stdout, keep=LOG_LINES)
+    with contextlib.redirect_stdout(output):
+        return await _main(output)
 
 
-async def _main():
+async def _main(output):
     parser = argparse.ArgumentParser(prog="mesh-contingency", description=__doc__)
     parser.add_argument("-p", "--port", help="serial port (auto-detected if omitted)")
     parser.add_argument("-b", "--baud", type=int, default=115200)
@@ -389,6 +391,8 @@ async def _main():
         state.watch = NodeWatch(mc, watch_settings, state, directory, tell_watch)
         print(f"Watching the node {state.watch.describe()}; problems go to {len(directory.admins)} admin(s).")
         node_watch = asyncio.create_task(state.watch.run())
+    # Uses of each command by each sender, over the radio and from the web console.
+    limiter = RateLimiter()
     web_console = None
     if console_settings.enabled and aiohttp_missing():
         print(f"Warning: [console] is enabled, but the web console needs aiohttp: run {INSTALL} in the project "
@@ -398,7 +402,7 @@ async def _main():
 
         console_ctx = Context(name="console", directory=directory, radio=mc, commands=commands, state=state,
                               send=send_later, limits=registry.limits)
-        web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent)
+        web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent, limiter, output)
         if not await web_console.start():
             web_console = None
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
@@ -499,7 +503,6 @@ async def _main():
     check_shared_prefixes()
 
     last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY
-    limiter = RateLimiter()
 
     async def reply_unrecognized(msg, sender, why):
         """Send UNRECOGNIZED_REPLY unless this sender got one recently."""
@@ -554,32 +557,7 @@ async def _main():
             else:
                 print(f"  -> {command.name} limit reached; not replying", flush=True)
             return
-        print(f"  -> running {command.name} {'' if private else text}".rstrip(), flush=True)
-        try:
-            result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
-        except TimeoutError:
-            print(f"  {command.name} timed out after {command.timeout}s", flush=True)
-            state.error(f"{command.name} timed out")
-            await reply(msg, sender, f"{command.name}: timed out")
-            return
-        except CommandError as e:
-            print(f"  {command.name}: refused" if private else f"  {e}", flush=True)
-            await reply(msg, sender, str(e))
-            return
-        except Exception as e:
-            print(f"  {command.name} failed: {type(e).__name__ if private else e}", flush=True)
-            state.error(f"{command.name} failed")
-            # An error may carry a reply that says why, safe to send.
-            await reply(msg, sender, getattr(e, "reply", None) or f"{command.name}: failed")
-            return
-        if not isinstance(result, CommandResult):
-            # Function commands may return just the reply.
-            result = CommandResult(console=result if isinstance(result, str) else "", reply=result)
-        if result.console:
-            print(result.console, flush=True)
-        messages = to_messages(result.reply)
-        if not messages:
-            print("  -> no reply", flush=True)
+        messages = await run_command(command, text, sender, state)
         # A long reply comes as several messages, sent in order.
         for text in messages:
             await reply(msg, sender, text)

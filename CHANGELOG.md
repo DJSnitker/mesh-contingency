@@ -15,6 +15,13 @@ may change how the bot is configured).
   It's opened with a new key at each start, written to `console.url`. Only
   this computer's addresses are answered, and sealed or message text never
   leaves the node. The app comes in later releases.
+- **Web console, part 2:** `POST /api/run` runs admin and public commands as
+  the admin `console`, exactly as over the radio (the same checks, rate
+  limits, `remove`'s confirmation, history `by console`), and returns the
+  whole reply; `/api/commands` lists them. `/api/log` streams what the bot
+  prints (the last 500 lines, then new ones) as server-sent events. Commands
+  that act on the sender's own records (`join`, `ok`, and user commands)
+  aren't offered; a plugin command can say so with `own = True`.
 
 ### Changed
 

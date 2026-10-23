@@ -1,12 +1,20 @@
+import asyncio
 import contextlib
 import io
+import json
 import os
 import socket
 import stat
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
+from mesh_contingency.api import ADMIN as ADMIN_LEVEL
+from mesh_contingency.api import Command, CommandResult
+from mesh_contingency.directory import Directory
+from mesh_contingency.output import SafeOutput
+from mesh_contingency.registry import Registry
 from mesh_contingency.state import HISTORY_FILE, State
 from mesh_contingency.testing import FakeMeshCore, make_context
 from mesh_contingency.web import ConsoleSettings, aiohttp_missing, load_console
@@ -15,6 +23,7 @@ ALICE = "a1" * 32
 BOB = "b0" * 32
 ADMIN = "ad" * 32
 KEY = "the-key"
+EXAMPLE_CONFIG = Path(__file__).resolve().parent.parent / "config.example.toml"
 
 
 class LoadConsoleTest(unittest.TestCase):
@@ -57,10 +66,19 @@ class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
         users = {ALICE: {"name": "Alice", "qm": "alice@example.com", "inbox_key": "secret"},
                  BOB: {"name": "Bob"}}
         self.radio = FakeMeshCore()
-        self.ctx = make_context("console", users=users, admins={ADMIN}, state=self.state, radio=self.radio)
+        self.directory = Directory(users, {ADMIN})
+        # The built-in commands, with the permissions config.example.toml gives them.
+        with open(EXAMPLE_CONFIG, "rb") as f:
+            self.commands = Registry(tomllib.load(f)).build(self.directory, self.radio, self.state)
+        self.ctx = make_context("console", directory=self.directory, state=self.state, radio=self.radio,
+                                commands=self.commands)
+        self.out = io.StringIO()
+        self.output = SafeOutput(self.out, keep=50)
+        self.enterContext(contextlib.redirect_stdout(self.output))
         self.port = free_port()
         self.host = f"127.0.0.1:{self.port}"
-        server = TestServer(make_app(self.ctx, KEY, self.port), host="127.0.0.1", port=self.port)
+        self.app = make_app(self.ctx, KEY, self.port, output=self.output)
+        server = TestServer(self.app, host="127.0.0.1", port=self.port)
         # A cookie for an IP address needs unsafe=True; browsers keep it anyway.
         self.client = TestClient(server, cookie_jar=CookieJar(unsafe=True))
         await self.client.start_server()
@@ -121,7 +139,7 @@ class GuardTest(ConsoleTestCase):
             response = await self.client.post("/api/history", headers=headers)
             self.assertEqual(response.status, 403, origin)
             self.assertEqual(await response.text(), "Wrong origin.\n")
-        # Past the checks, there's nothing to post to (yet).
+        # Past the checks, history can't be posted to.
         response = await self.client.post("/api/history", headers={"Origin": f"http://{self.host}"})
         self.assertEqual(response.status, 405)
 
@@ -198,6 +216,143 @@ class ReadTest(ConsoleTestCase):
         found = await self.get_json("/api/history")
         self.assertEqual([(e["by"], e["what"]) for e in found], [("Alice", "left"), ("Admin", "approved Alice")])
         self.assertEqual(len(self.state.store(HISTORY_FILE).data["entries"]), 2)
+
+
+class Private(Command):
+    """An admin command whose text must stay off the log."""
+    private = True
+
+    async def execute(self, text, sender):
+        return CommandResult(console="", reply=f"kept {len(text)} characters")
+
+
+class RunTest(ConsoleTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.log_in()
+
+    async def run_command(self, command, text="", status=200):
+        response = await self.client.post("/api/run", json={"command": command, "text": text},
+                                          headers={"Origin": f"http://{self.host}"})
+        found = await response.json()
+        self.assertEqual(response.status, status, found)
+        return found
+
+    async def test_commands_offered(self):
+        names = [c["name"] for c in await self.get_json("/api/commands")]
+        for name in ("health", "approve", "remove", "whois", "alert", "help", "wx", "status", "backup"):
+            self.assertIn(name, names)
+        # Acting on the sender's own records, which the console doesn't have.
+        for name in ("join", "ok", "inbox", "setpass", "whoami", "leave", "qm"):
+            self.assertNotIn(name, names)
+        health = next(c for c in await self.get_json("/api/commands") if c["name"] == "health")
+        self.assertEqual(health, {"name": "health", "permission": "admin", "usage": "health",
+                                  "summary": self.commands["health"].summary})
+
+    async def test_run_an_admin_command(self):
+        found = await self.run_command("Health")
+        self.assertEqual(found["command"], "health")
+        self.assertTrue(found["messages"][0].startswith("health: up "))
+        log = self.out.getvalue()
+        self.assertIn("[console] health\n", log)
+        self.assertIn("  -> answered the console", log)
+
+    async def test_approve_is_recorded_as_by_console(self):
+        carol = "c" * 64
+        self.state.store("requests.json").data[carol] = {"name": "Carol", "time": 1.0}
+        found = await self.run_command("approve", "Carol")
+        self.assertIn("Carol", found["messages"][0])
+        self.assertIn(carol, self.directory.users)
+        self.assertEqual(self.state.store(HISTORY_FILE).data["entries"][-1]["by"], "console")
+
+    async def test_remove_asks_first_as_over_the_radio(self):
+        first = await self.run_command("remove", "Bob")
+        self.assertIn("this removes Bob", first["messages"][0])
+        self.assertIn(BOB, self.directory.users)
+        second = await self.run_command("remove", "Bob")
+        self.assertIn("Bob removed", second["messages"][0])
+        self.assertNotIn(BOB, self.directory.users)
+
+    async def test_a_refusal_is_the_reply(self):
+        found = await self.run_command("whois", "nobody")
+        self.assertEqual(found["messages"], ["whois: no user nobody"])
+
+    async def test_a_failing_command(self):
+        async def broken(text, sender):
+            raise RuntimeError("radio on fire")
+
+        self.commands["health"].execute = broken
+        self.assertEqual((await self.run_command("health"))["messages"], ["health: failed"])
+        self.assertEqual(self.state.counts["errors"], 1)
+
+    async def test_commands_not_offered(self):
+        for name in ("join", "inbox", "nosuch", ""):
+            found = await self.run_command(name, status=404)
+            self.assertIn("for the console", found["error"])
+
+    async def test_bad_requests(self):
+        headers = {"Origin": f"http://{self.host}"}
+        response = await self.client.post("/api/run", data="health", headers=headers)
+        self.assertEqual(response.status, 400)
+        for body in ([], {"text": "x"}, {"command": 3}, {"command": "health", "text": None}):
+            response = await self.client.post("/api/run", json=body, headers=headers)
+            self.assertEqual(response.status, 400, body)
+        found = await self.run_command("whois", "x" * 501, status=400)
+        self.assertIn("at most 500", found["error"])
+
+    async def test_a_command_rate(self):
+        self.commands["health"].rate = (1, 3600)
+        await self.run_command("health")
+        found = await self.run_command("health", status=429)
+        self.assertIn("health: limit reached, try again in", found["error"])
+
+    async def test_a_private_commands_text_stays_off_the_log(self):
+        secret = "correct horse battery staple"
+        command = Private(make_context("hush", state=self.state))
+        command.permission = ADMIN_LEVEL
+        self.commands["hush"] = command
+        found = await self.run_command("hush", secret)
+        self.assertEqual(found["messages"], ["kept 28 characters"])
+        self.assertIn("[console] hush (private)", self.out.getvalue())
+        self.assertNotIn(secret, self.out.getvalue())
+        self.assertNotIn(secret, json.dumps(list(self.output.lines)))
+
+
+class LogTest(ConsoleTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.log_in()
+
+    async def events(self, response, count):
+        """The next count events from a live log."""
+        found = []
+        while len(found) < count:
+            line = (await asyncio.wait_for(response.content.readline(), 5)).decode()
+            if line.startswith("data: "):
+                found.append(json.loads(line[6:])["line"])
+        return found
+
+    async def test_kept_lines_then_new_ones(self):
+        print("before one")
+        print("before two")
+        response = await self.client.get("/api/log")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.headers["Content-Type"], "text/event-stream")
+        self.assertEqual(await self.events(response, 2), ["before one", "before two"])
+        print("after", end="")
+        print(" \x1b[2Jdone")  # escaped, as on the terminal
+        self.assertEqual(await self.events(response, 1), ["after \\x1b[2Jdone"])
+        response.close()
+
+    async def test_stopping_ends_open_logs(self):
+        response = await self.client.get("/api/log")
+        await self.app.on_shutdown.send(self.app)
+        self.assertEqual(await asyncio.wait_for(response.content.read(), 5), b"")
+
+    async def test_no_log_kept(self):
+        self.app["output"] = None
+        response = await self.client.get("/api/log")
+        self.assertEqual(response.status, 404)
 
 
 @unittest.skipIf(aiohttp_missing(), "the web console needs aiohttp: pip install -e .[console]")

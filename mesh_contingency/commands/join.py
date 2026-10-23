@@ -52,6 +52,7 @@ class RequestsBase(Command):
 
 class JoinCommand(RequestsBase):
     summary = "Ask the admins to make you a user, under your radio's name"
+    own = True
 
     async def execute(self, text, sender):
         if sender.public_key is None:

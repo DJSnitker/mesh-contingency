@@ -3,6 +3,7 @@ import unittest
 
 from mesh_contingency.api import (
     ADMIN,
+    CONSOLE,
     DEFAULT_TIMEOUT,
     DISABLED,
     LEVELS,
@@ -137,6 +138,12 @@ class IsAuthorizedTest(unittest.TestCase):
         self.assertFalse(self.check(ADMIN, "d0" * 32))
         self.assertFalse(self.check(DISABLED, "ad" * 32))
         self.assertFalse(self.check("other", "ad" * 32))
+
+    def test_the_web_console_is_an_admin_but_not_a_user(self):
+        self.assertTrue(self.check(ADMIN, CONSOLE.public_key))
+        self.assertTrue(self.check(PUBLIC, CONSOLE.public_key))
+        self.assertFalse(self.check(USER, CONSOLE.public_key))
+        self.assertFalse(self.check(DISABLED, CONSOLE.public_key))
 
 
 class ToMessagesTest(unittest.TestCase):

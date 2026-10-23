@@ -19,6 +19,7 @@ from pathlib import Path
 
 from aiohttp import web
 
+from ..limits import RateLimiter
 from . import HOSTS
 from .api import routes
 
@@ -28,10 +29,14 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 NOT_LOGGED_IN = ("Open the console with the link in console.url, next to config.toml (also printed when the "
                  "bot starts). A restart of the bot makes a new link.\n")
 NO_APP = "The web console's API is running; the app isn't built yet.\n"
+# Seconds a stopping bot waits for requests still being answered.
+SHUTDOWN_SECONDS = 3
 
 
-def make_app(ctx, key, port):
-    """The aiohttp application: the checks, then the API."""
+def make_app(ctx, key, port, limiter=None, output=None):
+    """The aiohttp application: the checks, then the API. Commands are
+    rate limited with limiter (the radio's, so a command's rate counts
+    both); output is the bot's SafeOutput, for the live log."""
     allowed = {f"{host}:{port}" for host in HOSTS}
 
     @web.middleware
@@ -55,6 +60,10 @@ def make_app(ctx, key, port):
 
     app = web.Application(middlewares=[guard])
     app["ctx"] = ctx
+    app["limiter"] = limiter or RateLimiter()
+    app["output"] = output
+    app["log_streams"] = set()  # the queues of open live logs
+    app.on_shutdown.append(end_logs)
     app.add_routes(routes)
     app.router.add_get("/", no_app)
     return app
@@ -62,6 +71,12 @@ def make_app(ctx, key, port):
 
 async def no_app(request):
     return web.Response(text=NO_APP)
+
+
+async def end_logs(app):
+    """End the open live logs, which would otherwise hold up stopping."""
+    for queue in app["log_streams"]:
+        queue.put_nowait(None)
 
 
 def write_url(path, url):
@@ -76,9 +91,11 @@ def write_url(path, url):
 class ConsoleServer:
     """The web console, started and stopped with the bot."""
 
-    def __init__(self, settings, ctx, folder):
+    def __init__(self, settings, ctx, folder, limiter=None, output=None):
         self.settings = settings
         self.ctx = ctx
+        self.limiter = limiter
+        self.output = output
         self.url_file = Path(folder) / URL_FILE
         self.key = secrets.token_urlsafe(32)
         self.runner = None
@@ -90,7 +107,8 @@ class ConsoleServer:
     async def start(self):
         """Start listening, write console.url and say where. Returns False
         (having said why) if the port can't be used; the bot runs on."""
-        self.runner = web.AppRunner(make_app(self.ctx, self.key, self.settings.port), access_log=None)
+        app = make_app(self.ctx, self.key, self.settings.port, self.limiter, self.output)
+        self.runner = web.AppRunner(app, access_log=None, shutdown_timeout=SHUTDOWN_SECONDS)
         await self.runner.setup()
         try:
             await web.TCPSite(self.runner, self.settings.host, self.settings.port).start()

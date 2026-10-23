@@ -51,6 +51,11 @@ class Sender:
     public_key: str | None
 
 
+# The web console's sender: an admin of the node who has no radio. Its key
+# isn't hex, so no radio's key can be it.
+CONSOLE = Sender("console", "console")
+
+
 class CommandError(Exception):
     """A failure whose message is safe and short enough to reply with."""
 
@@ -62,7 +67,7 @@ def is_authorized(command, sender, users, admins):
     if command.permission == USER:
         return sender.public_key in users
     if command.permission == ADMIN:
-        return sender.public_key in admins
+        return sender.public_key in admins or sender.public_key == CONSOLE.public_key
     return False
 
 
@@ -229,6 +234,9 @@ class Command(ABC):
     # Set True when what senders write or get back must stay off the console
     # (messages, passphrases): the bot then logs only the command and sender.
     private = False
+    # Set True when the command acts on the sender's own records (join asks
+    # to join, ok checks in): the web console, which has none, doesn't offer it.
+    own = False
     # Uses allowed per sender, as (count, seconds), or None for no limit; set
     # from the config when the command is loaded.
     rate = None
