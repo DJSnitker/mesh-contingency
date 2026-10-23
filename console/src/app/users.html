@@ -130,6 +130,17 @@
             >
               Whois
             </button>
+            @if (canSetEmail()) {
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                [disabled]="runner.busy() || editing() === user.key"
+                title="Change the address qm sends to and the group emailall sends to"
+                (click)="edit(user)"
+              >
+                Edit emails
+              </button>
+            }
             @if (user.passphrase) {
               <button
                 class="btn btn-ghost btn-sm"
@@ -150,6 +161,35 @@
               Remove
             </button>
           </div>
+        }
+        @if (editing() === user.key) {
+          <form class="emails" (submit)="$event.preventDefault(); saveEmails(user)">
+            <label class="field">
+              <span class="label">qm address</span>
+              <input
+                type="email"
+                placeholder="none"
+                [value]="qm()"
+                (input)="qm.set(value($event))"
+              />
+            </label>
+            <label class="field">
+              <span class="label">emailall group, one address a line</span>
+              <textarea
+                rows="3"
+                placeholder="none"
+                [value]="group()"
+                (input)="group.set(value($event))"
+              ></textarea>
+            </label>
+            <p class="muted">An empty field clears it. They get a message saying what changed.</p>
+            <div class="actions">
+              <button class="btn btn-sm" type="submit" [disabled]="runner.busy()">Save</button>
+              <button class="btn btn-ghost btn-sm" type="button" (click)="editing.set(null)">
+                Cancel
+              </button>
+            </div>
+          </form>
         }
       </li>
     } @empty {

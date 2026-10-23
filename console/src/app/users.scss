@@ -55,7 +55,8 @@
   grid-template-columns: 1fr auto;
   grid-template-areas:
     'who actions'
-    'details details';
+    'details details'
+    'emails emails';
   gap: 12px 20px;
   padding: 16px 20px;
 
@@ -81,7 +82,8 @@
     grid-template-areas:
       'who'
       'details'
-      'actions';
+      'actions'
+      'emails';
 
     .actions {
       justify-content: flex-start;
@@ -122,4 +124,48 @@ dt {
 dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.emails {
+  display: grid;
+  grid-area: emails;
+  gap: 10px;
+  max-width: 520px;
+
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+
+  .label {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--text);
+  font: inherit;
+
+  &::placeholder {
+    color: var(--muted);
+  }
+}
+
+textarea {
+  resize: vertical;
 }

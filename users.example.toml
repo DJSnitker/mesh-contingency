@@ -7,8 +7,8 @@
 # The shorter 12-character prefix is not accepted.
 #
 # The bot writes to this file too: approve adds a user, remove and leave take
-# one out, a radio's new name updates name, setqm, addgroup and
-# cleargroup change a user's addresses, and setpass saves the key their
+# one out, a radio's new name updates name, setqm, addgroup,
+# cleargroup and setemail change a user's addresses, and setpass saves the key their
 # mailbox messages are sealed with (inbox_key; never the passphrase), which
 # resetpass clears. [admin] keys is never changed by the bot. It rewrites only
 # that user's section, dropping comments inside it.

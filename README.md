@@ -77,6 +77,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `remove <name or key>` | admins | Remove a user and their messages |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
 | `roster` | admins | Who has messaged the node since it started |
+| `setemail <name or key> qm [address] group [address ...]` | admins | Set a user's qm address and emailall group; a part with no address clears it |
 | `testalert` | admins | Post the [test message](#weekly-alert-test) to the alert channel now |
 | `users [page]` | admins | List the users and what each has set |
 | `whois <name or key>` | admins | What the node knows about a user |
@@ -161,7 +162,7 @@ named by their radio's name (see [Names](#names)) or a key prefix of at least
 4 hex characters. Nobody can be made an admin over the mesh; that takes an
 edit of `[admin] keys`, so a lost admin radio can't create more admins.
 
-`approve`, `remove`, `setqm`, `addgroup`, `cleargroup`, `setpass`, `resetpass` and `leave` write to the users file
+`approve`, `remove`, `setqm`, `addgroup`, `cleargroup`, `setemail`, `setpass`, `resetpass` and `leave` write to the users file
 and reload it at once. They rewrite only that person's `[users.<key>]` section
 (comments inside it are dropped); the rest of the file is kept as it is. The
 result is checked before it's saved, so if a section can't be rewritten
@@ -171,7 +172,7 @@ saved in a `backups` folder next to it (e.g.
 `backups/users-20261020-221500.toml`, as private as the file); the newest 5
 are kept. To undo a change, copy a backup back over `users.toml`.
 
-`approve`, `deny`, `remove`, `resetpass`, `clearstatus`, `alert` and `comm`
+`approve`, `deny`, `remove`, `resetpass`, `setemail`, `clearstatus`, `alert` and `comm`
 (with the message), `alertmap`, `testalert` and `backup` are recorded in `history.json` next to
 `config.toml`, with who did them and when, as are a user's `leave`, a radio's
 change of name, and the weather alerts, weekly tests and backups the bot makes
@@ -535,6 +536,7 @@ deny = { permission = "admin" }
 setqm = { permission = "user" }
 addgroup = { permission = "user" }
 cleargroup = { permission = "user" }
+setemail = { permission = "admin" }
 users = { permission = "admin" }
 whois = { permission = "admin" }
 remove = { permission = "admin" }
@@ -946,7 +948,8 @@ Its pages, in the order of the menu (the Dashboard first, then A–Z):
 - **Send:** post to `#contingency-wx` or `#contingency-comm` (with a count
   against the one-message limit), or leave a message in a user's inbox.
 - **Users:** every user and admin with their settings, last seen, check-in
-  and messages, with **Whois**, **Reset passphrase** and **Remove**; the
+  and messages, with **Whois**, **Edit emails** (`setemail`: the qm
+  address and the emailall group), **Reset passphrase** and **Remove**; the
   join requests waiting, with **Approve** and **Deny**; and **Reload users
   file** (`reload`), after editing it.
 
@@ -1038,7 +1041,7 @@ mesh_contingency/
     testalert.py      posting the alert test now
     comm.py           an admin's message to the communications channel
     join.py           join, approve and deny
-    settings.py       setqm, addgroup and cleargroup
+    settings.py       setqm, addgroup, cleargroup and setemail
     users.py          users, whois, remove, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
     qm.py, emailall.py, email.py

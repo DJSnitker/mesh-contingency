@@ -4,10 +4,18 @@ import unittest
 from pathlib import Path
 
 from mesh_contingency.api import CommandError, Sender
-from mesh_contingency.commands.settings import MAX_GROUP, AddGroupCommand, ClearGroupCommand, SetQmCommand
+from mesh_contingency.commands.settings import (
+    MAX_GROUP,
+    AddGroupCommand,
+    ClearGroupCommand,
+    SetEmailCommand,
+    SetQmCommand,
+)
 from mesh_contingency.directory import Directory
+from mesh_contingency.state import HISTORY_FILE, State
 from mesh_contingency.testing import make_context
 
+ADMIN = Sender("Admin", "ad" * 32)
 DANA = Sender("Dana", "d0" * 32)
 ERIN = Sender("Erin", "e0" * 32)
 
@@ -23,6 +31,9 @@ class SettingsTest(unittest.IsolatedAsyncioTestCase):
         self.setqm, self.addgroup, self.cleargroup = (
             cls(make_context(name, directory=self.directory)) for cls, name in
             [(SetQmCommand, "setqm"), (AddGroupCommand, "addgroup"), (ClearGroupCommand, "cleargroup")])
+        self.sent, self.state = [], State()
+        self.setemail = SetEmailCommand(make_context("setemail", directory=self.directory, state=self.state,
+                                                     sent=self.sent))
 
     def saved(self, sender):
         """The sender's section as now in the file."""
@@ -76,3 +87,37 @@ class SettingsTest(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    async def test_sets_both_and_tells_the_user(self):
+        reply = (await self.setemail.execute(f"{DANA.public_key} qm new@example.com group a@example.com "
+                                             f"b@example.com A@example.com", ADMIN)).reply
+        self.assertEqual(reply, "setemail: Dana's qm new@example.com; emailall a@example.com, b@example.com")
+        self.assertEqual(self.saved(DANA), {"name": "Dana", "qm": "new@example.com",
+                                            "emailall": ["a@example.com", "b@example.com"]})
+        self.assertEqual(self.sent, [(DANA.public_key, "An admin changed your email addresses: qm new@example.com; "
+                                                       "emailall a@example.com, b@example.com")])
+        what = self.state.store(HISTORY_FILE).data["entries"][-1]["what"]
+        self.assertEqual(what, f"set Dana's qm new@example.com; emailall a@example.com, b@example.com "
+                               f"({DANA.public_key[:12]})")
+
+    async def test_one_part_alone_and_clearing(self):
+        await self.setemail.execute("erin group x@example.com", ADMIN)
+        self.assertEqual(self.saved(ERIN), {"name": "Erin", "emailall": ["x@example.com"]})
+        self.assertEqual((await self.setemail.execute("Dana qm", ADMIN)).reply, "setemail: Dana's qm cleared")
+        self.assertEqual(self.saved(DANA), {"name": "Dana", "emailall": "one@example.com"})
+
+    async def test_refuses(self):
+        for text, error in [
+            ("", "^usage: "),
+            ("nobody qm a@example.com", "no user nobody"),
+            ("dana", "^usage: "),
+            ("dana a@example.com", "^usage: "),
+            ("dana qm a@example.com b@example.com", "qm takes one address"),
+            ("dana qm not-an-address", "not an email address: not-an-address"),
+            ("dana qm a@example.com qm b@example.com", "qm given twice"),
+            ("dana group " + " ".join(f"{i}@example.com" for i in range(MAX_GROUP + 1)), "at most"),
+        ]:
+            with self.subTest(text), self.assertRaisesRegex(CommandError, error):
+                await self.setemail.execute(text, ADMIN)
+        self.assertEqual(self.saved(DANA)["qm"], "old@example.com")
+        self.assertEqual(self.sent, [])

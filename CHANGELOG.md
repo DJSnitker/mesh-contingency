@@ -7,6 +7,21 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+
+- **Admins can set a user's email addresses:** `setemail <name or key> qm
+  <address> group <address> <address>` sets their `qm` address and `emailall`
+  group (either part alone; a part with no address clears it), and tells the
+  user what changed. The console's Users page has an Edit emails button on
+  each user that does the same.
+
+### Upgrading
+
+Add `setemail = { permission = "admin" }` under `[commands]` in
+`config.toml` (without it the command is off, with a warning at startup),
+rebuild the console (`npm ci && npm run build` in `console/`) and restart the
+bot.
+
 ## [0.8.1] - 2026-10-23
 
 `wx` looks up a county as well as a zipcode. Pull request #60.
