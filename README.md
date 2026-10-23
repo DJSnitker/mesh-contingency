@@ -72,6 +72,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `deny <name or key>` | admins | Turn down a join request |
 | `health` | admins | How the node is doing: radio, battery, users, messages, errors |
 | `history [page]` | admins | What admins have done (approve, remove, resetpass...), newest first |
+| `radio` | admins | Show the radio's settings; [change them](#radio-settings) from the web console only |
 | `reload` | admins | Re-read the [users file](#users-file) now |
 | `remove <name or key>` | admins | Remove a user and their messages |
 | `resetpass <name or key>` | admins | Clear a user's forgotten passphrase |
@@ -296,7 +297,9 @@ instead, since nothing is wrong with the radio. When the bot stopped
 because it lost the radio (an unplugged USB cable), nobody could be told at
 the time, so once the radio is back it says for how long it was gone (and
 whether the radio restarted meanwhile). A radio with a battery keeps running
-while unplugged, so only the disconnect shows.
+while unplugged, so only the disconnect shows. A reboot from the web console
+([`radio reboot` or `radio freq`](#radio-settings)) is only logged
+(`Watch: the radio restarted just now: ...`): whoever asked for it knows.
 
 Each problem is announced at most once an hour, with one "ok again" after it,
 so a value going back and forth can't flood the mesh. "Ok again" needs
@@ -498,6 +501,7 @@ email = { permission = "user" }
 advert = { permission = "admin" }
 contacts = { permission = "admin" }
 contact = { permission = "admin" }
+radio = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }
@@ -722,6 +726,40 @@ A contact is named by its name, the start of its name, or 4 or more hex digits
 of its key; when several match, give more of the key. The web console's Radio
 page lists the contacts with a **Remove** and a **Reset path** button for each.
 
+### Radio settings
+
+`radio` shows an admin the radio's own settings, e.g. `radio: Ridgeview Relay;
+910.525 MHz BW62.5 SF7 CR5 (Canada, USA); TX 22/22 dBm; position 38.84620,
+-91.94880 (in adverts); clock right; firmware Heltec V3 v1.9.1`, with the
+MeshCore presets that use the same values and how far the radio's clock is
+off.
+
+Over the mesh it only shows them. Every change is made from the
+[web console](#web-console), on the node's own computer, which reaches the
+radio over USB: a setting that cuts the node off from the mesh can't cut off
+the console, so it can always be set back. Its Radio page has a **Settings**
+tab, or type them on the command line there:
+
+| From the console | Does |
+|---|---|
+| `radio name <name>` | Rename the node (up to 31 bytes); others see it after the next advert |
+| `radio power <dBm>` | Set the TX power, 1 to the radio's maximum |
+| `radio position <lat> <lon>` | Set the position the radio has (whether adverts carry it is the radio's own setting) |
+| `radio clock` | Set the radio's clock from the computer's (the bot also does at each start, if it's off) |
+| `radio reboot` | Reboot the radio (it asks first); the bot restarts with it |
+| `radio freq <preset or MHz kHz SF CR>` | Set the frequency, bandwidth, spreading factor and coding rate (it asks first), then reboot |
+
+`radio freq` takes one of [MeshCore's regional presets](https://api.meshcore.nz/api/v1/config)
+by name (`radio freq usa`, `radio freq "EU/UK (Narrow)"`), or the four values,
+e.g. `radio freq 910.525 62.5 7 5`. Every radio on a mesh must use the same
+frequency, bandwidth and spreading factor, so its confirmation says what the
+radio is on now and how to go back; the Settings tab also has you type the
+node's name first. A preset's suggested path hash size is a network setting
+it leaves alone. After a reboot or a new frequency the bot stops with an
+error, so the [service](#as-a-service) starts it again (30 s later; if the
+radio is still starting, 30 s after that): open the console again then, as it
+has a new key. The [node watch](#node-watch) doesn't announce that restart.
+
 ### Email
 
 Mail is sent by running `mail -s <subject> <addresses...>`, so `mail` must be
@@ -882,10 +920,11 @@ Its pages, in the order of the menu (the Dashboard first, then A–Z):
 - **History:** what admins have done, newest first, with a filter.
 - **Inbox:** who has messages waiting, from whom, read or not, sealed or not.
   Never what they say: that stays for the recipient, over the radio.
-- **Radio:** **Advert**, **Flood advert** and **Back up now**, and the
-  radio's contacts (with a filter): each one's type, whether it's a user or an
+- **Radio:** **Advert**, **Flood advert** and **Back up now**; the radio's
+  [settings](#radio-settings), with a form for each change, and the
+  frequency set apart, on one tab; its contacts (with a filter): each one's type, whether it's a user or an
   admin, its path and when it was last heard, with **Reset path** and
-  **Remove** ([`contact`](#contacts)), on one tab; on the other, the radio's
+  **Remove** ([`contact`](#contacts)), on another; on the third, the radio's
   channel slots in use: each one's name, whether it's the usual Public
   channel, a hashtag channel or a private one, and what the bot posts there
   (`alert`, `comm`, the automatic alerts, the weekly test), but never its

@@ -8,6 +8,7 @@
 
 import asyncio
 import hashlib
+import time
 from types import SimpleNamespace
 
 from meshcore import EventType
@@ -100,6 +101,37 @@ class FakeCommands:
         self.radio.paths_reset.append(key)
         return self.radio.reset_path_result
 
+    async def _set(self, call, *args, **info):
+        self.radio.settings_calls.append((call, args))
+        if self.radio.settings_result.type != EventType.ERROR:
+            self.radio.self_info.update(info)
+        return self.radio.settings_result
+
+    async def set_name(self, name):
+        return await self._set("set_name", name, name=name)
+
+    async def set_tx_power(self, val):
+        return await self._set("set_tx_power", val, tx_power=val)
+
+    async def set_coords(self, lat, lon):
+        return await self._set("set_coords", lat, lon, adv_lat=lat, adv_lon=lon)
+
+    async def set_time(self, val):
+        return await self._set("set_time", val)
+
+    async def set_radio(self, freq, bw, sf, cr, repeat=None):
+        return await self._set("set_radio", freq, bw, sf, cr, radio_freq=freq, radio_bw=bw, radio_sf=sf, radio_cr=cr)
+
+    async def reboot(self):
+        self.radio.settings_calls.append(("reboot", ()))
+        return event(EventType.OK)
+
+    async def get_time(self):
+        return event(EventType.CURRENT_TIME, {"time": int(self.radio.clock or time.time())})
+
+    async def send_appstart(self):
+        return event(EventType.SELF_INFO, dict(self.radio.self_info))
+
     async def send_advert(self, flood=False):
         self.radio.adverts.append(flood)
         return self.radio.advert_result
@@ -141,7 +173,10 @@ class FakeMeshCore:
         # {"type": 2, "out_path_len": 1, "last_advert": ...}.
         self.details = {}
         self.stored = dict(self.known)  # what the radio itself holds
-        self.self_info = {"name": "test-node", "manual_add_contacts": manual_add_contacts}
+        self.self_info = {"name": "test-node", "manual_add_contacts": manual_add_contacts, "radio_freq": 910.525,
+                          "radio_bw": 62.5, "radio_sf": 7, "radio_cr": 5, "tx_power": 22, "max_tx_power": 22,
+                          "adv_lat": 0.0, "adv_lon": 0.0, "adv_loc_policy": 0}
+        self.clock = None  # the radio's time, if not the computer's
         self.auto_update_contacts = False
         self.commands = FakeCommands(self)
         self.handlers = {}
@@ -158,6 +193,7 @@ class FakeMeshCore:
         self.channel_sent = []  # (slot, text)
         self.removed = []  # keys
         self.paths_reset = []  # keys
+        self.settings_calls = []  # (call, its arguments), for the radio command
         self.get_contacts_calls = 0
         # Results the radio returns
         self.ack_result = event(EventType.MSG_SENT)
@@ -166,6 +202,7 @@ class FakeMeshCore:
         self.advert_result = event(EventType.OK)
         self.remove_contact_result = event(EventType.OK)
         self.reset_path_result = event(EventType.OK)
+        self.settings_result = event(EventType.OK)
         self.channel_result = event(EventType.OK)
         self.device_info = {"max_contacts": 350, "model": "Test Board", "ver": "v1.9"}
         self.battery_result = event(EventType.BATTERY, {"level": 4050})

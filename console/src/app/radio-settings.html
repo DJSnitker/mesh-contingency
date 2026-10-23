@@ -1,0 +1,244 @@
+<mc-reply
+  #reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
+@if (problem()) {
+  <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+}
+
+@if (settings(); as s) {
+  <dl class="settings">
+    <div>
+      <dt>Name</dt>
+      <dd>{{ s.name ?? '?' }}</dd>
+    </div>
+    <div>
+      <dt>Frequency</dt>
+      <dd>
+        {{ four(s) }}
+        @for (title of s.presets_matching; track title) {
+          <span class="badge muted-badge">{{ title }}</span>
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>TX power</dt>
+      <dd>
+        {{ s.tx_power ?? '?' }} dBm
+        @if (s.max_tx_power) {
+          <span class="muted">of {{ s.max_tx_power }}</span>
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>Position</dt>
+      @if (s.lat || s.lon) {
+        <dd>
+          {{ s.lat }}, {{ s.lon }}
+          <span class="muted">({{ s.shares_position ? 'in adverts' : 'not in adverts' }})</span>
+        </dd>
+      } @else {
+        <dd class="muted">none</dd>
+      }
+    </div>
+    <div>
+      <dt>Clock</dt>
+      <dd [class.attention]="clock(s.clock_offset) !== 'right'">
+        {{ clock(s.clock_offset) ?? "the radio didn't say" }}
+      </dd>
+    </div>
+    <div>
+      <dt>Firmware</dt>
+      <dd>
+        {{ s.model ?? '?' }} {{ s.version }}
+        @if (s.build) {
+          <span class="muted">({{ s.build }})</span>
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>New contacts</dt>
+      <dd>
+        {{ s.manual_add_contacts ? 'only what [contacts] auto_add takes' : 'every node heard' }}
+        <span class="muted">(config.toml)</span>
+      </dd>
+    </div>
+  </dl>
+
+  @if (canChange()) {
+    <div class="changes">
+      <form class="change" (submit)="$event.preventDefault(); run('name ' + name().trim())">
+        <label for="radio-name">Name</label>
+        <input id="radio-name" maxlength="31" [value]="name()" (input)="name.set(value($event))" />
+        <button
+          class="btn btn-ghost btn-sm"
+          type="submit"
+          [disabled]="runner.busy() || !name().trim() || name().trim() === s.name"
+        >
+          Rename
+        </button>
+        <p class="muted hint">Others see the new name after the next advert.</p>
+      </form>
+
+      <form class="change" (submit)="$event.preventDefault(); run('power ' + power())">
+        <label for="radio-power">TX power (dBm)</label>
+        <input
+          id="radio-power"
+          type="number"
+          min="1"
+          [max]="s.max_tx_power ?? 30"
+          [value]="power()"
+          (input)="power.set(value($event))"
+        />
+        <button
+          class="btn btn-ghost btn-sm"
+          type="submit"
+          [disabled]="runner.busy() || !power() || +power() === s.tx_power"
+        >
+          Set power
+        </button>
+      </form>
+
+      <form
+        class="change"
+        (submit)="$event.preventDefault(); run('position ' + lat() + ' ' + lon())"
+      >
+        <span class="label" id="radio-position">Position</span>
+        <span class="pair" role="group" aria-labelledby="radio-position">
+          <input
+            aria-label="Latitude"
+            placeholder="latitude"
+            inputmode="decimal"
+            [value]="lat()"
+            (input)="lat.set(value($event))"
+          />
+          <input
+            aria-label="Longitude"
+            placeholder="longitude"
+            inputmode="decimal"
+            [value]="lon()"
+            (input)="lon.set(value($event))"
+          />
+        </span>
+        <button
+          class="btn btn-ghost btn-sm"
+          type="submit"
+          [disabled]="runner.busy() || !lat().trim() || !lon().trim()"
+        >
+          Set position
+        </button>
+      </form>
+
+      <div class="change">
+        <span class="label">Clock</span>
+        <span class="muted">set it from this computer's clock</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          type="button"
+          [disabled]="runner.busy()"
+          (click)="run('clock')"
+        >
+          Set clock
+        </button>
+      </div>
+
+      <div class="change">
+        <span class="label">Reboot</span>
+        <span class="muted">the bot restarts with it; open the console again after</span>
+        <button
+          class="btn btn-ghost btn-sm danger"
+          type="button"
+          [disabled]="runner.busy()"
+          (click)="run('reboot')"
+        >
+          Reboot radio
+        </button>
+      </div>
+    </div>
+
+    <section class="frequency" aria-labelledby="frequency-title">
+      <h3 id="frequency-title"><mc-icon name="alert" /> Frequency, bandwidth, SF and CR</h3>
+      <p>
+        Every radio on the mesh must use the same frequency, bandwidth and spreading factor: on
+        anything else this node hears no one, and no one hears it. The console still reaches it over
+        USB, so you can always set it back here. The radio reboots, and the bot with it.
+      </p>
+      <label class="pick">
+        <span>Preset</span>
+        <select (change)="preset.set(value($event))">
+          @for (p of s.presets; track p.title) {
+            <option [value]="p.title" [selected]="p.title === preset()">
+              {{ p.title }}: {{ four(p) }}
+            </option>
+          }
+          <option [value]="CUSTOM" [selected]="preset() === CUSTOM">Other values…</option>
+        </select>
+      </label>
+      @if (preset() === CUSTOM) {
+        <div class="custom">
+          <label
+            >MHz <input inputmode="decimal" [value]="freq()" (input)="freq.set(value($event))"
+          /></label>
+          <label
+            >Bandwidth (kHz)
+            <select (change)="bw.set(value($event))">
+              @for (b of s.bandwidths; track b) {
+                <option [value]="'' + b" [selected]="'' + b === bw()">{{ b }}</option>
+              }
+            </select>
+          </label>
+          <label
+            >SF
+            <input type="number" min="5" max="12" [value]="sf()" (input)="sf.set(value($event))"
+          /></label>
+          <label
+            >CR <input type="number" min="5" max="8" [value]="cr()" (input)="cr.set(value($event))"
+          /></label>
+        </div>
+      }
+      @if (pathHashNote(); as size) {
+        <p class="muted">
+          This preset also suggests a path hash size of {{ size }} bytes, a network setting this
+          doesn't change; set it in the MeshCore app if your mesh uses it.
+        </p>
+      }
+      @if (unchanged()) {
+        <p class="muted">That's what the radio is on now.</p>
+      } @else if (chosen(); as c) {
+        <p>
+          Now <strong>{{ four(s) }}</strong
+          >; after, <strong>{{ four(c) }}</strong
+          >.
+        </p>
+        <form class="change" (submit)="$event.preventDefault(); setFreq()">
+          <label for="radio-confirm-name">Type the node's name, {{ s.name }}, to go on</label>
+          <input
+            id="radio-confirm-name"
+            autocomplete="off"
+            [value]="typedName()"
+            (input)="typedName.set(value($event))"
+          />
+          <button
+            class="btn btn-sm danger"
+            type="submit"
+            [disabled]="runner.busy() || !freqReady()"
+          >
+            Change frequency
+          </button>
+        </form>
+      }
+      <p class="muted hint">Presets from MeshCore's list as of {{ s.presets_taken }}.</p>
+    </section>
+  } @else {
+    <p class="muted">
+      To change these from here, turn on <code>radio</code> under <code>[commands]</code> in
+      <code>config.toml</code>. Over the mesh, <code>radio</code> only shows them.
+    </p>
+  }
+} @else if (!problem()) {
+  <p class="muted">Reading the radio's settings…</p>
+}

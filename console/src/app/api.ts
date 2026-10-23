@@ -135,6 +135,46 @@ export interface ChannelMessages {
   messages: ChannelMessage[] | null;
 }
 
+/** One of MeshCore's regional presets: frequency MHz, bandwidth kHz, SF and CR. */
+export interface Preset {
+  title: string;
+  freq: number;
+  bw: number;
+  sf: number;
+  cr: number;
+  /** A network setting the preset suggests, which the radio command leaves alone. */
+  path_hash_size: number | null;
+}
+
+/** GET /api/radio: the radio's own settings (null with no radio). */
+export interface RadioSettings {
+  name: string | null;
+  freq: number | null;
+  bw: number | null;
+  sf: number | null;
+  cr: number | null;
+  /** The presets with the radio's four values. */
+  presets_matching: string[];
+  tx_power: number | null;
+  max_tx_power: number | null;
+  lat: number | null;
+  lon: number | null;
+  /** Whether its adverts carry its position. */
+  shares_position: boolean;
+  /** The radio's clock minus the computer's (s), or null if it didn't say. */
+  clock_offset: number | null;
+  model: string | null;
+  version: string | null;
+  build: string | null;
+  path_hash_mode: number | null;
+  /** On: the radio adds only the contacts [contacts] auto_add takes (set from config.toml). */
+  manual_add_contacts: boolean | null;
+  bandwidths: number[];
+  presets: Preset[];
+  /** When the presets were copied from MeshCore's feed. */
+  presets_taken: string;
+}
+
 /** One of GET /api/users: a user, an admin, or both. */
 export interface User {
   key: string;
@@ -258,6 +298,10 @@ export class Api {
 
   channelMessages(slot: number): Observable<ChannelMessages> {
     return this.get<ChannelMessages>(`/api/channels/${slot}/messages`);
+  }
+
+  radio(): Observable<RadioSettings | null> {
+    return this.get<RadioSettings | null>('/api/radio');
   }
 
   commands(): Observable<CommandInfo[]> {

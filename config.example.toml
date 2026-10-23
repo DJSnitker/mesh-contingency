@@ -112,6 +112,7 @@ email = { permission = "user" }
 advert = { permission = "admin" }
 contacts = { permission = "admin" }
 contact = { permission = "admin" }
+radio = { permission = "admin" }
 reload = { permission = "admin" }
 ok = { permission = "public" }
 status = { permission = "public" }

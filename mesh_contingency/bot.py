@@ -48,14 +48,18 @@ from .names import name_problem
 from .output import SafeOutput
 from .registry import RENAMED, Registry
 from .running import run_command
-from .state import State
-from .watch import NodeWatch, load_watch
+from .state import State, duration
+from .watch import NodeWatch, ask_radio, load_watch
 from .web import INSTALL, aiohttp_missing, load_console
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 # How long to wait for the radio when shutting down.
 DISCONNECT_SECONDS = 5
+# After a restart is asked for, seconds before stopping, so the reply gets out.
+RESTART_SECONDS = 2
+# The radio's clock this far off the computer's (seconds) is set at startup.
+CLOCK_SLACK = 5
 
 # Sent for unknown commands and for commands the sender may not run.
 UNRECOGNIZED_REPLY = "unrecognized user or function"
@@ -132,6 +136,24 @@ def mailrc_path():
     return Path(os.environ.get("MAILRC") or Path.home() / ".mailrc")
 
 
+async def set_clock(mc):
+    """Set the radio's clock from the computer's if it's off: the radio
+    keeps no time across a reboot or a power cut, and dates its messages and
+    adverts by it."""
+    now = time.time()
+    found = await ask_radio(mc.commands.get_time, EventType.CURRENT_TIME) or {}
+    off = found["time"] - now if found.get("time") else None
+    if off is not None and abs(off) < CLOCK_SLACK:
+        return
+    if await ask_radio(lambda: mc.commands.set_time(int(time.time())), EventType.OK) is None:
+        print("Warning: couldn't set the radio's clock; set it from the web console (radio clock).", flush=True)
+    elif off is None:
+        print("Set the radio's clock from the computer's.", flush=True)
+    else:
+        print(f"Set the radio's clock from the computer's: it was {duration(abs(off))} "
+              f"{'ahead' if off > 0 else 'behind'}.", flush=True)
+
+
 async def main():
     # Everything printed may include text from the mesh; escape any terminal
     # control sequences in it.
@@ -181,6 +203,7 @@ async def _main(output):
     await mc.ensure_contacts()
     mc.auto_update_contacts = True
     print(f"Connected to {mc.self_info.get('name')}. {len(mc.contacts)} contacts.")
+    await set_clock(mc)
 
     # One message at a time: the radio matches each ack to the message it
     # just sent, so overlapping sends could confuse delivery tracking.
@@ -578,10 +601,24 @@ async def _main(output):
     # error and let the service manager start the bot again.
     stopping = asyncio.Event()
     lost = []
+    restarting = []  # why, when a restart was asked for (radio reboot from the console)
+
+    def restart(why):
+        """Restart on purpose: stop shortly (so the command's reply gets
+        out first) with an error, for the service manager to start the bot
+        again. The radio dropping meanwhile is expected, not a problem."""
+        if not restarting:
+            restarting.append(why)
+            print(f"Restarting: {why}.", flush=True)
+            loop.call_later(RESTART_SECONDS, stopping.set)
+
+    state.restart = restart
 
     async def on_disconnect(event):
         reason = (event.payload or {}).get("reason", "unknown")
-        if reason != "manual_disconnect":
+        if restarting:
+            stopping.set()
+        elif reason != "manual_disconnect":
             lost.append(reason)
             print(f"Lost the radio ({reason}); stopping.", flush=True)
             if state.watch:
@@ -630,7 +667,7 @@ async def _main(output):
         with contextlib.suppress(Exception):
             await asyncio.wait_for(mc.stop_auto_message_fetching(), DISCONNECT_SECONDS)
             await asyncio.wait_for(mc.disconnect(), DISCONNECT_SECONDS)
-    if lost:
+    if lost or restarting:
         return 1
     print("Stopped.")
     return 0

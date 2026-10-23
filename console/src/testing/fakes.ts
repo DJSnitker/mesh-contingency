@@ -8,6 +8,7 @@ import {
   Checkins,
   CommandInfo,
   Contacts,
+  RadioSettings,
   HistoryEntry,
   JoinRequest,
   Mailbox,
@@ -179,6 +180,33 @@ export const CHANNELS: Channel[] = [
   { slot: 4, name: '', kind: 'empty', uses: [], messages: 0, last: null },
 ];
 
+export const RADIO: RadioSettings = {
+  name: 'test-node',
+  freq: 910.525,
+  bw: 62.5,
+  sf: 7,
+  cr: 5,
+  presets_matching: ['Canada', 'USA'],
+  tx_power: 22,
+  max_tx_power: 22,
+  lat: 32.5,
+  lon: -99.75,
+  shares_position: false,
+  clock_offset: -125,
+  model: 'Test Board',
+  version: 'v1.9',
+  build: '12 Oct 2026',
+  path_hash_mode: 0,
+  manual_add_contacts: true,
+  bandwidths: [7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500],
+  presets: [
+    { title: 'Australia (Narrow)', freq: 916.575, bw: 62.5, sf: 7, cr: 7, path_hash_size: null },
+    { title: 'Canada', freq: 910.525, bw: 62.5, sf: 7, cr: 5, path_hash_size: 3 },
+    { title: 'USA', freq: 910.525, bw: 62.5, sf: 7, cr: 5, path_hash_size: null },
+  ],
+  presets_taken: '2026-10-23',
+};
+
 export const PUBLIC_MESSAGES: ChannelMessages = {
   slot: 0,
   keep: 200,
@@ -199,6 +227,7 @@ export const COMMANDS: CommandInfo[] = [
   offer('backup', 'backup'),
   offer('comm', 'comm <message>', '#contingency-comm'),
   offer('contact', 'contact remove|path <name or key>'),
+  offer('radio', 'radio [name|power|position|clock|reboot|freq ...]'),
   offer('reload', 'reload'),
   offer('testalert', 'testalert'),
   { ...offer('msg', 'msg <name> <message>'), permission: 'user' },
@@ -245,6 +274,7 @@ export class FakeApi {
   weather: () => Observable<Weather> = () => of(WEATHER);
   contacts: () => Observable<Contacts> = () => of(CONTACTS);
   channels: () => Observable<Channel[]> = () => of(CHANNELS);
+  radio: () => Observable<RadioSettings | null> = () => of(RADIO);
   channelMessages: (slot: number) => Observable<ChannelMessages> = (slot) =>
     of({ ...PUBLIC_MESSAGES, slot });
   answer: (command: string, text: string) => Observable<Answer> = (command) =>

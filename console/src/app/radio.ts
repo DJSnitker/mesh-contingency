@@ -4,13 +4,14 @@ import { catchError, EMPTY, interval, of, startWith, switchMap, tap } from 'rxjs
 
 import { Api, Channel, ChannelMessages, CommandInfo, Contact, Contacts } from './api';
 import { Icon } from './icon';
+import { RadioSettings } from './radio-settings';
 import { Reply, Runner } from './runner';
 import { ago, when } from './time';
 
 /** How often an open channel's messages are read again (ms). */
 export const CHANNEL_REFRESH_MS = 10_000;
 
-type Tab = 'contacts' | 'channels';
+type Tab = 'settings' | 'contacts' | 'channels';
 
 /**
  * Controlling the node rather than sending messages: the radio's advert
@@ -18,14 +19,15 @@ type Tab = 'contacts' | 'channels';
  * the radio's contacts: remove one (it asks first, as over the radio) or
  * reset the path to it. Each offered only if /api/commands has it. And the
  * radio's channel slots, to look at: what each is and what the bot posts there.
- * Contacts and channels share a panel, one tab each. A channel opens to its
+ * The radio's settings (radio-settings.ts), contacts and channels share a
+ * panel, one tab each. A channel opens to its
  * messages since the bot started (kept in its memory only), read again every
  * CHANNEL_REFRESH_MS while open.
  */
 @Component({
   selector: 'mc-radio',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, Reply],
+  imports: [Icon, RadioSettings, Reply],
   providers: [Runner],
   styleUrl: './radio.scss',
   templateUrl: './radio.html',
@@ -45,10 +47,11 @@ export class Radio {
   );
   /** The panel's tabs; the counts come from count(). */
   protected readonly tabs = [
+    { id: 'settings', label: 'Settings', icon: 'sliders' },
     { id: 'contacts', label: 'Contacts', icon: 'users' },
     { id: 'channels', label: 'Channels', icon: 'send' },
   ] as const;
-  protected readonly tab = signal<Tab>('contacts');
+  protected readonly tab = signal<Tab>('settings');
   /** The channel slot whose messages are open, or null for the list. */
   protected readonly openSlot = signal<number | null>(null);
   protected readonly openChannel = computed(
@@ -146,6 +149,9 @@ export class Radio {
 
   /** How many contacts, or channels in use, for a tab's label; null until read. */
   protected count(tab: Tab): number | null {
+    if (tab === 'settings') {
+      return null;
+    }
     if (tab === 'contacts') {
       return this.contacts()?.contacts.length ?? null;
     }

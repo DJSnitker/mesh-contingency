@@ -362,6 +362,24 @@ class ReadTest(ConsoleTestCase):
                          [(0, None), (2, 200.0)])
         self.assertEqual((await self.client.get("/api/channels/x/messages")).status, 404)
 
+    async def test_radio_settings(self):
+        self.radio.self_info.update(adv_lat=32.5, adv_lon=-99.75, adv_loc_policy=1, ble_pin=123456)
+        self.radio.device_info["fw_build"] = "12 Oct 2026"
+        self.radio.clock = 1000.0
+        with mock.patch("mesh_contingency.web.api.time.time", return_value=1060.0):
+            found = await self.get_json("/api/radio")
+        self.assertEqual({k: v for k, v in found.items() if k not in ("presets", "bandwidths")}, {
+            "name": "test-node", "freq": 910.525, "bw": 62.5, "sf": 7, "cr": 5,
+            "presets_matching": ["Canada", "USA"], "tx_power": 22, "max_tx_power": 22, "lat": 32.5, "lon": -99.75,
+            "shares_position": True, "clock_offset": -60.0, "model": "Test Board", "version": "v1.9",
+            "build": "12 Oct 2026", "path_hash_mode": None, "manual_add_contacts": False,
+            "presets_taken": "2026-10-23"})
+        self.assertEqual(len(found["presets"]), 26)
+        self.assertEqual(found["presets"][0], {"title": "Australia", "freq": 915.8, "bw": 250, "sf": 10, "cr": 5,
+                                               "path_hash_size": None})
+        self.assertIn(62.5, found["bandwidths"])
+        self.assertNotIn("123456", json.dumps(found))  # never the Bluetooth PIN
+
     async def test_channels_when_the_radio_fails(self):
         async def no_answer():
             raise TimeoutError

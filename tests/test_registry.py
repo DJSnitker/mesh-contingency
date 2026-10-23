@@ -31,6 +31,7 @@ from mesh_contingency.commands.history import HistoryCommand
 from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
 from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
 from mesh_contingency.commands.qm import QmCommand
+from mesh_contingency.commands.radio import RadioCommand
 from mesh_contingency.commands.reload import ReloadCommand
 from mesh_contingency.commands.roster import RosterCommand
 from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetQmCommand
@@ -54,6 +55,7 @@ DANA = Sender("Dana", "d0" * 32)
 BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
             "qm": QmCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "contact": ContactCommand,
+            "radio": RadioCommand,
             "reload": ReloadCommand,
             "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand, "checkins": CheckinsCommand,
             "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,

@@ -82,7 +82,11 @@
       }
     </div>
 
-    @if (tab() === 'contacts') {
+    @if (tab() === 'settings') {
+      <div class="tab-panel" role="tabpanel" id="settings-panel" aria-labelledby="settings-tab">
+        <mc-radio-settings [canChange]="has('radio')" />
+      </div>
+    } @else if (tab() === 'contacts') {
       <div
         class="tab-panel contacts"
         role="tabpanel"
