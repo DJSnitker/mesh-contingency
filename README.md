@@ -85,7 +85,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `ok [status]` | anyone | Check in: tell others you're ok |
 | `status <name or key>` | anyone | See someone's last check-in |
 | `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
-| `wx <zipcode \| county, ST>` | anyone | Weather and alerts for a US zipcode or county |
+| `wx <zipcode>` or `wx <county, ST>` | anyone | Weather and alerts for a US zipcode or county |
 | `addgroup <address>` | users | Add an address to your emailall group; alone, list it |
 | `cleargroup` | users | Empty your emailall group |
 | `clearinbox [all]` | users | Delete the messages you've read, or all of them |
