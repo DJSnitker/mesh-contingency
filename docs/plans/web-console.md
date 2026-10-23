@@ -164,3 +164,7 @@ port = 8737     # 127.0.0.1 only
 - Editing `config.toml` from the browser (a restart is needed anyway, and a
   mistake there stops the bot).
 - Reading sealed messages.
+
+Later, in the roadmap's backlog (asked 2026-10-23): a command that opens the
+console (item 11), managing the radio's contacts and settings (12), and the
+weather on the dashboard (13).

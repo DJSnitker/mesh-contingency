@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8 and 10 done, 0.7.0 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.7.0)
+Status: items 1–8 and 10 done, 0.7.0 released; 11–13 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -25,8 +25,11 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 9 | Field testing on real radios | testing, no code | small | paused: waiting on more radios |
 | 10 | Web console on the node (Angular) | feature | large | done: [web-console.md](web-console.md) |
 | 10a | Release 0.7.0 | release | small | done (v0.7.0) |
+| 11 | Open the console with one command | feature | small | backlog |
+| 12 | Manage the radio from the console: contacts and settings | feature | large | backlog |
+| 13 | The weather now on the dashboard | feature | medium | backlog |
 
-Recommended order: everything but field testing is done and released (0.7.0). Nothing new is planned; field testing (9) is next when the radios arrive.
+Recommended order: everything but field testing is done and released (0.7.0). Next, the web console backlog: 11 (small, and makes the console easier to reach every day), then 13, then 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -391,6 +394,110 @@ journal checked:**
   acting.
 - **Limits:** a burst of `wx` from a public sender gets one "limit reached"
   reply, then silence.
+
+## 11. Open the console with one command (backlog)
+
+*Asked 2026-10-23.* Today the link has to be copied out of `console.url` or
+the journal, and it changes at every restart. Instead, one command on the
+node's computer opens it in the browser:
+
+```sh
+mesh-contingency-console          # or: mesh-contingency --open-console
+```
+
+- **What it does:** reads `console.url` beside `config.toml` (`-c` as the
+  bot takes it), checks the bot answers on that address, and opens the link
+  with Python's `webbrowser` (which uses `xdg-open` on Linux). Messages for
+  the usual mistakes: the console is off (`[console] enabled = false`), the
+  bot isn't running (no `console.url`, or nothing answers), the app isn't
+  built.
+- **The bot itself can't open it:** as a systemd service it has no desktop,
+  so this is a separate command the admin runs, a second entry point in
+  `[project.scripts]` (decide: a new command, or a flag on the existing one).
+- **Keep the key off the command line:** a browser started with the link as
+  an argument shows the key in `ps` to anyone on the computer. Instead, write
+  a small page (mode 600, in a private temp folder) that sends the browser
+  on to the link, and open that `file://` page; remove it after a few
+  seconds.
+- **Maybe also:** a desktop launcher (`deploy/mesh-contingency-console.desktop`)
+  so it's an icon in the applications menu.
+- **Docs:** README Web console, the wiki Admin Guide ("Open it" and the
+  *Open the console's link* troubleshooting row), changelog.
+
+## 12. Manage the radio from the console: contacts and settings (backlog)
+
+*Asked 2026-10-23.* The Radio page has Advert, Flood advert and Back up now.
+Add what an admin otherwise does with the MeshCore app on a phone plugged
+into the radio: its contacts, and its settings. Split in two PRs, contacts
+first.
+
+**12a. Contacts.** The radio holds a fixed number (the dashboard's
+`contacts 41/350`), and with `[contacts] auto_add` it fills up.
+
+- A list on the Radio page: name, kind (chat, repeater, room), key prefix,
+  last advert, the path (direct or flood, and hops), and which are users or
+  admins.
+- **Remove** a contact (`remove_contact`), with confirm; it says if the
+  contact is a user, since they can't be answered until they advert again.
+  **Reset path** (`reset_path`) for a contact whose messages stopped
+  arriving.
+- Maybe: remove all not heard from in N days; **Add** from a shared contact
+  URI (`import_contact`).
+
+**12b. Radio settings.** Shown first, then changeable one at a time:
+
+- **Read:** name, frequency, bandwidth, spreading factor, coding rate, TX
+  power, position (`self_info`), clock (`get_time`) and firmware
+  (`send_device_query`).
+- **Change:** name (`set_name`; users see the new one after the next
+  advert), TX power (`set_tx_power`, within the radio's maximum), position
+  (`set_coords`, also the location for item 13), set the clock from the
+  computer (`set_time`), reboot the radio (`reboot`; the bot already
+  reconnects).
+- **Frequency, bandwidth, SF and CR (`set_radio`) are the dangerous ones:**
+  a mismatch with the rest of the mesh cuts the node off, and the console
+  can't fix it over the radio. Offer them last, with the regional presets,
+  a confirm that says this, and maybe only after typing the node's name.
+- **Settings `config.toml` owns stay there:** `auto_add` (manual add
+  contacts) and the advert schedule are set from `config.toml` at each
+  start, so the console shows them read-only; it doesn't edit `config.toml`
+  (decided for item 10).
+
+**How (both):** as for item 10, every button runs a command, so the radio and
+the console share the same rules, `history` and confirm (`asks`): e.g. an
+admin `contact` command (`contact remove <name or key>`,
+`contact path <name or key>`) and an admin `radio` command (`radio`,
+`radio name ...`, `radio power ...`, `radio clock`, `radio reboot`, `radio
+freq ...`). Decide, for each: offered over the mesh too, or console only
+(`radio freq` sent over the mesh could cut off the admin who sent it). The
+API adds the radio's settings to an `/api/radio` read. Tests with
+`FakeMeshCore` (it needs the new calls); then try each on the node's Heltec
+V3, the frequency change last and on a spare radio if one arrives.
+
+## 13. The weather now on the dashboard (backlog)
+
+*Asked 2026-10-23.* The dashboard shows the node; add the weather where it
+is, whether or not there's an alert: what `wx` gives over the radio, but
+always there.
+
+- **What:** current conditions from the nearest NWS station (temperature,
+  wind, humidity, the text such as *Partly Cloudy*, and when observed), the
+  chance of rain in the next hours, the next few forecast periods (*Tonight:
+  Low 48, clear*), and the active alerts for the counties `[alerts]` watches
+  (from the alert watcher, which already asks every 10 min, not a second
+  request).
+- **Where it is:** decide between the radio's own position (`adv_lat`,
+  `adv_lon`, if set: see 12b) and a ZIP code or lat/lon in `config.toml`
+  (e.g. `[console] weather = "79601"`); no location, no panel.
+- **When:** the bot fetches it every 10–15 min and keeps the last one, so
+  opening the dashboard doesn't call `api.weather.gov` each time, and the
+  page polls `/api/weather` as it does `/api/overview`.
+- **When the internet is down** (when the node matters most): the panel
+  says so and keeps the last report, with its time; the rest of the
+  dashboard is unaffected. Uses `weather.py` (`fetch_weather`), adding the
+  forecast call.
+- **Tests:** the API with a fake fetch (fine, failing, never fetched), and
+  the panel in Vitest; then on the node, and with the network unplugged.
 
 ---
 
