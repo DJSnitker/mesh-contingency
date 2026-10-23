@@ -12,16 +12,16 @@
 
 @if (overview(); as o) {
   <section class="tiles" aria-label="People">
-    <div class="panel tile">
+    <a class="panel tile" routerLink="/users">
       <mc-icon name="users" />
       <strong>{{ o.users }}</strong>
       <span>users ({{ o.admins }} admin)</span>
-    </div>
-    <div class="panel tile" [class.attention]="o.requests">
+    </a>
+    <a class="panel tile" routerLink="/users" [class.attention]="o.requests">
       <mc-icon name="list" />
       <strong>{{ o.requests }}</strong>
       <span>join requests</span>
-    </div>
+    </a>
     <div class="panel tile">
       <mc-icon name="check" />
       <strong>{{ o.checkins }}</strong>

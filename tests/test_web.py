@@ -312,6 +312,7 @@ class RunTest(ConsoleTestCase):
     async def test_run_an_admin_command(self):
         found = await self.run_command("Health")
         self.assertEqual(found["command"], "health")
+        self.assertFalse(found["asks"])
         self.assertTrue(found["messages"][0].startswith("health: up "))
         log = self.out.getvalue()
         self.assertIn("[console] health\n", log)
@@ -326,11 +327,13 @@ class RunTest(ConsoleTestCase):
         self.assertEqual(self.state.store(HISTORY_FILE).data["entries"][-1]["by"], "console")
 
     async def test_remove_asks_first_as_over_the_radio(self):
-        first = await self.run_command("remove", "Bob")
+        first = await self.run_command("remove", BOB)  # by key, as the app does
         self.assertIn("this removes Bob", first["messages"][0])
+        self.assertTrue(first["asks"])
         self.assertIn(BOB, self.directory.users)
-        second = await self.run_command("remove", "Bob")
+        second = await self.run_command("remove", BOB)
         self.assertIn("Bob removed", second["messages"][0])
+        self.assertFalse(second["asks"])
         self.assertNotIn(BOB, self.directory.users)
 
     async def test_a_refusal_is_the_reply(self):

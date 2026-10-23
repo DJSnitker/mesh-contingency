@@ -86,7 +86,7 @@ class UsersBase(Command):
         if self.confirmations.confirmed(sender.public_key, what):
             return None
         return CommandResult(console="", reply=f"{question} Send it again within {CONFIRM_SECONDS // 60} min "
-                                               f"to confirm.")
+                                               f"to confirm.", asks=True)
 
 
 class UsersCommand(UsersBase):

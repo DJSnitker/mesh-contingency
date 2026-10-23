@@ -5,7 +5,10 @@ import { Api } from './api';
 import { Icon } from './icon';
 
 /** The pages, in the order of the rail. */
-export const PAGES = [{ path: '/', label: 'Dashboard', icon: 'gauge' }];
+export const PAGES = [
+  { path: '/', label: 'Dashboard', icon: 'gauge' },
+  { path: '/users', label: 'Users', icon: 'users' },
+];
 
 @Component({
   selector: 'mc-root',

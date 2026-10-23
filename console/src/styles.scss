@@ -111,6 +111,13 @@ code {
   }
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-ghost {
   border-color: var(--line);
   background: rgb(255 255 255 / 3%);

@@ -41,6 +41,9 @@ LEVELS = (PUBLIC, USER, ADMIN, DISABLED)
 class CommandResult:
     console: str  # full output printed locally
     reply: str | list[str] | None  # sent back over the mesh: text, messages in order, or nothing
+    # True if the reply only asks the sender to send the same again to
+    # confirm (remove, resetpass): the web console then offers a button.
+    asks: bool = False
 
 
 @dataclass

@@ -18,3 +18,6 @@ To work on the app with live reloading, run the bot with `[console]` enabled,
 open the console's link (from `console.url`) once, then run `npm start` and
 open http://127.0.0.1:4200: it proxies `/api` to the bot (`proxy.conf.json`),
 and the browser sends the same cookie, since cookies don't go by port.
+The proxy also sends the bot's own `Origin`, so commands run from the dev
+server; other sites still can't use it, since the cookie is `SameSite=Strict`
+and never goes with their requests.

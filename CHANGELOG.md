@@ -29,6 +29,13 @@ may change how the bot is configured).
   (which ships it built), styled like the website and with its fonts
   bundled, so it works without the internet. Every response carries a strict
   Content-Security-Policy.
+- **Web console, part 4: users.** A Users page lists every user and admin
+  (settings, last seen, check-in, messages) with Whois, Reset passphrase and
+  Remove, and the join requests waiting with Approve and Deny. They run the
+  same commands as over the radio; when one asks to confirm (`remove`,
+  `resetpass` with sealed messages), the page shows the question with a
+  Confirm button. The dashboard's people tiles link to it. `/api/run` says
+  `"asks": true` for such a reply (`CommandResult(asks=True)` for plugins).
 
 ### Changed
 

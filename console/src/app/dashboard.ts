@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { catchError, EMPTY, switchMap, tap, timer } from 'rxjs';
 
 import { Api, Overview } from './api';
@@ -15,7 +16,7 @@ export const REFRESH_MS = 30_000;
 @Component({
   selector: 'mc-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, LiveLog],
+  imports: [Icon, LiveLog, RouterLink],
   styleUrl: './dashboard.scss',
   templateUrl: './dashboard.html',
 })

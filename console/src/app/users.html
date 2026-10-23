@@ -1,0 +1,150 @@
+<header class="title">
+  <div>
+    <h1>Users</h1>
+    @if (users()) {
+      <p class="muted">
+        {{ counts().users }} user{{ counts().users === 1 ? '' : 's' }}, {{ counts().admins }} admin
+      </p>
+    }
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+<mc-reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
+@if (requests().length) {
+  <section class="panel requests" aria-labelledby="requests-title">
+    <h2 id="requests-title"><mc-icon name="list" /> Join requests</h2>
+    <ul>
+      @for (request of requests(); track request.key) {
+        <li>
+          <div>
+            <strong>{{ request.name }}</strong>
+            <code [title]="request.key">{{ request.key.slice(0, 12) }}</code>
+            <span class="muted">asked {{ ago(request.time, now()) }}</span>
+          </div>
+          <div class="actions">
+            <button
+              class="btn btn-sm"
+              type="button"
+              [disabled]="runner.busy()"
+              (click)="runner.run('approve', request.key)"
+            >
+              Approve
+            </button>
+            <button
+              class="btn btn-ghost btn-sm"
+              type="button"
+              [disabled]="runner.busy()"
+              (click)="runner.run('deny', request.key)"
+            >
+              Deny
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (users(); as list) {
+  <ul class="list" aria-label="Users and admins">
+    @for (user of list; track user.key) {
+      <li class="panel person">
+        <div class="who">
+          <strong>{{ user.name ?? '?' }}</strong>
+          @if (user.admin) {
+            <span class="badge">admin</span>
+          }
+          @if (!user.user) {
+            <span class="badge muted-badge" title="In [admin] keys, with no user section"
+              >not a user</span
+            >
+          }
+          @if (user.passphrase) {
+            <span class="sealed" title="Passphrase set: new messages are sealed"
+              ><mc-icon name="lock" /><span class="sr-only">passphrase set</span></span
+            >
+          }
+          <code [title]="user.key">{{ user.key.slice(0, 12) }}</code>
+        </div>
+        <dl>
+          <div class="settings">
+            <dt>Settings</dt>
+            @for (setting of settings(user); track setting) {
+              <dd>{{ setting }}</dd>
+            } @empty {
+              <dd class="muted">none</dd>
+            }
+          </div>
+          <div>
+            <dt>Last seen</dt>
+            <dd>{{ user.last_seen ? ago(user.last_seen, now()) : 'not since start' }}</dd>
+          </div>
+          <div>
+            <dt>Check-in</dt>
+            @if (user.checkin; as c) {
+              <dd>
+                {{ c.status }} <span class="muted">{{ ago(c.time, now()) }}</span>
+              </dd>
+            } @else {
+              <dd class="muted">none</dd>
+            }
+          </div>
+          <div>
+            <dt>Messages</dt>
+            @if (user.messages) {
+              <dd>
+                {{ user.messages }} <span class="muted">({{ user.unread }} unread)</span>
+              </dd>
+            } @else {
+              <dd class="muted">none</dd>
+            }
+          </div>
+        </dl>
+        @if (user.user) {
+          <div class="actions">
+            <button
+              class="btn btn-ghost btn-sm"
+              type="button"
+              [disabled]="runner.busy()"
+              (click)="runner.run('whois', user.key)"
+            >
+              Whois
+            </button>
+            @if (user.passphrase) {
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                [disabled]="runner.busy()"
+                (click)="runner.run('resetpass', user.key)"
+                title="Clear the passphrase they forgot (and their sealed messages)"
+              >
+                Reset passphrase
+              </button>
+            }
+            <button
+              class="btn btn-ghost btn-sm danger"
+              type="button"
+              [disabled]="runner.busy()"
+              (click)="runner.run('remove', user.key)"
+            >
+              Remove
+            </button>
+          </div>
+        }
+      </li>
+    } @empty {
+      <li class="panel muted">No users yet: people join with join from their radio.</li>
+    }
+  </ul>
+} @else if (!problem()) {
+  <p class="muted">Reading the users…</p>
+}

@@ -23,6 +23,7 @@ describe('App', () => {
     expect(element.querySelector('.brand')?.textContent).toContain('Mesh Contingency');
     expect([...element.querySelectorAll('.rail li')].map((li) => li.textContent?.trim())).toEqual([
       'Dashboard',
+      'Users',
     ]);
   });
 

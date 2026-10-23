@@ -1,0 +1,170 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+
+  p {
+    margin: 4px 0 0;
+  }
+}
+
+.problem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--orange);
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.requests {
+  border-color: rgb(255 95 31 / 45%);
+
+  h2 mc-icon {
+    color: var(--orange);
+  }
+
+  ul {
+    display: grid;
+    gap: 10px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    div:first-child {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 10px;
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// The name and key with the actions beside them, then the details across the
+// card; on a phone the actions go under the details.
+.person {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'who actions'
+    'details details';
+  gap: 12px 20px;
+  padding: 16px 20px;
+
+  .who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    grid-area: who;
+  }
+
+  dl {
+    grid-area: details;
+  }
+
+  .actions {
+    grid-area: actions;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'who'
+      'details'
+      'actions';
+
+    .actions {
+      justify-content: flex-start;
+    }
+  }
+}
+
+.sealed mc-icon {
+  color: var(--sky);
+  vertical-align: -3px;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 20px;
+  margin: 0;
+  font-size: 0.9rem;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    // Addresses are long: a row of their own.
+    .settings {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: rgb(255 95 31 / 15%);
+  color: var(--orange);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.muted-badge {
+  background: rgb(255 255 255 / 6%);
+  color: var(--muted);
+}
+
+.danger:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+}

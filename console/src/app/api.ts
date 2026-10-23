@@ -19,6 +19,37 @@ export interface Overview {
   backup: { last: number | null; failing: string | null } | null;
 }
 
+/** One of GET /api/users: a user, an admin, or both. */
+export interface User {
+  key: string;
+  name: string | null;
+  /** Has a section in users.toml (an admin needn't). */
+  user: boolean;
+  admin: boolean;
+  passphrase: boolean;
+  /** Their settings in users.toml, e.g. qm and emailall addresses. */
+  settings: Record<string, string | string[]>;
+  last_seen: number | null;
+  checkin: { status: string; time: number } | null;
+  messages: number;
+  unread: number;
+}
+
+/** One of GET /api/requests. */
+export interface JoinRequest {
+  key: string;
+  name: string;
+  time: number;
+}
+
+/** POST /api/run: a command's whole reply. */
+export interface Answer {
+  command: string;
+  messages: string[];
+  /** The reply only asks to send the same again to confirm. */
+  asks: boolean;
+}
+
 /** One line of GET /api/log. */
 export interface LogLine {
   time: number;
@@ -42,19 +73,35 @@ export class Api {
     return this.get<Overview>('/api/overview');
   }
 
+  users(): Observable<User[]> {
+    return this.get<User[]>('/api/users');
+  }
+
+  requests(): Observable<JoinRequest[]> {
+    return this.get<JoinRequest[]>('/api/requests');
+  }
+
+  /** Run a command as the admin "console", as if sent over the radio. */
+  run(command: string, text = ''): Observable<Answer> {
+    return this.http.post<Answer>('/api/run', { command, text }).pipe(this.watch());
+  }
+
   /** The live log: the lines kept so far, then each new one. */
   log(): EventSource {
     return new EventSource('/api/log');
   }
 
   private get<T>(url: string): Observable<T> {
-    return this.http.get<T>(url).pipe(
-      catchError((error: HttpErrorResponse) => {
-        if (error.status === 401) {
-          this.signedOut.set(true);
-        }
-        return throwError(() => error);
-      }),
-    );
+    return this.http.get<T>(url).pipe(this.watch());
+  }
+
+  /** Notes a refused key on the way past. */
+  private watch<T>() {
+    return catchError<T, Observable<T>>((error: HttpErrorResponse) => {
+      if (error.status === 401) {
+        this.signedOut.set(true);
+      }
+      return throwError(() => error);
+    });
   }
 }
