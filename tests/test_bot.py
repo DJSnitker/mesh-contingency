@@ -900,7 +900,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_public_command_for_anyone(self):
         await self.start()
-        data = {"zipcode": "10001", "place": "New York City, NY", "station": "Central Park",
+        data = {"where": "10001", "place": "New York City, NY", "station": "Central Park",
                 "obs": None, "pop": 0, "alerts": []}
         with mock.patch("mesh_contingency.commands.wx.fetch_weather", return_value=data):
             await self.radio.dm(STRANGER, "wx 10001")
@@ -990,8 +990,9 @@ permission = "public"
                             "for usage")
         self.assertGreater(len(parts), 1)
         self.assertEqual(replies[1:1 + len(parts)], parts)
-        self.assertEqual(replies[1 + len(parts):], ["wx <zipcode> - Weather, precipitation and alerts for a US zipcode",
-                                                    "help: no command secret"])
+        self.assertEqual(replies[1 + len(parts):],
+                         ["wx <zipcode | county, ST> - Weather, precipitation and alerts for a US zipcode or county",
+                          "help: no command secret"])
 
     # --- check-ins, roster and mailbox
 
@@ -1141,7 +1142,7 @@ permission = "public"
     async def test_command_error_is_sent_back(self):
         await self.start()
         await self.radio.dm(STRANGER, "wx")
-        self.assertEqual(self.replies(), ["usage: wx <zipcode>"])
+        self.assertEqual(self.replies(), ["usage: wx <zipcode | county, ST>"])
 
     async def test_unexpected_error_sends_generic_failure(self):
         await self.start()

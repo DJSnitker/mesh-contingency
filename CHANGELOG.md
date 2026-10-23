@@ -7,6 +7,13 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Changed
+
+- **`wx` takes a county as well as a zipcode:** `wx Taylor, TX` (or
+  `taylor county tx`, or its NWS code `wx TXC441`) gives the weather at the
+  county's middle and the alerts issued for the county. `wx 79601` works as
+  before.
+
 ## [0.8.0] - 2026-10-23
 
 The web console now manages the radio itself: its contacts, its channels and

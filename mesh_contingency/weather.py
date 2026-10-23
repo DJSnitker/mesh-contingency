@@ -1,4 +1,4 @@
-"""Look up current conditions and active alerts for a US zipcode via api.weather.gov."""
+"""Look up current conditions and active alerts for a US zipcode or county via api.weather.gov."""
 
 import json
 import urllib.error
@@ -138,20 +138,32 @@ def check_zip(zipcode):
     return zipcode
 
 
+def _weather_at(lat, lon):
+    """The station, latest observation and precip chance nearest a point."""
+    point = _get_json(f"{NWS_API}/points/{lat:.4f},{lon:.4f}")["properties"]
+    station, obs = latest_observation(point["observationStations"])
+    return {"station": station, "obs": obs, "pop": precip_chance(point["forecastHourly"])}
+
+
 def fetch_weather(zipcode):
     """Return a dict of current conditions, precip chance and alerts for a zipcode."""
     zipcode = check_zip(zipcode)
     lat, lon, place = geocode_zip(zipcode)
-    point = _get_json(f"{NWS_API}/points/{lat:.4f},{lon:.4f}")["properties"]
-    station, obs = latest_observation(point["observationStations"])
-    return {
-        "zipcode": zipcode,
-        "place": place,
-        "station": station,
-        "obs": obs,
-        "pop": precip_chance(point["forecastHourly"]),
-        "alerts": active_alerts(lat, lon),
-    }
+    return {"where": zipcode, "place": place, **_weather_at(lat, lon), "alerts": active_alerts(lat, lon)}
+
+
+def fetch_county_weather(code):
+    """Like fetch_weather, for a county (its NWS code, e.g. "TXC441"): the
+    conditions nearest its middle and the alerts for the county."""
+    try:
+        zone = _get_json(f"{NWS_API}/zones/county/{code}")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            raise ValueError(f"unknown county code {code}") from e
+        raise
+    lat, lon = _middle(zone["geometry"])
+    where = f"{zone['properties']['name']}, {zone['properties']['state']}"
+    return {"where": where, "place": code, **_weather_at(lat, lon), "alerts": county_alerts([code])}
 
 
 def compass(degrees):
@@ -162,17 +174,20 @@ def compass(degrees):
     return points[round(degrees / 22.5) % 16]
 
 
+def _middle(geometry):
+    """(lat, lon) of the middle of a zone's outline."""
+    rings = [geometry["coordinates"][0]] if geometry["type"] == "Polygon" else \
+        [polygon[0] for polygon in geometry["coordinates"]]
+    corners = [corner for ring in rings for corner in ring]
+    return sum(c[1] for c in corners) / len(corners), sum(c[0] for c in corners) / len(corners)
+
+
 def county_point(code):
     """Where to ask about a county's weather: {"lat", "lon"} (its middle,
     from its outline), "place" (the town the NWS names nearest that point),
     "forecast" (the URL of its forecast) and "stations" ([[id, name]] of the
     nearest stations)."""
-    geometry = _get_json(f"{NWS_API}/zones/county/{code}")["geometry"]
-    rings = [geometry["coordinates"][0]] if geometry["type"] == "Polygon" else \
-        [polygon[0] for polygon in geometry["coordinates"]]
-    corners = [corner for ring in rings for corner in ring]
-    lon = sum(c[0] for c in corners) / len(corners)
-    lat = sum(c[1] for c in corners) / len(corners)
+    lat, lon = _middle(_get_json(f"{NWS_API}/zones/county/{code}")["geometry"])
     point = _get_json(f"{NWS_API}/points/{lat:.4f},{lon:.4f}")["properties"]
     near = point["relativeLocation"]["properties"]
     stations = _get_json(point["observationStations"])["features"][:MAX_STATIONS]
