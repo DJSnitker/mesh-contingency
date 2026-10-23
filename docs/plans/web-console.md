@@ -1,6 +1,6 @@
 # Plan: a web console for the node
 
-Status: in progress, PR 2a done (#43), 2b next · Requested 2026-10-22
+Status: done, released in 0.7.0 (#43, #45, #46, #48, #50, #51, and this release PR) · Requested 2026-10-22
 
 ## Goal
 
@@ -94,7 +94,8 @@ port = 8737     # 127.0.0.1 only
   the `app-icon` set, copied in. The fonts are **bundled**, not loaded from
   Google Fonts: the console must work when the internet is down, which is
   when it matters most.
-- **Pages:** Dashboard · Users · Check-ins · Inbox · History · Send. A left
+- **Pages:** Dashboard · Users · Check-ins · Inbox · History · Send ·
+  Radio (advert and backup, apart from the messages; added in PR 6). A left
   rail on wide screens, a top bar on narrow ones.
 - **Build:** `npm run build` in `console/` writes to
   `mesh_contingency/web/static/` (not committed); the wheel includes it.

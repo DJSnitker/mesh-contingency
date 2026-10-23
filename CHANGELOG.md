@@ -7,52 +7,48 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-23
+
+The node can be run from a browser on its own computer: the web console
+shows the node at a glance and does everything an admin does over the radio,
+without a radio in hand or 133-character replies. And a restart of the
+computer no longer reads as a problem with the radio. Pull requests #41,
+#43, #45, #46, #48, #50 and #51.
+
 ### Added
 
-- **Web console, part 1** (`[console]` in `config.toml`, off by default; needs
-  `pip install -e ".[console]"`): the bot serves a read-only JSON API on
-  `127.0.0.1` (overview, users, join requests, check-ins, inbox, history).
-  It's opened with a new key at each start, written to `console.url`. Only
-  this computer's addresses are answered, and sealed or message text never
-  leaves the node. The app comes in later releases.
-- **Web console, part 2:** `POST /api/run` runs admin and public commands as
-  the admin `console`, exactly as over the radio (the same checks, rate
-  limits, `remove`'s confirmation, history `by console`), and returns the
-  whole reply; `/api/commands` lists them. `/api/log` streams what the bot
-  prints (the last 500 lines, then new ones) as server-sent events. Commands
-  that act on the sender's own records (`join`, `ok`, and user commands)
-  aren't offered; a plugin command can say so with `own = True`.
-- **Web console, part 3: the app.** Opening the console's link now shows a
-  dashboard: the node's users, join requests, check-ins and messages
-  waiting, the watch, backups and health, and the live log. It's an Angular
-  app in `console/`, built with `npm ci && npm run build` into the package
-  (which ships it built), styled like the website and with its fonts
-  bundled, so it works without the internet. Every response carries a strict
-  Content-Security-Policy.
-- **Web console, part 4: users.** A Users page lists every user and admin
-  (settings, last seen, check-in, messages) with Whois, Reset passphrase and
-  Remove, and the join requests waiting with Approve and Deny. They run the
-  same commands as over the radio; when one asks to confirm (`remove`,
-  `resetpass` with sealed messages), the page shows the question with a
-  Confirm button. The dashboard's people tiles link to it. `/api/run` says
-  `"asks": true` for such a reply (`CommandResult(asks=True)` for plugins).
-- **Web console, part 5: check-ins, inbox and history.** Three more pages.
-  Check-ins lists who has sent ok, newest first, and who hasn't, with Clear
-  check-ins (it asks first, since `clearstatus` doesn't). Inbox shows who has
-  messages waiting, from whom, and whether they're read or sealed, never what
-  they say. History lists admin actions, newest first, with a filter. The
-  dashboard's check-ins and messages tiles link to them, and on a phone the
-  page links wrap instead of running off the screen.
-- **Web console, part 6: send and radio.** A Send page posts to
-  `#contingency-wx` or `#contingency-comm`, with a character count against
-  the one-message limit, or leaves a message in a user's inbox (from
-  `console`; they're told it's waiting). It offers only what the console may
-  run, and keeps the text when the bot refuses. A Radio page, apart from the
-  messages, has the controls: Advert, Flood advert and Back up now.
-  `/api/run` now also says `"ok": false` when a command refused, failed or
-  timed out; `/api/commands` gives each channel command's `channel`;
-  `/api/overview` gives `channel_limit`. A user command can set
-  `Command.sends = True` (as `msg` does) to be offered to the console.
+- **Web console** (`[console]` in `config.toml`, off by default; needs
+  `pip install -e ".[console]"` and, from a git checkout, `npm ci && npm run
+  build` in `console/`): the bot serves a web app on `127.0.0.1:8737`, opened
+  with the link it prints at each start and writes to `console.url`. Its
+  pages:
+  - **Dashboard:** users, join requests, check-ins and messages waiting, the
+    node watch, backups, `health`, and the live log.
+  - **Users:** every user and admin with Whois, Reset passphrase and Remove,
+    and the join requests with Approve and Deny.
+  - **Check-ins:** who has checked in and who hasn't, with Clear check-ins.
+  - **Inbox:** who has messages waiting, from whom, read or sealed, never
+    what they say.
+  - **History:** admin actions, newest first, with a filter.
+  - **Send:** post to `#contingency-wx` or `#contingency-comm`, or leave a
+    message in a user's inbox.
+  - **Radio:** Advert, Flood advert and Back up now.
+
+  It runs the same commands as over the radio, as the admin `console`: the
+  same checks, rate limits and confirmations (with a Confirm button), and
+  history `by console`. It answers only this computer, needs the key from
+  the link (then a cookie), refuses other hosts and origins, and sends a
+  strict Content-Security-Policy. Its fonts are bundled, so it works without
+  the internet, and the Python package ships the app built. See
+  [Web console](README.md#web-console).
+- **A JSON API** under the console, for scripts on the node's computer:
+  `/api/overview`, `/api/users`, `/api/requests`, `/api/checkins`,
+  `/api/inbox`, `/api/history`, `/api/commands`, `POST /api/run` (a command's
+  whole reply, with `asks` and `ok`) and `/api/log` (server-sent events).
+- **For command authors:** `CommandResult(asks=True)` marks a reply that
+  only asks to confirm; `own = True` keeps a command acting on the sender's
+  own records off the console; `sends = True` offers a user command that only
+  leaves something for someone else (as `msg`).
 
 ### Changed
 
@@ -62,6 +58,35 @@ may change how the bot is configured).
 - **Auto alerts** wait up to 2 minutes for the network before the first check,
   so right after the computer starts, `health` doesn't show `last check
   failed` just because the network wasn't up yet.
+
+### Upgrading from 0.6.0
+
+Nothing changes unless you turn the web console on. To update:
+
+```sh
+git pull
+.venv/bin/python -m pip install -e .
+```
+
+and restart the bot. To use the web console:
+
+1. Install its extra, and build its app (needs Node.js 22.22+ or 24.15+;
+   the bot itself doesn't):
+   ```sh
+   .venv/bin/python -m pip install -e ".[console]"
+   cd console && npm ci && npm run build && cd ..
+   ```
+2. Add to `config.toml`:
+   ```toml
+   [console]
+   enabled = true
+   ```
+3. Restart the bot, and open the link it prints (`Web console:
+   http://127.0.0.1:8737/?key=...`), also in `console.url`, in a browser on
+   that computer. Each restart makes a new link.
+
+After later updates that change `console/`, run `npm ci && npm run build`
+there again before restarting.
 
 ## [0.6.0] - 2026-10-22
 
@@ -353,6 +378,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.7.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.7.0
 [0.6.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.4.0
