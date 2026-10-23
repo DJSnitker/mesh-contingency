@@ -74,6 +74,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5l3 2" />
         }
+        @case ('send') {
+          <path d="M21 3 10 14" />
+          <path d="m21 3-7 18-4-7-7-4z" />
+        }
+        @case ('mail') {
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3 7 9 6 9-6" />
+        }
         @case ('lock') {
           <rect x="5" y="11" width="14" height="10" rx="2" />
           <path d="M8 11V8a4 4 0 0 1 8 0v3" />

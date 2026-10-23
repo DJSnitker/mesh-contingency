@@ -10,8 +10,9 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from mesh_contingency.alerts import message_limit
 from mesh_contingency.api import ADMIN as ADMIN_LEVEL
-from mesh_contingency.api import Command, CommandResult
+from mesh_contingency.api import DISABLED, Command, CommandResult
 from mesh_contingency.directory import Directory
 from mesh_contingency.output import SafeOutput
 from mesh_contingency.registry import Registry
@@ -220,6 +221,7 @@ class ReadTest(ConsoleTestCase):
         self.state.store("requests.json").data[BOB[:2] * 32] = {"name": "Carol", "time": 5.0}
         found = await self.get_json("/api/overview")
         self.assertEqual(found["node"], self.radio.self_info.get("name"))
+        self.assertEqual(found["channel_limit"], message_limit(self.radio))
         self.assertEqual((found["users"], found["admins"], found["requests"]), (2, 1, 1))
         self.assertEqual(found["counts"], {"messages": 3, "sent": 0, "undelivered": 0, "errors": 0})
         self.assertIn("users 2 (1 admin)", found["health"])
@@ -300,19 +302,22 @@ class RunTest(ConsoleTestCase):
 
     async def test_commands_offered(self):
         names = [c["name"] for c in await self.get_json("/api/commands")]
-        for name in ("health", "approve", "remove", "whois", "alert", "help", "wx", "status", "backup"):
+        for name in ("health", "approve", "remove", "whois", "alert", "help", "wx", "status", "backup", "msg"):
             self.assertIn(name, names)
         # Acting on the sender's own records, which the console doesn't have.
-        for name in ("join", "ok", "inbox", "setpass", "whoami", "leave", "qm"):
+        for name in ("join", "ok", "inbox", "setpass", "whoami", "leave", "qm", "email", "emailall"):
             self.assertNotIn(name, names)
         health = next(c for c in await self.get_json("/api/commands") if c["name"] == "health")
         self.assertEqual(health, {"name": "health", "permission": "admin", "usage": "health",
-                                  "summary": self.commands["health"].summary})
+                                  "summary": self.commands["health"].summary, "channel": None})
+        alert = next(c for c in await self.get_json("/api/commands") if c["name"] == "alert")
+        self.assertEqual(alert["channel"], "#contingency-wx")
 
     async def test_run_an_admin_command(self):
         found = await self.run_command("Health")
         self.assertEqual(found["command"], "health")
         self.assertFalse(found["asks"])
+        self.assertTrue(found["ok"])
         self.assertTrue(found["messages"][0].startswith("health: up "))
         log = self.out.getvalue()
         self.assertIn("[console] health\n", log)
@@ -336,16 +341,30 @@ class RunTest(ConsoleTestCase):
         self.assertFalse(second["asks"])
         self.assertNotIn(BOB, self.directory.users)
 
+    async def test_msg_leaves_a_message_from_console(self):
+        found = await self.run_command("msg", f"{BOB} the road north is open")
+        self.assertEqual(found["messages"], ["msg: saved for Bob (1 in their inbox)"])
+        box = self.state.store("mailbox.json").data[BOB]
+        self.assertEqual((box[0]["from"], box[0]["text"]), ("console", "the road north is open"))
+        self.assertIn("[console] msg (private)", self.out.getvalue())
+        self.assertNotIn("road north", self.out.getvalue())
+
+    async def test_msg_not_offered_when_turned_off(self):
+        self.commands["msg"].permission = DISABLED
+        await self.run_command("msg", f"{BOB} hi", status=404)
+
     async def test_a_refusal_is_the_reply(self):
         found = await self.run_command("whois", "nobody")
         self.assertEqual(found["messages"], ["whois: no user nobody"])
+        self.assertFalse(found["ok"])
 
     async def test_a_failing_command(self):
         async def broken(text, sender):
             raise RuntimeError("radio on fire")
 
         self.commands["health"].execute = broken
-        self.assertEqual((await self.run_command("health"))["messages"], ["health: failed"])
+        found = await self.run_command("health")
+        self.assertEqual((found["messages"], found["ok"]), (["health: failed"], False))
         self.assertEqual(self.state.counts["errors"], 1)
 
     async def test_commands_not_offered(self):

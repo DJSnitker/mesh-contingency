@@ -82,6 +82,7 @@ class MailboxBase(Command):
 class MsgCommand(MailboxBase):
     args = "<name> <message>"
     summary = "Leave a message for a user; they read it with inbox"
+    sends = True
 
     def __init__(self, ctx):
         super().__init__(ctx)

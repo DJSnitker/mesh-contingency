@@ -81,7 +81,12 @@ describe('Users', () => {
       return of(reads === 1 ? [ALICE] : []);
     };
     api.answer = (command) =>
-      of({ command, messages: ['remove: this removes Alice. Send it again…'], asks: true });
+      of({
+        command,
+        messages: ['remove: this removes Alice. Send it again…'],
+        asks: true,
+        ok: true,
+      });
     const fixture = await render();
     const element: HTMLElement = fixture.nativeElement;
     button(element, '.list', 'Remove').click();
@@ -89,7 +94,8 @@ describe('Users', () => {
     expect(element.querySelector('.reply.asks')?.textContent).toContain('this removes Alice');
     expect(reads).toBe(1); // nothing changed yet
 
-    api.answer = (command) => of({ command, messages: ['remove: Alice removed'], asks: false });
+    api.answer = (command) =>
+      of({ command, messages: ['remove: Alice removed'], asks: false, ok: true });
     button(element, '.reply', 'Confirm').click();
     await fixture.whenStable();
     expect(api.ran).toEqual([
@@ -103,7 +109,7 @@ describe('Users', () => {
 
   it('cancelling a question sends nothing', async () => {
     api.answer = (command) =>
-      of({ command, messages: ['remove: this removes Alice.'], asks: true });
+      of({ command, messages: ['remove: this removes Alice.'], asks: true, ok: true });
     const fixture = await render();
     const element: HTMLElement = fixture.nativeElement;
     button(element, '.list', 'Remove').click();
