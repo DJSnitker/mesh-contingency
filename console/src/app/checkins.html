@@ -1,0 +1,65 @@
+<header class="title">
+  <div>
+    <h1>Check-ins</h1>
+    @if (found(); as f) {
+      <p class="muted">{{ f.checkins.length }} checked in, {{ f.missing.length }} not yet</p>
+    }
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+  @if (found()?.checkins?.length) {
+    <div class="clear">
+      @if (clearing()) {
+        <span>Clear all {{ found()?.checkins?.length }} check-ins?</span>
+        <button class="btn btn-sm" type="button" [disabled]="runner.busy()" (click)="clear()">
+          Yes, clear
+        </button>
+        <button class="btn btn-ghost btn-sm" type="button" (click)="clearing.set(false)">
+          Cancel
+        </button>
+      } @else {
+        <button class="btn btn-ghost btn-sm" type="button" (click)="clearing.set(true)">
+          Clear check-ins
+        </button>
+      }
+    </div>
+  }
+</header>
+
+<mc-reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
+@if (found(); as f) {
+  <ul class="list" aria-label="Checked in">
+    @for (c of f.checkins; track c.key) {
+      <li class="panel entry">
+        <mc-icon name="check" class="ok" />
+        <strong>{{ c.name }}</strong>
+        <span class="status">{{ c.status }}</span>
+        <span class="muted when">{{ ago(c.time, now()) }}</span>
+      </li>
+    } @empty {
+      <li class="panel muted">Nobody has checked in. People send ok (or ok and how they are).</li>
+    }
+  </ul>
+
+  @if (f.missing.length) {
+    <section class="panel missing" aria-labelledby="missing-title">
+      <h2 id="missing-title"><mc-icon name="clock" /> Not checked in</h2>
+      <ul>
+        @for (m of f.missing; track m.key) {
+          <li>
+            {{ m.name ?? '?' }} <code [title]="m.key">{{ m.key.slice(0, 12) }}</code>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+} @else if (!problem()) {
+  <p class="muted">Reading the check-ins…</p>
+}

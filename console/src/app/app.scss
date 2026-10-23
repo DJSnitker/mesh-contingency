@@ -62,9 +62,16 @@
     border-right: 0;
     border-bottom: 1px solid var(--line);
 
+    // Five pages don't fit a phone in one row: they wrap, whole.
     ul {
       display: flex;
-      margin: 0;
+      flex-wrap: wrap;
+      margin: 8px 0 0;
+    }
+
+    ul a {
+      padding: 7px 10px;
+      white-space: nowrap;
     }
   }
 }

@@ -1,0 +1,39 @@
+<header class="title">
+  <div>
+    <h1>History</h1>
+    @if (entries(); as e) {
+      <p class="muted">The last {{ e.length }} admin action(s), newest first</p>
+    }
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+@if (entries(); as all) {
+  <label>
+    <span class="sr-only">Filter</span>
+    <input
+      class="filter"
+      type="search"
+      placeholder="Filter: a name, approved, alert…"
+      [value]="filter()"
+      (input)="filter.set($any($event.target).value)"
+    />
+  </label>
+  <ul class="list history" aria-label="History">
+    @for (e of shown(); track $index) {
+      <li class="panel entry">
+        <span class="by">{{ e.by }}</span>
+        <span class="what">{{ e.what }}</span>
+        <time class="muted when" [title]="when(e.time)">{{ ago(e.time, now()) }}</time>
+      </li>
+    } @empty {
+      <li class="panel muted">
+        {{ all.length ? 'Nothing matches the filter.' : 'Nothing yet.' }}
+      </li>
+    }
+  </ul>
+} @else if (!problem()) {
+  <p class="muted">Reading the history…</p>
+}

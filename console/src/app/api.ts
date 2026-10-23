@@ -42,6 +42,26 @@ export interface JoinRequest {
   time: number;
 }
 
+/** GET /api/checkins: check-ins newest first, and the users with none. */
+export interface Checkins {
+  checkins: { key: string; name: string; status: string; time: number }[];
+  missing: { key: string; name: string | null }[];
+}
+
+/** One of GET /api/inbox: a user's mailbox, oldest first. Never the text. */
+export interface Mailbox {
+  key: string;
+  name: string | null;
+  messages: { from: string; time: number; read: boolean; sealed: boolean }[];
+}
+
+/** One of GET /api/history, newest first. */
+export interface HistoryEntry {
+  time: number;
+  by: string;
+  what: string;
+}
+
 /** POST /api/run: a command's whole reply. */
 export interface Answer {
   command: string;
@@ -79,6 +99,18 @@ export class Api {
 
   requests(): Observable<JoinRequest[]> {
     return this.get<JoinRequest[]>('/api/requests');
+  }
+
+  checkins(): Observable<Checkins> {
+    return this.get<Checkins>('/api/checkins');
+  }
+
+  inbox(): Observable<Mailbox[]> {
+    return this.get<Mailbox[]>('/api/inbox');
+  }
+
+  history(): Observable<HistoryEntry[]> {
+    return this.get<HistoryEntry[]>('/api/history');
   }
 
   /** Run a command as the admin "console", as if sent over the radio. */
