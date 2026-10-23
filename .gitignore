@@ -3,13 +3,15 @@
 config.toml
 users.toml
 # What the bot saves while running: check-ins, mailbox messages, join requests,
-# the last scheduled advert, the weather alerts already posted, the history of
-# admin actions, and backups of users.toml.
+# the last scheduled advert, the weather alerts already posted, where to ask
+# about each county's weather, the history of admin actions, and backups of
+# users.toml.
 status.json
 mailbox.json
 requests.json
 adverts.json
 alerts.json
+area_weather.json
 watch.json
 backup.json
 history.json

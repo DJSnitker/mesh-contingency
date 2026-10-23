@@ -19,6 +19,64 @@ export interface Overview {
   /** The node watch's problems, or null if [watch] is off. */
   watch: string[] | null;
   backup: { last: number | null; failing: string | null } | null;
+  /** The alerts out for the counties in [alerts], each event once; null without counties. */
+  alerts: {
+    active: { event: string; counties: string[] }[];
+    checked: number | null;
+    problem: string | null;
+  } | null;
+}
+
+/** An alert the NWS has out for a county, as the alert watcher last found it. */
+export interface AreaAlert {
+  event: string | null;
+  severity: string | null;
+  headline: string | null;
+  ends: number | null;
+}
+
+/** A forecast period, e.g. Tonight: 60 F, Partly Cloudy. */
+export interface Period {
+  name: string;
+  temp: number;
+  unit: string;
+  text: string;
+  /** Chance of rain, in percent, or null if the NWS gave none. */
+  pop: number | null;
+  wind: string | null;
+}
+
+/**
+ * The weather now in one county [alerts] watches (mesh_contingency/area_weather.py).
+ * Only county, alerts and problem are there before the first report.
+ */
+export interface Area {
+  county: string;
+  alerts: AreaAlert[];
+  /** Why the last try failed; the rest is the last report that worked. */
+  problem?: string | null;
+  /** The town the NWS names nearest the county's middle. */
+  place?: string;
+  station?: string | null;
+  observed?: number | null;
+  text?: string | null;
+  temp_f?: number | null;
+  feels_f?: number | null;
+  humidity?: number | null;
+  wind_mph?: number | null;
+  gust_mph?: number | null;
+  wind_dir?: string | null;
+  periods?: Period[];
+  updated?: number;
+}
+
+/** GET /api/weather. areas is null with no counties in [alerts]. */
+export interface Weather {
+  now: number;
+  every_minutes: number;
+  areas: Area[] | null;
+  alerts_checked: number | null;
+  alerts_problem: string | null;
 }
 
 /** One of GET /api/users: a user, an admin, or both. */
@@ -128,6 +186,10 @@ export class Api {
 
   history(): Observable<HistoryEntry[]> {
     return this.get<HistoryEntry[]>('/api/history');
+  }
+
+  weather(): Observable<Weather> {
+    return this.get<Weather>('/api/weather');
   }
 
   commands(): Observable<CommandInfo[]> {

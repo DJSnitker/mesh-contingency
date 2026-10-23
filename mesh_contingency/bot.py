@@ -29,6 +29,7 @@ from .api import (
     Sender,
     is_authorized,
 )
+from .area_weather import AreaWeather
 from .backup import Backups, load_backup
 from .console import (
     ADVERTS_FILE,
@@ -405,6 +406,11 @@ async def _main(output):
         web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent, limiter, output)
         if not await web_console.start():
             web_console = None
+    area_weather = None
+    if web_console and state.alert_watcher:
+        state.area_weather = AreaWeather(state.alert_watcher, state)
+        print(f"Area weather for the web console: {state.area_weather.describe()}.")
+        area_weather = asyncio.create_task(state.area_weather.run())
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
@@ -600,6 +606,8 @@ async def _main(output):
             node_watch.cancel()
         if scheduled_backups:
             scheduled_backups.cancel()
+        if area_weather:
+            area_weather.cancel()
         if stop_console:
             stop_console()
         if web_console:

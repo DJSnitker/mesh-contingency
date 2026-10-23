@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8, 10 and 11 done, 0.7.0 released; 12–13 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
+Status: items 1–8, 10, 11 and 13 done, 0.7.0 released; 12 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -27,9 +27,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 10a | Release 0.7.0 | release | small | done (v0.7.0) |
 | 11 | Open the console with one command | feature | small | done |
 | 12 | Manage the radio from the console: contacts and settings | feature | large | backlog |
-| 13 | The weather now on the dashboard | feature | medium | backlog |
+| 13 | The weather now on the dashboard | feature | medium | done |
 
-Recommended order: everything but field testing is done and released (0.7.0). Next, the rest of the web console backlog (11 is done): 13, then 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
+Recommended order: everything but field testing is done and released (0.7.0). Next, the rest of the web console backlog (11 and 13 are done): 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -493,7 +493,41 @@ API adds the radio's settings to an `/api/radio` read. Tests with
 `FakeMeshCore` (it needs the new calls); then try each on the node's Heltec
 V3, the frequency change last and on a spare radio if one arrives.
 
-## 13. The weather now on the dashboard (backlog)
+## 13. The weather now on the dashboard (done)
+
+*Built 2026-10-23* as **Area Weather**, a page of its own after the Dashboard
+(`mesh_contingency/area_weather.py`, `/api/weather`, `area-weather.ts`).
+Decided while building it:
+
+- **Its own page, not a section of the dashboard** (the admin's choice,
+  after seeing it there): 19 cards made the dashboard long, and the live
+  log ended up far below them. The dashboard has an **Alerts** row instead,
+  above Watch: the alerts out now, each with its counties, orange while
+  there are any, linking to Area Weather (also the admin's ask; before, the
+  dashboard said only that the watcher ran).
+
+- **A card for each county in `[alerts]`,** not one place (the admin's
+  choice): no new setting, and the counties are the area the node serves.
+  Each card has the latest observation, the next three forecast periods
+  (with the chance of rain), and that county's alerts.
+- **Where to ask about a county:** the middle of its NWS outline, then
+  `/points` there for the town named nearest, the forecast's address and the
+  three nearest stations. Looked up once and kept in `area_weather.json`
+  (looked up again if the county's code changes). Each round is then about
+  two requests a county: on the node, 19 counties took 49 s the first time
+  and 14 s after. Neighbouring counties often share a station (five read
+  Abilene's airport).
+- **Alerts come from the alert watcher,** which now keeps each county's
+  active alerts (`current`) at each check, so there's no second request. An
+  alert for a forecast zone that names no watched county goes under the
+  first, as when it's posted.
+- **Only with the console on** (and counties in `[alerts]`): nothing else
+  reads it. Every 15 min, or after 1 min when a round got nothing at all
+  (no network yet at boot). A failure keeps the last report; the card says
+  how old it is and why.
+- **The `wx` command is unchanged;** it still takes a ZIP code.
+
+The plan, as written before:
 
 *Asked 2026-10-23.* The dashboard shows the node; add the weather where it
 is, whether or not there's an alert: what `wx` gives over the radio, but

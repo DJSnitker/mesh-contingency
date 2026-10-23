@@ -7,6 +7,7 @@ import { Icon } from './icon';
 /** The pages, in the order of the rail. */
 export const PAGES = [
   { path: '/', label: 'Dashboard', icon: 'gauge' },
+  { path: '/weather', label: 'Area Weather', icon: 'cloud' },
   { path: '/users', label: 'Users', icon: 'users' },
   { path: '/checkins', label: 'Check-ins', icon: 'check' },
   { path: '/inbox', label: 'Inbox', icon: 'inbox' },

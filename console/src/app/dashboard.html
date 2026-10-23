@@ -35,6 +35,11 @@
   </section>
 
   <section class="status" aria-label="Status">
+    <a class="panel row" routerLink="/weather" [class.bad]="!alerts().ok">
+      <mc-icon [name]="alerts().ok ? 'check' : 'alert'" />
+      <span class="label">Alerts</span>
+      <span>{{ alerts().text }}</span>
+    </a>
     <div class="panel row" [class.bad]="!watch().ok">
       <mc-icon [name]="watch().ok ? 'check' : 'alert'" />
       <span class="label">Watch</span>

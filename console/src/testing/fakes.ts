@@ -10,6 +10,7 @@ import {
   Mailbox,
   Overview,
   User,
+  Weather,
 } from '../app/api';
 
 export const OVERVIEW: Overview = {
@@ -26,6 +27,61 @@ export const OVERVIEW: Overview = {
   counts: { messages: 5, sent: 6, undelivered: 1, errors: 0 },
   watch: [],
   backup: { last: 1000 + 3600, failing: null },
+  alerts: { active: [], checked: 1000 + 3 * 3600, problem: null },
+};
+
+export const WEATHER: Weather = {
+  now: 10_000,
+  every_minutes: 15,
+  alerts_checked: 9_900,
+  alerts_problem: null,
+  areas: [
+    {
+      county: 'Taylor, TX',
+      alerts: [],
+      problem: null,
+      place: 'Buffalo Gap, TX',
+      station: 'Abilene Regional Airport',
+      observed: 10_000 - 25 * 60,
+      text: 'Clear',
+      temp_f: 62.96,
+      feels_f: null,
+      humidity: 62.6,
+      wind_mph: 6.9,
+      gust_mph: 15.2,
+      wind_dir: 'SE',
+      periods: [
+        {
+          name: 'Today',
+          temp: 85,
+          unit: 'F',
+          text: 'Mostly Sunny',
+          pop: 0,
+          wind: 'SSE 10 to 15 mph',
+        },
+        { name: 'Tonight', temp: 60, unit: 'F', text: 'Chance Showers', pop: 30, wind: 'S 10 mph' },
+      ],
+      updated: 10_000 - 5 * 60,
+    },
+    {
+      county: 'Jones, TX',
+      alerts: [{ event: 'Wind Advisory', severity: 'Minor', headline: null, ends: null }],
+      problem: 'no network',
+      place: 'Anson, TX',
+      station: null,
+      observed: null,
+      text: null,
+      temp_f: null,
+      feels_f: null,
+      humidity: null,
+      wind_mph: null,
+      gust_mph: null,
+      wind_dir: null,
+      periods: [],
+      updated: 10_000 - 40 * 60,
+    },
+    { county: 'Callahan, TX', alerts: [], problem: 'TimeoutError' },
+  ],
 };
 
 export const ALICE: User = {
@@ -131,6 +187,7 @@ export class FakeApi {
   commands: () => Observable<CommandInfo[]> = () => of(COMMANDS);
   inbox: () => Observable<Mailbox[]> = () => of(MAILBOXES);
   history: () => Observable<HistoryEntry[]> = () => of(HISTORY);
+  weather: () => Observable<Weather> = () => of(WEATHER);
   answer: (command: string, text: string) => Observable<Answer> = (command) =>
     of({ command, messages: [`${command}: done`], asks: false, ok: true });
   readonly ran: [string, string][] = [];

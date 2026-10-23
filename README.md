@@ -847,8 +847,16 @@ on:
 Its pages:
 
 - **Dashboard:** users, join requests, check-ins and messages waiting, the
-  node watch, the last backup, `health`, and a live log of what the bot
-  prints (as in the journal, with private commands' text left out).
+  weather alerts out now for the counties in `[alerts]` (each with its
+  counties, in orange; it links to Area Weather), the node watch, the last
+  backup, `health`, and a live log of what the bot prints (as in the
+  journal, with private commands' text left out).
+- **Area Weather:** a card for each county in `[alerts] counties`, alert or
+  not: the latest reading from the nearest NWS station, the next three
+  forecast periods, and any alert out for it. The bot asks the NWS every 15
+  min and keeps the last report, so a card says how old it is, and why if
+  it couldn't be updated (no internet, say). Without counties in `[alerts]`
+  there's nothing to show.
 - **Users:** every user and admin with their settings, last seen, check-in
   and messages, with **Whois**, **Reset passphrase** and **Remove**; and the
   join requests waiting, with **Approve** and **Deny**.
@@ -931,6 +939,7 @@ mesh_contingency/
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
+  area_weather.py     the weather now in each watched county, for the console's Area Weather page
   web/                the web console: [console] settings, server.py (key, cookie and
                       host checks; serving the app), api.py (the JSON API), launch.py
                       (mesh-contingency-console), static/ (the build)

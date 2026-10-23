@@ -74,6 +74,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5l3 2" />
         }
+        @case ('cloud') {
+          <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.5 4.25 4.25 0 0 0 7 18z" />
+        }
         @case ('send') {
           <path d="M21 3 10 14" />
           <path d="m21 3-7 18-4-7-7-4z" />

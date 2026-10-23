@@ -227,6 +227,24 @@ class ReadTest(ConsoleTestCase):
         self.assertIn("users 2 (1 admin)", found["health"])
         self.assertIn("join requests 1", found["health"])
         self.assertIsNone(found["watch"])
+        self.assertIsNone(found["alerts"])
+
+    async def test_overview_alerts_each_event_once_with_its_counties(self):
+        from types import SimpleNamespace
+
+        def alert(event):
+            return {"event": event, "severity": None, "headline": None, "ends": None}
+
+        self.state.alert_watcher = SimpleNamespace(
+            settings=SimpleNamespace(counties=["Taylor, TX", "Jones, TX", "Brown, TX"]), last_check=5.0,
+            problem=None, unmapped={},
+            current={"Jones, TX": [alert("Wind Advisory")], "Brown, TX": [alert("Flood Warning")],
+                     "Taylor, TX": [alert("Wind Advisory"), alert(None)]})
+        found = (await self.get_json("/api/overview"))["alerts"]
+        self.assertEqual(found, {"checked": 5.0, "problem": None, "active": [
+            {"event": "Wind Advisory", "counties": ["Taylor, TX", "Jones, TX"]},
+            {"event": "Alert", "counties": ["Taylor, TX"]},
+            {"event": "Flood Warning", "counties": ["Brown, TX"]}]})
 
     async def test_users_without_secrets(self):
         self.state.saw(ADMIN, "Admin's Radio")
@@ -271,6 +289,20 @@ class ReadTest(ConsoleTestCase):
         self.assertEqual(found, [{"key": ALICE, "name": "Alice", "messages": [
             {"from": "Bob", "time": 1.0, "read": False, "sealed": False},
             {"from": "Dan", "time": 2.0, "read": True, "sealed": True}]}])
+
+    async def test_weather_off_without_counties(self):
+        found = await self.get_json("/api/weather")
+        self.assertEqual((found["areas"], found["alerts_checked"], found["every_minutes"]), (None, None, 15))
+
+    async def test_weather_for_each_county(self):
+        from types import SimpleNamespace
+
+        self.state.alert_watcher = SimpleNamespace(last_check=5.0, problem=None, current={})
+        self.state.area_weather = SimpleNamespace(areas=lambda: [{"county": "Taylor, TX", "alerts": [],
+                                                                  "text": "Clear", "problem": None}])
+        found = await self.get_json("/api/weather")
+        self.assertEqual(found["areas"], [{"county": "Taylor, TX", "alerts": [], "text": "Clear", "problem": None}])
+        self.assertEqual((found["alerts_checked"], found["alerts_problem"]), (5.0, None))
 
     async def test_history_newest_first(self):
         self.state.record("Admin", "approved Alice")

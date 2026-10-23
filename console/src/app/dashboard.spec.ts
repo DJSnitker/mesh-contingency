@@ -43,6 +43,8 @@ describe('Dashboard', () => {
       '3 messages waiting',
     ]);
     expect(element.textContent).toContain('no problems');
+    expect(read(element.querySelector('a.row')!)).toBe('Alerts none');
+    expect(element.querySelector('a.row')?.getAttribute('href')).toBe('/weather');
     expect(element.textContent).toContain('last 2h ago');
     expect(element.textContent).toContain('5 in, 6 out (1 undelivered), 0 error(s)');
     const health = [...element.querySelectorAll('.health li')].map((li) => li.textContent);
@@ -65,6 +67,35 @@ describe('Dashboard', () => {
     expect(bad.join('|')).toContain('failing: disk full');
   });
 
+  it('names the alerts out, with their counties, and links to Area Weather', async () => {
+    const alerts = {
+      active: [
+        { event: 'Wind Advisory', counties: ['Taylor, TX', 'Jones, TX'] },
+        { event: 'Flood Warning', counties: ['Brown, TX'] },
+      ],
+      checked: 1000,
+      problem: null,
+    };
+    api.overview = () => of({ ...OVERVIEW, alerts });
+    const row = (await render()).querySelector('a.row.bad')!;
+    expect(read(row)).toBe('Alerts Wind Advisory (Taylor, Jones); Flood Warning (Brown)');
+    expect(row.getAttribute('href')).toBe('/weather');
+  });
+
+  it("says when alerts can't be checked, or are off", async () => {
+    const failing = { active: [], checked: 1000, problem: 'no network' };
+    api.overview = () => of({ ...OVERVIEW, alerts: failing });
+    let element = await render();
+    expect(read(element.querySelector('a.row.bad')!)).toBe("Alerts can't check: no network");
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: Api, useValue: api }],
+    });
+    api.overview = () => of({ ...OVERVIEW, alerts: null });
+    element = await render();
+    expect(read(element.querySelector('a.row')!)).toBe('Alerts off');
+  });
+
   it("says when the bot can't be reached", async () => {
     api.overview = () => throwError(() => new HttpErrorResponse({ status: 0 }));
     const element = await render();
@@ -75,6 +106,6 @@ describe('Dashboard', () => {
     api.overview = () => of({ ...OVERVIEW, watch: null, backup: null });
     const element = await render();
     const rows = [...element.querySelectorAll('.row')].map(read);
-    expect(rows.slice(0, 2)).toEqual(['Watch off', 'Backup off']);
+    expect(rows.slice(0, 3)).toEqual(['Alerts none', 'Watch off', 'Backup off']);
   });
 });

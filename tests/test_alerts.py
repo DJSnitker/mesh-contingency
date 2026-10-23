@@ -140,6 +140,29 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         await self.watcher.check()
         self.assertTrue(self.posted()[0].startswith("Taylor, TX ALERT:"))
 
+    async def test_keeps_each_countys_alerts_for_the_web_console(self):
+        self.assertEqual(self.watcher.current, {})
+        self.feed = [alert("a1", "Wind Advisory", same=("048253", "048441")), alert("a2", same=("048059",), ugc=())]
+        await self.watcher.check()
+        self.assertEqual({county: [a["event"] for a in alerts] for county, alerts in self.watcher.current.items()},
+                         {"Taylor, TX": ["Wind Advisory", "Flood Warning"], "Jones, TX": ["Wind Advisory"]})
+        first = self.watcher.current["Jones, TX"][0]
+        self.assertAlmostEqual(first["ends"], time.time() + 3600, delta=5)
+        self.assertEqual(set(first), {"event", "severity", "headline", "ends"})
+        # Posted or not, they're what's active now; and none, once they end.
+        await self.watcher.check()
+        self.assertEqual(len(self.watcher.current["Taylor, TX"]), 2)
+        self.feed = []
+        await self.watcher.check()
+        self.assertEqual(self.watcher.current, {})
+
+    async def test_a_failed_check_keeps_the_alerts_it_had(self):
+        self.feed = [alert("a1")]
+        await self.watcher.check()
+        self.feed = OSError("no network")
+        await self.watcher.check()
+        self.assertEqual([a["event"] for a in self.watcher.current["Taylor, TX"]], ["Flood Warning"])
+
     async def test_the_channel_is_added_to_the_radio_if_missing(self):
         self.feed = [alert("a1")]
         await self.watcher.check()

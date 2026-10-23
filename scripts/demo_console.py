@@ -25,6 +25,7 @@ from types import SimpleNamespace
 
 from aiohttp import web
 
+from mesh_contingency.area_weather import AreaWeather
 from mesh_contingency.backup import Backups, BackupSettings
 from mesh_contingency.commands.join import FILENAME as REQUESTS
 from mesh_contingency.commands.mailbox import FILENAME as MAILBOX
@@ -42,8 +43,8 @@ EXAMPLE_CONFIG = REPO / "config.example.toml"
 KEY = "demo"
 MIN, HOUR, DAY = 60, 3600, 86400
 # The pages, as their paths and the screenshot names.
-PAGES = {"": "dashboard", "users": "users", "checkins": "checkins", "inbox": "inbox", "history": "history",
-         "send": "send", "radio": "radio"}
+PAGES = {"": "dashboard", "weather": "weather", "users": "users", "checkins": "checkins", "inbox": "inbox",
+         "history": "history", "send": "send", "radio": "radio"}
 WIDE, PHONE = (1280, 900), (390, 844)
 CHROMES = ("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
 
@@ -59,6 +60,34 @@ USERS = {
     LENA: {"name": "Lena Ortiz", "email": "lena@example.com"},
     RAY: {"name": "Ray Whitfield"},
 }
+
+
+# The demo's counties: (place, station, conditions, temperature F, wind, humidity, forecast).
+AREAS = {
+    "Boone, MO": ("Columbia, MO", "Columbia Regional Airport", "Partly Cloudy", 64, ("S", 9, 18), 58,
+                  [("Today", 71, "Partly Sunny", 10), ("Tonight", 52, "Chance Showers", 40),
+                   ("Saturday", 66, "Showers Likely", 70)]),
+    "Callaway, MO": ("Fulton, MO", "Fulton Elam Mason Airport", "Windy", 61, ("SW", 26, 41), 49,
+                     [("Today", 68, "Sunny and Breezy", 0), ("Tonight", 49, "Clear", 0),
+                      ("Saturday", 63, "Mostly Sunny", 0)]),
+    "Cole, MO": ("Jefferson City, MO", "Jefferson City Memorial Airport", "Light Rain", 57, ("E", 6, None), 91,
+                 [("Today", 60, "Rain", 90), ("Tonight", 50, "Rain Likely", 70), ("Saturday", 62, "Cloudy", 20)]),
+    # The NWS didn't answer for this one at the last try: its report is old.
+    "Howard, MO": ("Fayette, MO", "Boonville Jesse Viertel Airport", "Mostly Cloudy", 59, ("S", 8, None), 66,
+                   [("This Afternoon", 69, "Mostly Cloudy", 20), ("Tonight", 51, "Chance Showers", 50)]),
+}
+STALE = {"Howard, MO": "HTTP Error 503: Service Unavailable"}
+
+
+def area_report(county, now):
+    """What AreaWeather would have for one of AREAS."""
+    place, station, text, temp, wind, humidity, periods = AREAS[county]
+    old = 45 * MIN if county in STALE else 0
+    return {"problem": STALE.get(county), "place": place, "station": station, "observed": now - 22 * MIN - old,
+            "text": text, "temp_f": temp, "feels_f": None, "humidity": humidity, "wind_dir": wind[0],
+            "wind_mph": wind[1], "gust_mph": wind[2], "updated": now - 6 * MIN - old,
+            "periods": [{"name": name, "temp": t, "unit": "F", "text": forecast, "pop": pop, "wind": None}
+                        for name, t, forecast, pop in periods]}
 
 
 def demo_context(folder, now=None):
@@ -78,11 +107,17 @@ def demo_context(folder, now=None):
     commands = Registry(config).build(directory, radio, state)
     ctx = make_context("console", directory=directory, state=state, radio=radio, commands=commands)
 
-    # The node watch with nothing wrong, weather alerts for four counties, and
-    # backups (real ones: Back up now works, into the folder).
+    # The node watch with nothing wrong, weather alerts for four counties (one
+    # with an alert out), their weather, and backups (real ones: Back up now
+    # works, into the folder).
     state.watch = SimpleNamespace(active=[])
-    state.alert_watcher = SimpleNamespace(last_check=now - 3 * MIN, problem=None, unmapped=[],
-                                          settings=SimpleNamespace(counties=["A", "B", "C", "D"]))
+    state.alert_watcher = SimpleNamespace(
+        last_check=now - 3 * MIN, problem=None, unmapped=[], settings=SimpleNamespace(counties=list(AREAS)),
+        codes={county: {"code": f"MOC{n:03}"} for n, county in enumerate(AREAS)},
+        current={"Callaway, MO": [{"event": "Wind Advisory", "severity": "Minor", "headline": None,
+                                   "ends": now + 5 * HOUR}]})
+    state.area_weather = AreaWeather(state.alert_watcher, state)
+    state.area_weather.reports = {county: area_report(county, now) for county in AREAS}
     backups_folder = folder / "backups"
     state.backups = Backups(BackupSettings(to=str(backups_folder), folder=backups_folder), state, config_path,
                             directory)
