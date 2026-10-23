@@ -1,0 +1,108 @@
+<header class="title">
+  <div>
+    <h1>Area Weather</h1>
+    @if (weather(); as w) {
+      <p class="muted">
+        From the NWS, every {{ w.every_minutes }} min, for the counties in
+        <code>[alerts]</code>
+      </p>
+    }
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+@if (weather(); as w) {
+  @if (w.areas === null) {
+    <p class="panel muted">
+      No counties to show: add them to <code>counties</code> under <code>[alerts]</code> in
+      <code>config.toml</code>, and restart the bot.
+    </p>
+  } @else {
+    <div class="cards">
+      @for (area of w.areas; track area.county) {
+        <article class="panel area" [class.attention]="area.alerts.length">
+          <header>
+            <h2>{{ area.county }}</h2>
+            @if (area.place) {
+              <span class="muted">near {{ area.place }}</span>
+            }
+          </header>
+
+          @for (alert of area.alerts; track $index) {
+            <p class="alert">
+              <mc-icon name="alert" />
+              <span
+                >{{ alert.event ?? 'Alert' }}
+                @if (alert.ends) {
+                  <span class="muted">until {{ when(alert.ends) }}</span>
+                }
+              </span>
+            </p>
+          }
+
+          @if (area.updated) {
+            @if (area.temp_f != null) {
+              <div class="now">
+                <strong>{{ round(area.temp_f) }}°</strong>
+                <span>{{ area.text ?? '' }}</span>
+              </div>
+              <p class="details">
+                @if (wind(area); as wind) {
+                  <span>Wind {{ wind }}</span>
+                }
+                @if (area.humidity != null) {
+                  <span>Humidity {{ round(area.humidity) }}%</span>
+                }
+                @if (area.feels_f != null) {
+                  <span>Feels like {{ round(area.feels_f) }}°</span>
+                }
+              </p>
+            } @else {
+              <p class="muted">No station near it is reporting.</p>
+            }
+
+            @if (area.periods?.length) {
+              <ul class="periods">
+                @for (period of area.periods; track period.name) {
+                  <li>
+                    <span class="name">{{ period.name }}</span>
+                    <span>{{ period.temp }}°{{ period.unit }} {{ period.text }}</span>
+                    <span class="pop">{{ period.pop ? period.pop + '%' : '' }}</span>
+                  </li>
+                }
+              </ul>
+            }
+
+            <p class="foot muted">
+              @if (area.station) {
+                {{ area.station }}
+                @if (area.observed) {
+                  · {{ ago(area.observed, w.now) }}
+                }
+              } @else {
+                Updated {{ ago(area.updated, w.now) }}
+              }
+            </p>
+          }
+
+          @if (area.problem) {
+            <p class="stale">
+              <mc-icon name="clock" />
+              @if (area.updated) {
+                Not updated since {{ ago(area.updated, w.now) }}: {{ area.problem }}
+              } @else {
+                No report yet: {{ area.problem }}
+              }
+            </p>
+          } @else if (!area.updated) {
+            <p class="muted">Asking the NWS…</p>
+          }
+        </article>
+      }
+    </div>
+  }
+} @else if (!problem()) {
+  <p class="muted">Reading the weather…</p>
+}

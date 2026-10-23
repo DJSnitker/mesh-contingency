@@ -61,6 +61,10 @@ class DemoConsoleTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len((await self.get("/api/checkins"))["missing"]), 3)
         self.assertEqual(len(await self.get("/api/inbox")), 3)
         self.assertEqual((await self.get("/api/history"))[0]["by"], "console")
+        areas = (await self.get("/api/weather"))["areas"]
+        self.assertEqual([a["county"] for a in areas], ["Boone, MO", "Callaway, MO", "Cole, MO", "Howard, MO"])
+        self.assertEqual([a["event"] for a in areas[1]["alerts"]], ["Wind Advisory"])
+        self.assertEqual(areas[3]["problem"], "HTTP Error 503: Service Unavailable")
 
     async def test_only_made_up_addresses(self):
         users = str(await self.get("/api/users"))

@@ -32,7 +32,8 @@ at_startup = false   # also advert every time the bot starts
 # channel once, with no admin needed. An alert several counties share is
 # posted once. It looks up each county's NWS code
 # once (alertmap looks them up again), then checks every county in one
-# request. Empty, the default, turns it off.
+# request. Empty, the default, turns it off. With the web console on, its
+# Area Weather page shows each county's weather too.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5

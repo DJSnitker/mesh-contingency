@@ -227,6 +227,14 @@ def _key(alert):
                                f"{alert.get('areaDesc')}"
 
 
+def summary(alert):
+    """What the web console shows of an alert (its properties): {"event",
+    "severity", "headline", "ends" (time.time(), or None)}."""
+    ends = _timestamp(alert.get("ends")) or _timestamp(alert.get("expires"))
+    return {"event": alert.get("event"), "severity": alert.get("severity"), "headline": alert.get("headline"),
+            "ends": ends}
+
+
 def nws_reachable():
     """True if the NWS's name can be looked up, i.e. there's a network."""
     try:
@@ -252,6 +260,7 @@ class AlertWatcher:
         self.unmapped = {}  # county -> why its code couldn't be looked up
         self.problem = None  # why the last request for alerts failed, until one works
         self.last_check = None  # time.time() of the last request for alerts that worked
+        self.current = {}  # county -> [the alerts active for it at the last check], for the web console
         for county in [c for c in self.codes if c not in settings.counties]:
             del self.codes[county]  # no longer watched
 
@@ -297,8 +306,13 @@ class AlertWatcher:
 
     def county_for(self, alert, mapped):
         """The first watched county the alert covers, to name it by."""
+        return self.counties_for(alert, mapped)[0]
+
+    def counties_for(self, alert, mapped):
+        """Every watched county the alert covers; the first watched one if
+        it names none of them (an alert for a forecast zone)."""
         covered = alert_counties(alert)
-        return next((c for c in mapped if self.codes[c]["code"] in covered), mapped[0])
+        return [c for c in mapped if self.codes[c]["code"] in covered] or mapped[:1]
 
     async def check(self):
         """One round: look up any counties not looked up yet, ask for the
@@ -325,16 +339,20 @@ class AlertWatcher:
         self.last_check = now
         new = {}  # county -> [(key, until, alert)] not posted before
         active = set()
+        current = {}
         for alert in alerts:
             key = _key(alert)
             if key in active:
                 continue
             active.add(key)
+            for county in self.counties_for(alert, mapped):
+                current.setdefault(county, []).append(summary(alert))
             until = self.remember_until(alert, now)
             if key in self.posted:
                 self.posted[key] = max(self.posted[key], until)
             else:
                 new.setdefault(self.county_for(alert, mapped), []).append((key, until, alert))
+        self.current = current
         sent = 0
         try:
             if new:

@@ -14,6 +14,20 @@ may change how the bot is configured).
   checks the bot answers the link first, and says why if not (console off,
   bot not running, an old link), then opens it. The "Open the console's
   link" page mentions it.
+- **Area Weather**, a new page in the web console after the Dashboard: a
+  card for each county in `[alerts] counties`, whether or not there's an
+  alert, with the latest
+  reading from the nearest NWS station (temperature, conditions, wind,
+  humidity), the next three forecast periods with their chance of rain, and
+  the alerts out for it (the alert watcher's, not another request). The bot
+  asks the NWS every 15 min and keeps the last report: when the internet is
+  down, a card shows how old it is and why. Each county's middle and nearest
+  stations are looked up once and kept in `area_weather.json`. New in the
+  API: `/api/weather`.
+- **Alerts on the Dashboard:** a row above Watch names the weather alerts out
+  now, each with its counties (*Wind Advisory (Taylor, Jones)*), in orange,
+  or says *none*, or that they can't be checked; it links to Area Weather.
+  `/api/overview` has them as `alerts`.
 - `scripts/demo_console.py`: the web console on made-up data, to try it
   without a node and to take the wiki's screenshots (`--screenshots DIR`).
 

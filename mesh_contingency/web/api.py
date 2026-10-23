@@ -25,6 +25,7 @@ from aiohttp import web
 
 from ..alerts import message_limit
 from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
+from ..area_weather import EVERY_MINUTES
 from ..commands.health import activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
 from ..commands.mailbox import FILENAME as MAILBOX
@@ -71,7 +72,25 @@ async def overview(request):
         "counts": {name: state.counts[name] for name in ("messages", "sent", "undelivered", "errors")},
         "watch": [LABELS[problem] for problem in watch.active] if watch else None,
         "backup": {"last": backups.last, "failing": backups.failing} if backups else None,
+        "alerts": active_alerts(state.alert_watcher),
     })
+
+
+def active_alerts(watcher):
+    """The alerts out for the watched counties at the alert watcher's last
+    check, each event once with the counties it covers, in [alerts] order:
+    {"active": [{"event", "counties"}], "checked", "problem"}; None without
+    counties in [alerts]."""
+    if watcher is None:
+        return None
+    active = {}
+    for county in watcher.settings.counties:
+        for alert in watcher.current.get(county, []):
+            counties = active.setdefault(alert["event"] or "Alert", [])
+            if county not in counties:
+                counties.append(county)
+    return {"active": [{"event": event, "counties": counties} for event, counties in active.items()],
+            "checked": watcher.last_check, "problem": watcher.problem}
 
 
 @routes.get("/api/users")
@@ -142,6 +161,22 @@ async def history(request):
     """Admin actions (and users leaving), newest first."""
     entries = _ctx(request).state.store(HISTORY_FILE).data.get("entries", [])
     return web.json_response([{"time": e["time"], "by": e["by"], "what": e["what"]} for e in reversed(entries)])
+
+
+@routes.get("/api/weather")
+async def weather(request):
+    """The weather now in each county [alerts] watches (area_weather.py), and
+    when the alerts were last checked. areas is null if there's none: no
+    counties in [alerts]."""
+    state = _ctx(request).state
+    area, watcher = state.area_weather, state.alert_watcher
+    return web.json_response({
+        "now": time.time(),
+        "every_minutes": EVERY_MINUTES,
+        "areas": area.areas() if area else None,
+        "alerts_checked": watcher.last_check if watcher else None,
+        "alerts_problem": watcher.problem if watcher else None,
+    })
 
 
 def offered(ctx):

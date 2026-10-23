@@ -1,0 +1,104 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.area {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px 18px;
+
+  header {
+    display: grid;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  &.attention {
+    border-color: rgb(255 95 31 / 45%);
+  }
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--orange);
+  font-weight: 600;
+
+  .muted {
+    font-weight: 400;
+  }
+}
+
+.now {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+
+  strong {
+    font-family: var(--display);
+    font-size: 2.2rem;
+    line-height: 1;
+  }
+}
+
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+// A table: the periods' names, what each will be like, the chance of rain.
+.periods {
+  display: grid;
+  grid-template-columns: max-content 1fr auto;
+  gap: 4px 10px;
+  margin: 4px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font-size: 0.85rem;
+
+  li {
+    display: contents;
+  }
+
+  .name {
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .pop {
+    grid-column: 3;
+    color: var(--sky);
+    text-align: right;
+  }
+}
+
+.foot {
+  font-size: 0.8rem;
+}
+
+.stale {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--orange);
+  font-size: 0.85rem;
+}

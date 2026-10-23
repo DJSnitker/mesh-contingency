@@ -39,6 +39,23 @@ export class Dashboard {
       ? { ok: false, text: problems.join(', ') }
       : { ok: true, text: 'no problems' };
   });
+  /** The weather alerts out now, each with the counties it covers, by name. */
+  protected readonly alerts = computed(() => {
+    const alerts = this.overview()?.alerts;
+    if (!alerts) {
+      return { ok: true, text: 'off' };
+    }
+    if (alerts.active.length) {
+      const named = alerts.active.map(
+        (alert) => `${alert.event} (${alert.counties.map((c) => c.split(', ')[0]).join(', ')})`,
+      );
+      return { ok: false, text: named.join('; ') };
+    }
+    if (alerts.problem) {
+      return { ok: false, text: `can't check: ${alerts.problem}` };
+    }
+    return { ok: true, text: alerts.checked ? 'none' : 'not checked yet' };
+  });
   protected readonly backup = computed(() => {
     const o = this.overview();
     if (!o?.backup) {

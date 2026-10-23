@@ -152,3 +152,69 @@ def fetch_weather(zipcode):
         "pop": precip_chance(point["forecastHourly"]),
         "alerts": active_alerts(lat, lon),
     }
+
+
+def compass(degrees):
+    """The compass point of a wind direction in degrees, e.g. "SSE", or ""."""
+    if degrees is None:
+        return ""
+    points = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    return points[round(degrees / 22.5) % 16]
+
+
+def county_point(code):
+    """Where to ask about a county's weather: {"lat", "lon"} (its middle,
+    from its outline), "place" (the town the NWS names nearest that point),
+    "forecast" (the URL of its forecast) and "stations" ([[id, name]] of the
+    nearest stations)."""
+    geometry = _get_json(f"{NWS_API}/zones/county/{code}")["geometry"]
+    rings = [geometry["coordinates"][0]] if geometry["type"] == "Polygon" else \
+        [polygon[0] for polygon in geometry["coordinates"]]
+    corners = [corner for ring in rings for corner in ring]
+    lon = sum(c[0] for c in corners) / len(corners)
+    lat = sum(c[1] for c in corners) / len(corners)
+    point = _get_json(f"{NWS_API}/points/{lat:.4f},{lon:.4f}")["properties"]
+    near = point["relativeLocation"]["properties"]
+    stations = _get_json(point["observationStations"])["features"][:MAX_STATIONS]
+    return {
+        "lat": round(lat, 4),
+        "lon": round(lon, 4),
+        "place": f"{near['city']}, {near['state']}",
+        "forecast": point["forecast"],
+        "stations": [[s["properties"]["stationIdentifier"], s["properties"]["name"]] for s in stations],
+    }
+
+
+def area_conditions(point, periods):
+    """The weather now at a county_point: the latest observation from the
+    nearest station that has one, and the next periods of the forecast, as
+    {"station", "observed" (ISO time), "text", "temp_f", "feels_f",
+    "humidity", "wind_mph", "gust_mph", "wind_dir", "periods": [{"name",
+    "temp", "unit", "text", "pop", "wind"}]}. Missing numbers are None."""
+    station, obs = None, None
+    for sid, name in point["stations"]:
+        try:
+            found = _get_json(f"{NWS_API}/stations/{sid}/observations/latest")["properties"]
+        except urllib.error.HTTPError as e:  # a station that's down: try the next
+            e.close()
+            continue
+        if value(found, "temperature") is not None:
+            station, obs = name, found
+            break
+    forecast = _get_json(point["forecast"])["properties"]["periods"][:periods]
+    feels = value(obs, "heatIndex") or value(obs, "windChill")
+    return {
+        "station": station,
+        "observed": (obs or {}).get("timestamp"),
+        "text": (obs or {}).get("textDescription") or None,
+        "temp_f": c_to_f(value(obs, "temperature")),
+        "feels_f": c_to_f(feels),
+        "humidity": value(obs, "relativeHumidity"),
+        "wind_mph": kmh_to_mph(value(obs, "windSpeed")),
+        "gust_mph": kmh_to_mph(value(obs, "windGust")),
+        "wind_dir": compass(value(obs, "windDirection")) or None,
+        "periods": [{"name": p["name"], "temp": p["temperature"], "unit": p["temperatureUnit"],
+                     "text": p["shortForecast"], "pop": value(p, "probabilityOfPrecipitation"),
+                     "wind": " ".join(filter(None, (p.get("windDirection"), p.get("windSpeed")))) or None}
+                    for p in forecast],
+    }
