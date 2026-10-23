@@ -70,6 +70,10 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           <circle cx="4.5" cy="12" r="1" />
           <circle cx="4.5" cy="18" r="1" />
         }
+        @case ('clock') {
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        }
         @case ('lock') {
           <rect x="5" y="11" width="14" height="10" rx="2" />
           <path d="M8 11V8a4 4 0 0 1 8 0v3" />

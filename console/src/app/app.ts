@@ -8,6 +8,9 @@ import { Icon } from './icon';
 export const PAGES = [
   { path: '/', label: 'Dashboard', icon: 'gauge' },
   { path: '/users', label: 'Users', icon: 'users' },
+  { path: '/checkins', label: 'Check-ins', icon: 'check' },
+  { path: '/inbox', label: 'Inbox', icon: 'inbox' },
+  { path: '/history', label: 'History', icon: 'clock' },
 ];
 
 @Component({

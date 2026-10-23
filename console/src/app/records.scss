@@ -1,0 +1,140 @@
+// Shared by the check-ins, inbox and history pages: lists of entries.
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 12px 18px;
+
+  mc-icon {
+    align-self: center;
+  }
+
+  .when {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+}
+
+.ok {
+  color: var(--green);
+}
+
+.status {
+  overflow-wrap: anywhere;
+}
+
+.clear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.missing {
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    font-size: 0.9rem;
+  }
+
+  h2 mc-icon {
+    color: var(--orange);
+  }
+}
+
+.mailbox {
+  display: grid;
+  gap: 10px;
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+  }
+
+  ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    font-size: 0.9rem;
+  }
+
+  .unread {
+    color: var(--orange);
+    font-weight: 600;
+  }
+
+  .sealed {
+    color: var(--sky);
+  }
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.filter {
+  width: 100%;
+  max-width: 360px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink-2);
+  color: var(--text);
+  font: inherit;
+
+  &::placeholder {
+    color: var(--muted);
+  }
+}
+
+.history {
+  .by {
+    min-width: 90px;
+    font-weight: 600;
+  }
+
+  // Beside the name when there's room, under it on a phone.
+  .what {
+    flex: 1 1 240px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

@@ -78,6 +78,34 @@ code {
   outline-offset: 2px;
 }
 
+// A page's title, and what's wrong reading it.
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+
+  p {
+    margin: 4px 0 0;
+  }
+}
+
+.problem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--orange);
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 // Panels and buttons, as the marketing site's.
 
 .panel {

@@ -22,16 +22,16 @@
       <strong>{{ o.requests }}</strong>
       <span>join requests</span>
     </a>
-    <div class="panel tile">
+    <a class="panel tile" routerLink="/checkins">
       <mc-icon name="check" />
       <strong>{{ o.checkins }}</strong>
       <span>check-ins</span>
-    </div>
-    <div class="panel tile">
+    </a>
+    <a class="panel tile" routerLink="/inbox">
       <mc-icon name="inbox" />
       <strong>{{ o.waiting }}</strong>
       <span>messages waiting</span>
-    </div>
+    </a>
   </section>
 
   <section class="status" aria-label="Status">

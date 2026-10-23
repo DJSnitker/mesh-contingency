@@ -28,6 +28,17 @@ export function duration(seconds: number): string {
   return `${minutes}m`;
 }
 
+/** A day and time, e.g. "Oct 22, 21:05". */
+export function when(time: number): string {
+  return new Date(time * 1000).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 /** A clock time, e.g. "21:05:08". */
 export function clock(time: number): string {
   return new Date(time * 1000).toLocaleTimeString([], { hour12: false });

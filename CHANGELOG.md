@@ -36,6 +36,13 @@ may change how the bot is configured).
   `resetpass` with sealed messages), the page shows the question with a
   Confirm button. The dashboard's people tiles link to it. `/api/run` says
   `"asks": true` for such a reply (`CommandResult(asks=True)` for plugins).
+- **Web console, part 5: check-ins, inbox and history.** Three more pages.
+  Check-ins lists who has sent ok, newest first, and who hasn't, with Clear
+  check-ins (it asks first, since `clearstatus` doesn't). Inbox shows who has
+  messages waiting, from whom, and whether they're read or sealed, never what
+  they say. History lists admin actions, newest first, with a filter. The
+  dashboard's check-ins and messages tiles link to them, and on a phone the
+  page links wrap instead of running off the screen.
 
 ### Changed
 
