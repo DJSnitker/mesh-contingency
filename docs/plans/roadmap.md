@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: items 1–8, 10, 11 and 13 done, 0.7.0 released; 12 in the backlog; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (console backlog)
+Status: every item but field testing done, 0.8.0 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.0)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -26,35 +26,32 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 10 | Web console on the node (Angular) | feature | large | done: [web-console.md](web-console.md) |
 | 10a | Release 0.7.0 | release | small | done (v0.7.0) |
 | 11 | Open the console with one command | feature | small | done |
-| 12 | Manage the radio from the console: contacts and settings | feature | large | backlog |
+| 12 | Manage the radio from the console: contacts and settings | feature | large | done (#57, #58) |
 | 13 | The weather now on the dashboard | feature | medium | done |
+| 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 
-Recommended order: everything but field testing is done and released (0.7.0). Next, the rest of the web console backlog (11 and 13 are done): 12 (the largest, and the one that can cut the node off the mesh if it goes wrong). Field testing (9) when the radios arrive.
+Recommended order: everything but field testing is done and released (0.8.0). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
 Where things stood on 2026-10-23:
 
-- **Merged:** #29–#31 (0.5.0); #33, #34, #36, #37 (0.6.0); then #40 (the
-  web console plan), #41 (a reboot no longer reads as a radio problem; the
-  first alert check waits for the network), #42 (the item 9 record), the
-  web console in #43, #45, #46, #48, #50 and #51 (item 10), and #49
-  (Dependabot leaves TypeScript to Angular upgrades). Released as **0.7.0**
-  (this PR, tag `v0.7.0`). The wiki's Admin Guide has a "Use the web
-  console" section.
-- **The node** runs `main` with `comm`, `checkins` and `backup` as admin in its
-  `config.toml`; `#contingency-wx` is channel slot 1 and `#contingency-comm`
-  slot 2. The next weekly alert test is Wednesday 2026-10-28, 5:00 PM CDT.
-  Its `config.toml` has `[console] enabled = true` (port 8737) and aiohttp
-  is installed in `.venv`; the link is in `console.url`, new at each start.
+- **Merged and released:** everything but field testing. Since 0.7.0: #53
+  (the demo console), #54 (this backlog), #55 (item 11), #56 (item 13), #57
+  (12a: contacts, channels and their messages) and #58 (12b: radio
+  settings), released as **0.8.0** (this PR, tag `v0.8.0`). The wiki's Admin
+  Guide has "Use the web console" and "Change the radio's settings".
+- **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
+  `radio` as admin in its `config.toml`; `#contingency-wx` is channel slot 1
+  and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
+  in `console.url`, new at each start (`mesh-contingency-console` opens it).
   After a pull that changes `console/`: `npm ci && npm run build` there, then
-  restart the bot.
+  restart the bot. The bot sets the radio's clock at each start (a reboot
+  resets it).
 - **Item 8 answered: no, so far.** Opening the radio's USB port didn't restart
-  it (checked 2026-10-22; details in item 8), but once, at 13:11 on
-  2026-10-22, the radio started 2 s after a bot restart. **Monitor:** a
-  `Node problem: the radio restarted ...` right after a bot restart is the
-  pattern to note.
+  it (checked 2026-10-22; details in item 8). **Monitor:** a `Node problem:
+  the radio restarted ...` right after a bot restart is the pattern to note.
 
 Steps, in order:
 
@@ -64,12 +61,15 @@ Steps, in order:
    #41 for real: admins get `Node restarted: the computer started ...`, not
    `Node problem: the radio restarted ...`, and `health` doesn't say
    `last check failed`.
-2. The node backs up daily to `~/MeshContingencyBackups` for now; move
+2. After Wednesday 2026-10-28, 17:00: check the weekly alert test arrived on
+   a radio, and record it in item 9.
+3. The web console checks still to do on the node (item 9, "Web console on
+   the node"): a channel message heard, a real **Remove**, **Post alert
+   test**, and TX power, position and `radio freq`.
+4. The node backs up daily to `~/MeshContingencyBackups` for now; move
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
-3. After Wednesday 2026-10-28, 17:00: check the weekly alert test arrived on
-   a radio, and record it in item 9.
-4. Use the web console day to day, and note anything that would make it
+5. Use the web console day to day, and note anything that would make it
    better; access from other devices is out of scope until it has real
    logins and HTTPS (see [web-console.md](web-console.md)).
 
@@ -394,6 +394,14 @@ journal checked:**
   acting.
 - **Limits:** a burst of `wx` from a public sender gets one "limit reached"
   reply, then silence.
+- **Web console on the node** (tried 2026-10-23: the pages, `contact path`,
+  `reload`, `alertmap`, the radio's settings, `radio clock`, a rename and
+  back, and `radio reboot`; see item 12b): still to do, a message heard on a
+  channel showing on the Radio page; **Remove** of a real contact (it asks
+  first; one `auto_add` takes comes back when it adverts); **Post alert
+  test** arriving on a radio; and `radio power`, `radio position` and `radio
+  freq` (the last on a spare radio if one arrives: the confirm says what to
+  send to go back).
 
 ## 11. Open the console with one command (done)
 
@@ -443,7 +451,7 @@ mesh-contingency-console          # or: mesh-contingency --open-console
 - **Docs:** README Web console, the wiki Admin Guide ("Open it" and the
   *Open the console's link* troubleshooting row), changelog.
 
-## 12. Manage the radio from the console: contacts and settings (backlog)
+## 12. Manage the radio from the console: contacts and settings (done)
 
 *Asked 2026-10-23.* The Radio page has Advert, Flood advert and Back up now.
 Add what an admin otherwise does with the MeshCore app on a phone plugged

@@ -7,6 +7,14 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-23
+
+The web console now manages the radio itself: its contacts, its channels and
+what's said on them, and its settings (name, power, position, clock, reboot,
+frequency), and it shows the weather for the watched counties. It opens with
+one command. And the bot sets the radio's clock at each start. Pull requests
+#53 to #58.
+
 ### Added
 
 - **`mesh-contingency-console`** opens the web console in the browser, on
@@ -51,7 +59,6 @@ may change how the bot is configured).
   restart forgets them. It still takes no commands from channels. New in the
   API: `/api/channels/{slot}/messages`, and a count and the newest time for
   each slot in `/api/channels`.
-
 - **More of the admin commands in the web console:** **Post alert test**
   (`testalert`, which asks first, as it goes out on the air) and **Look up
   counties again** (`alertmap`) on Area Weather, and **Reload users file**
@@ -67,7 +74,6 @@ may change how the bot is configured).
   first, with a form for each, and the frequency set apart: it waits for the
   node's name to be typed. New in the API: `/api/radio` (never the radio's
   Bluetooth PIN).
-
 - **The radio's clock is set at startup** from the computer's when it's 5 s
   or more off (`Set the radio's clock from the computer's: it was 4h 2m
   behind.`): the radio keeps no time across a reboot or a power cut, and
@@ -81,6 +87,26 @@ may change how the bot is configured).
   the other pages A–Z.
 - `scripts/demo_console.py`: the web console on made-up data, to try it
   without a node and to take the wiki's screenshots (`--screenshots DIR`).
+
+### Upgrading from 0.7.0
+
+```sh
+git pull
+.venv/bin/python -m pip install -e ".[console]"   # or -e . without the console
+cd console && npm ci && npm run build && cd ..     # if you use the console
+```
+
+The install adds the `mesh-contingency-console` command. The two new admin
+commands are off until listed under `[commands]` in `config.toml`:
+
+```toml
+contact = { permission = "admin" }
+radio = { permission = "admin" }
+```
+
+Then restart the bot. Area Weather, the radio's contacts and channels, and
+setting the radio's clock need nothing new; the console can change the
+radio's settings only with `radio` turned on.
 
 ## [0.7.0] - 2026-10-23
 
@@ -453,6 +479,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.8.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.0
 [0.7.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.7.0
 [0.6.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.5.0
