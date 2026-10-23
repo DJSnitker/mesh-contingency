@@ -22,6 +22,13 @@ may change how the bot is configured).
   prints (the last 500 lines, then new ones) as server-sent events. Commands
   that act on the sender's own records (`join`, `ok`, and user commands)
   aren't offered; a plugin command can say so with `own = True`.
+- **Web console, part 3: the app.** Opening the console's link now shows a
+  dashboard: the node's users, join requests, check-ins and messages
+  waiting, the watch, backups and health, and the live log. It's an Angular
+  app in `console/`, built with `npm ci && npm run build` into the package
+  (which ships it built), styled like the website and with its fonts
+  bundled, so it works without the internet. Every response carries a strict
+  Content-Security-Policy.
 
 ### Changed
 

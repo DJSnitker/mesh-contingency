@@ -1,0 +1,52 @@
+.log {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.state {
+  color: var(--muted);
+  font-size: 0.8rem;
+
+  &.live {
+    color: var(--green);
+  }
+}
+
+.lines {
+  height: 360px;
+  padding: 12px 20px;
+  overflow-y: auto;
+  background: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.line {
+  display: flex;
+  gap: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  time {
+    flex: none;
+    color: var(--muted);
+  }
+}

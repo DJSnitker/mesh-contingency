@@ -1,4 +1,5 @@
-# Weekly pull requests to keep GitHub Actions and Python dependencies current.
+# Weekly pull requests to keep GitHub Actions, Python and the web console's
+# npm dependencies current.
 # Each one runs CI before it can be merged.
 version: 2
 updates:
@@ -16,4 +17,14 @@ updates:
       interval: weekly
     groups:
       python:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /console
+    schedule:
+      interval: weekly
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
+      npm:
         patterns: ["*"]

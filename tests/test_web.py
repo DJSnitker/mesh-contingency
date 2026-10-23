@@ -77,7 +77,8 @@ class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
         self.enterContext(contextlib.redirect_stdout(self.output))
         self.port = free_port()
         self.host = f"127.0.0.1:{self.port}"
-        self.app = make_app(self.ctx, KEY, self.port, output=self.output)
+        self.static = self.folder / "static"  # no app built, unless a test builds one
+        self.app = make_app(self.ctx, KEY, self.port, output=self.output, static=self.static)
         server = TestServer(self.app, host="127.0.0.1", port=self.port)
         # A cookie for an IP address needs unsafe=True; browsers keep it anyway.
         self.client = TestClient(server, cookie_jar=CookieJar(unsafe=True))
@@ -147,7 +148,66 @@ class GuardTest(ConsoleTestCase):
         await self.log_in()
         response = await self.client.get("/")
         self.assertEqual(response.status, 200)
-        self.assertIn("app isn't built yet", await response.text())
+        self.assertIn("app isn't built: in console/, run npm ci and npm run build", await response.text())
+
+    async def test_every_response_says_what_the_page_may_load(self):
+        for path in ("/", "/api/overview"):  # refused, and not
+            for cookies in ({}, {"mesh_console": KEY}):
+                response = await self.client.get(path, cookies=cookies)
+                policy = response.headers["Content-Security-Policy"]
+                self.assertIn("script-src 'self';", policy)
+                self.assertIn("frame-ancestors 'none'", policy)
+                self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+                self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+                self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
+
+
+class AppTest(ConsoleTestCase):
+    """Serving the Angular build."""
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.static.mkdir()
+        (self.static / "index.html").write_text("<mc-root></mc-root>")
+        (self.static / "main-ABCD1234.js").write_text("console.log(1)")
+        (self.static / "media").mkdir()
+        (self.static / "media" / "inter-latin-400-normal-55WT6UWF.woff2").write_bytes(b"font")
+        (self.static / "mesh-contingency-mark.svg").write_text("<svg/>")
+        (self.folder / "secret.txt").write_text("not for the web")
+        await self.log_in()
+
+    async def test_the_app_and_its_pages(self):
+        for path in ("/", "/users", "/inbox/sealed"):
+            response = await self.client.get(path)
+            self.assertEqual(response.status, 200, path)
+            self.assertEqual(await response.text(), "<mc-root></mc-root>")
+            self.assertEqual(response.headers["Cache-Control"], "no-cache")
+
+    async def test_files_of_the_build(self):
+        response = await self.client.get("/main-ABCD1234.js")
+        self.assertEqual(await response.text(), "console.log(1)")
+        self.assertIn("javascript", response.headers["Content-Type"])
+        self.assertEqual(response.headers["Cache-Control"], "max-age=31536000, immutable")
+        response = await self.client.get("/media/inter-latin-400-normal-55WT6UWF.woff2")
+        self.assertEqual(await response.read(), b"font")
+        response = await self.client.get("/mesh-contingency-mark.svg")
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")  # no hash in its name
+
+    async def test_a_missing_file_isnt_the_app(self):
+        response = await self.client.get("/main-ZZZZ9999.js")
+        self.assertEqual(response.status, 404)
+
+    async def test_an_unknown_api_isnt_the_app(self):
+        response = await self.client.get("/api/nosuch")
+        self.assertEqual(response.status, 404)
+        self.assertEqual(await response.json(), {"error": "no such API: /api/nosuch"})
+
+    async def test_nothing_outside_the_build(self):
+        from yarl import URL
+
+        for path in ("/../secret.txt", "/%2e%2e/secret.txt", "/media/../../secret.txt"):
+            response = await self.client.get(URL(path, encoded=True))
+            self.assertNotEqual(await response.text(), "not for the web", path)
 
 
 class ReadTest(ConsoleTestCase):

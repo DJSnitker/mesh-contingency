@@ -1,0 +1,72 @@
+<header class="title">
+  <div>
+    <h1>{{ overview()?.node ?? 'The node' }}</h1>
+    @if (overview()) {
+      <p class="muted">Bot up {{ up() }}</p>
+    }
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+@if (overview(); as o) {
+  <section class="tiles" aria-label="People">
+    <div class="panel tile">
+      <mc-icon name="users" />
+      <strong>{{ o.users }}</strong>
+      <span>users ({{ o.admins }} admin)</span>
+    </div>
+    <div class="panel tile" [class.attention]="o.requests">
+      <mc-icon name="list" />
+      <strong>{{ o.requests }}</strong>
+      <span>join requests</span>
+    </div>
+    <div class="panel tile">
+      <mc-icon name="check" />
+      <strong>{{ o.checkins }}</strong>
+      <span>check-ins</span>
+    </div>
+    <div class="panel tile">
+      <mc-icon name="inbox" />
+      <strong>{{ o.waiting }}</strong>
+      <span>messages waiting</span>
+    </div>
+  </section>
+
+  <section class="status" aria-label="Status">
+    <div class="panel row" [class.bad]="!watch().ok">
+      <mc-icon [name]="watch().ok ? 'check' : 'alert'" />
+      <span class="label">Watch</span>
+      <span>{{ watch().text }}</span>
+    </div>
+    <div class="panel row" [class.bad]="!backup().ok">
+      <mc-icon name="archive" />
+      <span class="label">Backup</span>
+      <span>{{ backup().text }}</span>
+    </div>
+    <div class="panel row" [class.bad]="o.counts.errors">
+      <mc-icon name="radio" />
+      <span class="label">Since start</span>
+      <span
+        >{{ o.counts.messages }} in, {{ o.counts.sent }} out ({{
+          o.counts.undelivered
+        }}
+        undelivered), {{ o.counts.errors }} error(s)</span
+      >
+    </div>
+  </section>
+
+  <section class="panel health" aria-labelledby="health-title">
+    <h2 id="health-title"><mc-icon name="gauge" /> Health</h2>
+    <ul>
+      @for (item of o.health; track $index) {
+        <li>{{ item }}</li>
+      }
+    </ul>
+  </section>
+} @else if (!problem()) {
+  <p class="muted">Reading the node…</p>
+}
+
+<mc-live-log />
