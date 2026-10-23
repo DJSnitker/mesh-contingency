@@ -9,6 +9,7 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from mesh_contingency.alerts import message_limit
 from mesh_contingency.api import ADMIN as ADMIN_LEVEL
@@ -17,7 +18,7 @@ from mesh_contingency.directory import Directory
 from mesh_contingency.output import SafeOutput
 from mesh_contingency.registry import Registry
 from mesh_contingency.state import HISTORY_FILE, State
-from mesh_contingency.testing import FakeMeshCore, make_context
+from mesh_contingency.testing import FakeMeshCore, full_key, make_context
 from mesh_contingency.web import ConsoleSettings, aiohttp_missing, load_console
 
 ALICE = "a1" * 32
@@ -289,6 +290,86 @@ class ReadTest(ConsoleTestCase):
         self.assertEqual(found, [{"key": ALICE, "name": "Alice", "messages": [
             {"from": "Bob", "time": 1.0, "read": False, "sealed": False},
             {"from": "Dan", "time": 2.0, "read": True, "sealed": True}]}])
+
+    async def test_contacts(self):
+        self.radio.known.update({"37ca5e": "Hilltop", ALICE: "alice-node", "c0" * 32: ""})
+        self.radio.details[full_key("37ca5e")] = {"type": 2, "out_path_len": 2, "last_advert": 1700000000}
+        self.radio.details[ALICE] = {"out_path_len": 0}
+        found = await self.get_json("/api/contacts")
+        self.assertEqual(found["max"], 350)
+        self.assertEqual(found["contacts"], [
+            {"key": "c0" * 32, "name": None, "type": "chat", "user": False, "admin": False, "hops": None,
+             "last_advert": None},
+            {"key": ALICE, "name": "alice-node", "type": "chat", "user": True, "admin": False, "hops": 0,
+             "last_advert": None},
+            {"key": full_key("37ca5e"), "name": "Hilltop", "type": "repeater", "user": False, "admin": False,
+             "hops": 2, "last_advert": 1700000000}])
+
+    async def test_contacts_without_the_device_info(self):
+
+        async def no_answer():
+            raise TimeoutError
+
+        self.radio.commands.send_device_query = no_answer
+        self.assertEqual(await self.get_json("/api/contacts"), {"max": None, "contacts": []})
+
+    async def test_channels(self):
+        from mesh_contingency.alerts import hashtag_secret
+
+        self.radio.channels[1] = ("#contingency-wx", hashtag_secret("#contingency-wx"))
+        self.radio.channels[2] = ("Family", b"\x07" * 16)
+        self.radio.channels[3] = ("#lookalike", b"\x09" * 16)  # a # name but not its key
+        found = await self.get_json("/api/channels")
+        self.assertEqual(found[:5], [
+            {"slot": 0, "name": "Public", "kind": "public", "uses": [], "messages": None, "last": None},
+            {"slot": 1, "name": "#contingency-wx", "kind": "hashtag", "uses": ["alert"], "messages": None,
+             "last": None},
+            {"slot": 2, "name": "Family", "kind": "private", "uses": [], "messages": None, "last": None},
+            {"slot": 3, "name": "#lookalike", "kind": "private", "uses": [], "messages": None, "last": None},
+            {"slot": 4, "name": "", "kind": "empty", "uses": [], "messages": None, "last": None}])
+        self.assertEqual(len(found), 8)
+        self.assertNotIn("secret", json.dumps(found))
+        self.assertNotIn((b"\x07" * 16).hex(), json.dumps(found))
+
+    async def test_channels_with_the_alert_test_and_watcher(self):
+        from types import SimpleNamespace
+
+        from mesh_contingency.alerts import hashtag_secret
+
+        self.radio.channels[1] = ("#contingency-wx", hashtag_secret("#contingency-wx"))
+        self.radio.channels[2] = ("#contingency-comm", hashtag_secret("#contingency-comm"))
+        self.state.alert_test = SimpleNamespace(settings=SimpleNamespace(channel="#contingency-wx", weekly="x"))
+        self.state.alert_watcher = SimpleNamespace(settings=SimpleNamespace(channel="#contingency-wx"))
+        found = await self.get_json("/api/channels")
+        self.assertEqual([c["uses"] for c in found[:3]],
+                         [[], ["alert", "testalert", "weekly test", "automatic alerts"], ["comm"]])
+
+    async def test_channel_messages(self):
+        from mesh_contingency.channel_log import ChannelLog
+
+        self.assertEqual(await self.get_json("/api/channels/1/messages"), {"slot": 1, "keep": None, "messages": None})
+        self.state.channel_log = log = ChannelLog()
+        with mock.patch("mesh_contingency.channel_log.time.time", return_value=100.0):
+            log.heard({"channel_idx": 1, "text": "Alice: anyone on?", "path_len": 2, "SNR": 6.5})
+        with mock.patch("mesh_contingency.channel_log.time.time", return_value=200.0):
+            log.sent(1, "test-node", "net at 7")
+        found = await self.get_json("/api/channels/1/messages")
+        self.assertEqual(found, {"slot": 1, "keep": 200, "messages": [
+            {"time": 200.0, "sender": "test-node", "text": "net at 7", "hops": None, "snr": None, "own": True},
+            {"time": 100.0, "sender": "Alice", "text": "anyone on?", "hops": 2, "snr": 6.5, "own": False}]})
+        self.assertEqual((await self.get_json("/api/channels/5/messages"))["messages"], [])
+        self.assertEqual([(c["messages"], c["last"]) for c in (await self.get_json("/api/channels"))[:2]],
+                         [(0, None), (2, 200.0)])
+        self.assertEqual((await self.client.get("/api/channels/x/messages")).status, 404)
+
+    async def test_channels_when_the_radio_fails(self):
+        async def no_answer():
+            raise TimeoutError
+
+        self.radio.commands.send_device_query = no_answer
+        response = await self.client.get("/api/channels")
+        self.assertEqual(response.status, 502)
+        self.assertEqual(await response.json(), {"error": "can't read the radio's channels: TimeoutError"})
 
     async def test_weather_off_without_counties(self):
         found = await self.get_json("/api/weather")

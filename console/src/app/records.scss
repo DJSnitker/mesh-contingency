@@ -110,21 +110,6 @@
   margin: 0;
 }
 
-.filter {
-  width: 100%;
-  max-width: 360px;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--ink-2);
-  color: var(--text);
-  font: inherit;
-
-  &::placeholder {
-    color: var(--muted);
-  }
-}
-
 .history {
   .by {
     min-width: 90px;

@@ -123,22 +123,3 @@ dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
-
-.badge {
-  padding: 1px 8px;
-  border-radius: 99px;
-  background: rgb(255 95 31 / 15%);
-  color: var(--orange);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.muted-badge {
-  background: rgb(255 255 255 / 6%);
-  color: var(--muted);
-}
-
-.danger:hover {
-  border-color: var(--orange);
-  color: var(--orange);
-}

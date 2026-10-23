@@ -10,6 +10,17 @@
   @if (problem()) {
     <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
   }
+  @if (canReload()) {
+    <button
+      class="btn btn-ghost btn-sm"
+      type="button"
+      [disabled]="runner.busy()"
+      title="Read users.toml now, after editing it, instead of waiting for the bot to notice"
+      (click)="runner.run('reload')"
+    >
+      Reload users file
+    </button>
+  }
 </header>
 
 <mc-reply

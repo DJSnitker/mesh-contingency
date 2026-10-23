@@ -31,6 +31,7 @@ from .api import (
 )
 from .area_weather import AreaWeather
 from .backup import Backups, load_backup
+from .channel_log import KEEP, ChannelLog
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -406,6 +407,9 @@ async def _main(output):
         web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent, limiter, output)
         if not await web_console.start():
             web_console = None
+    if web_console:
+        state.channel_log = ChannelLog()
+        print(f"Channel messages for the web console: the newest {KEEP} of each channel, in memory only.")
     area_weather = None
     if web_console and state.alert_watcher:
         state.area_weather = AreaWeather(state.alert_watcher, state)
@@ -587,8 +591,14 @@ async def _main(output):
     with contextlib.suppress(NotImplementedError):  # not on Windows
         loop.add_signal_handler(signal.SIGTERM, stopping.set)
     mc.subscribe(EventType.DISCONNECTED, on_disconnect)
-    # Only direct messages; channel messages are never subscribed to.
+    # Commands come only by direct message. Channel messages are only kept,
+    # for the web console to show, and only while it's on.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)
+    if state.channel_log:
+        async def on_channel_message(event):
+            state.channel_log.heard(event.payload)
+
+        mc.subscribe(EventType.CHANNEL_MSG_RECV, on_channel_message)
     await mc.start_auto_message_fetching()
 
     try:

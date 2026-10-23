@@ -28,6 +28,39 @@ may change how the bot is configured).
   now, each with its counties (*Wind Advisory (Taylor, Jones)*), in orange,
   or says *none*, or that they can't be checked; it links to Area Weather.
   `/api/overview` has them as `alerts`.
+- **`contact remove|path <name or key>`** (admins): take a contact off the
+  radio, which holds only so many, or reset the path to one whose messages
+  stopped getting through. Removing asks first, and says if the contact is a
+  user or an admin, since they can't be messaged until they advert again.
+  Add `contact = { permission = "admin" }` under `[commands]` to turn it on.
+- **Contacts on the Radio page** of the web console: the radio's contacts,
+  how many of how many, each with its type, whether it's a user or an admin,
+  its path (direct, hops, or none) and when it was last heard, a filter, and
+  **Reset path** and **Remove** buttons (Remove asks to confirm). New in the
+  API: `/api/contacts`.
+- **Channels on the Radio page:** the radio's channel slots in use, each
+  with its name, whether it's Public, a hashtag channel (anyone who adds the
+  name can read it) or private, and what the bot posts there. Keys are never
+  shown. New in the API: `/api/channels`. Contacts and channels share a
+  panel, a tab each.
+- **Channel messages in the web console:** a channel on the Radio page opens
+  to what the radio heard on it since the bot started, newest first (who,
+  when, the hops and the signal), and what this node posted there; read
+  again every 10 s while open. With the console on, the bot keeps the last
+  200 of each channel in memory only: nothing is written to disk, and a
+  restart forgets them. It still takes no commands from channels. New in the
+  API: `/api/channels/{slot}/messages`, and a count and the newest time for
+  each slot in `/api/channels`.
+
+- **More of the admin commands in the web console:** **Post alert test**
+  (`testalert`, which asks first, as it goes out on the air) and **Look up
+  counties again** (`alertmap`) on Area Weather, and **Reload users file**
+  (`reload`) on Users.
+
+### Changed
+
+- **The web console's menu:** the Dashboard first, set apart by a line, then
+  the other pages A–Z.
 - `scripts/demo_console.py`: the web console on made-up data, to try it
   without a node and to take the wiki's screenshots (`--screenshots DIR`).
 

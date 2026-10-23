@@ -24,12 +24,12 @@ describe('App', () => {
     expect([...element.querySelectorAll('.rail li')].map((li) => li.textContent?.trim())).toEqual([
       'Dashboard',
       'Area Weather',
-      'Users',
       'Check-ins',
-      'Inbox',
       'History',
-      'Send',
+      'Inbox',
       'Radio',
+      'Send',
+      'Users',
     ]);
   });
 

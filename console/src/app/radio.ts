@@ -1,13 +1,26 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { catchError, EMPTY, interval, of, startWith, switchMap, tap } from 'rxjs';
 
-import { Api, CommandInfo } from './api';
+import { Api, Channel, ChannelMessages, CommandInfo, Contact, Contacts } from './api';
 import { Icon } from './icon';
 import { Reply, Runner } from './runner';
+import { ago, when } from './time';
+
+/** How often an open channel's messages are read again (ms). */
+export const CHANNEL_REFRESH_MS = 10_000;
+
+type Tab = 'contacts' | 'channels';
 
 /**
  * Controlling the node rather than sending messages: the radio's advert
- * (nearby, or flooded across the mesh) and a backup of the bot's data now.
- * Each offered only if /api/commands has it.
+ * (nearby, or flooded across the mesh), a backup of the bot's data now, and
+ * the radio's contacts: remove one (it asks first, as over the radio) or
+ * reset the path to it. Each offered only if /api/commands has it. And the
+ * radio's channel slots, to look at: what each is and what the bot posts there.
+ * Contacts and channels share a panel, one tab each. A channel opens to its
+ * messages since the bot started (kept in its memory only), read again every
+ * CHANNEL_REFRESH_MS while open.
  */
 @Component({
   selector: 'mc-radio',
@@ -22,8 +35,49 @@ export class Radio {
   protected readonly runner = inject(Runner);
   protected readonly offered = signal<CommandInfo[] | null>(null);
   protected readonly problem = signal<string | null>(null);
+  protected readonly contacts = signal<Contacts | null>(null);
+  protected readonly contactsProblem = signal<string | null>(null);
+  protected readonly channels = signal<Channel[] | null>(null);
+  protected readonly channelsProblem = signal<string | null>(null);
+  /** The slots in use; the empty ones are only counted. */
+  protected readonly usedChannels = computed(() =>
+    (this.channels() ?? []).filter((c) => c.kind !== 'empty'),
+  );
+  /** The panel's tabs; the counts come from count(). */
+  protected readonly tabs = [
+    { id: 'contacts', label: 'Contacts', icon: 'users' },
+    { id: 'channels', label: 'Channels', icon: 'send' },
+  ] as const;
+  protected readonly tab = signal<Tab>('contacts');
+  /** The channel slot whose messages are open, or null for the list. */
+  protected readonly openSlot = signal<number | null>(null);
+  protected readonly openChannel = computed(
+    () => (this.channels() ?? []).find((c) => c.slot === this.openSlot()) ?? null,
+  );
+  /** The open channel's slot while its tab is showing: only then are its messages read. */
+  private readonly watching = computed(() => (this.tab() === 'channels' ? this.openSlot() : null));
+  protected readonly messages = signal<ChannelMessages | null>(null);
+  protected readonly messagesProblem = signal<string | null>(null);
+  protected readonly when = when;
+  protected readonly filter = signal('');
+  /** When the contacts were read, for "heard 5m ago". */
+  protected readonly now = signal(Date.now() / 1000);
+  protected readonly ago = ago;
+  /** The contacts whose name, key or type has the filter's words in it. */
+  protected readonly shown = computed(() => {
+    const words = this.filter().toLowerCase().split(/\s+/).filter(Boolean);
+    return (this.contacts()?.contacts ?? []).filter((c) => {
+      const text = `${c.name ?? ''} ${c.key} ${c.type} ${this.flags(c).join(' ')}`.toLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  });
 
   constructor() {
+    this.runner.onDone = (answer) => {
+      if (answer.command === 'contact') {
+        this.loadContacts();
+      }
+    };
     this.api.commands().subscribe({
       next: (commands) => {
         this.offered.set(commands);
@@ -31,9 +85,127 @@ export class Radio {
       },
       error: () => this.problem.set("can't reach the bot: is it running?"),
     });
+    this.loadContacts();
+    this.loadChannels();
+    toObservable(this.watching)
+      .pipe(
+        switchMap((slot) =>
+          slot === null
+            ? of(null)
+            : interval(CHANNEL_REFRESH_MS).pipe(
+                startWith(0),
+                switchMap(() =>
+                  this.api.channelMessages(slot).pipe(
+                    tap(() => this.messagesProblem.set(null)),
+                    catchError(() => {
+                      this.messagesProblem.set("can't read the channel's messages");
+                      return EMPTY;
+                    }),
+                  ),
+                ),
+              ),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((messages) => {
+        this.now.set(Date.now() / 1000);
+        this.messages.set(messages);
+      });
+  }
+
+  loadChannels(): void {
+    this.api.channels().subscribe({
+      next: (channels) => {
+        this.channels.set(channels);
+        this.channelsProblem.set(null);
+      },
+      error: () => this.channelsProblem.set("can't read the radio's channels"),
+    });
+  }
+
+  protected open(slot: number): void {
+    this.messages.set(null);
+    this.openSlot.set(slot);
+  }
+
+  /** Back to the list, with its counts read again. */
+  protected closeChannel(): void {
+    this.openSlot.set(null);
+    this.loadChannels();
+  }
+
+  /** How a message came: "direct", "2 hops", and its signal. */
+  protected route(hops: number | null, snr: number | null): string {
+    const parts =
+      hops === null ? [] : [hops === 0 ? 'direct' : `${hops} hop${hops === 1 ? '' : 's'}`];
+    if (snr !== null) {
+      parts.push(`SNR ${snr} dB`);
+    }
+    return parts.join(' · ');
+  }
+
+  /** How many contacts, or channels in use, for a tab's label; null until read. */
+  protected count(tab: Tab): number | null {
+    if (tab === 'contacts') {
+      return this.contacts()?.contacts.length ?? null;
+    }
+    return this.channels() ? this.usedChannels().length : null;
+  }
+
+  /** The arrow keys move between the tabs, as in any tab list. */
+  protected arrow(event: KeyboardEvent): void {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) {
+      return;
+    }
+    const ids = this.tabs.map((t) => t.id);
+    const next = ids[(ids.indexOf(this.tab()) + step + ids.length) % ids.length];
+    this.tab.set(next);
+    const tabs = (event.target as HTMLElement).parentElement;
+    tabs?.querySelector<HTMLElement>(`#${next}-tab`)?.focus();
+    event.preventDefault();
+  }
+
+  /** What a kind of channel means for who can read it. */
+  protected kindText(kind: Channel['kind']): string {
+    return {
+      public: 'the usual Public channel: everyone',
+      hashtag: 'hashtag: anyone who adds the same name',
+      private: 'private: only radios given its key',
+      empty: 'empty',
+    }[kind];
+  }
+
+  loadContacts(): void {
+    this.api.contacts().subscribe({
+      next: (contacts) => {
+        this.now.set(Date.now() / 1000);
+        this.contacts.set(contacts);
+        this.contactsProblem.set(null);
+      },
+      error: () => this.contactsProblem.set("can't read the radio's contacts"),
+    });
   }
 
   protected has(name: string): boolean {
     return (this.offered() ?? []).some((c) => c.name === name);
+  }
+
+  /** What's worth saying about a contact besides its name: its type, and if it's one of the node's people. */
+  protected flags(contact: Contact): string[] {
+    const flags = contact.type === 'chat' ? [] : [contact.type];
+    if (contact.admin) {
+      flags.push('admin');
+    } else if (contact.user) {
+      flags.push('user');
+    }
+    return flags;
+  }
+
+  protected path(contact: Contact): string {
+    if (contact.hops === null) {
+      return 'no path (floods)';
+    }
+    return contact.hops === 0 ? 'direct' : `${contact.hops} hop${contact.hops === 1 ? '' : 's'}`;
   }
 }

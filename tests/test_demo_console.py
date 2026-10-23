@@ -65,6 +65,16 @@ class DemoConsoleTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([a["county"] for a in areas], ["Boone, MO", "Callaway, MO", "Cole, MO", "Howard, MO"])
         self.assertEqual([a["event"] for a in areas[1]["alerts"]], ["Wind Advisory"])
         self.assertEqual(areas[3]["problem"], "HTTP Error 503: Service Unavailable")
+        contacts = await self.get("/api/contacts")
+        self.assertEqual((len(contacts["contacts"]), contacts["max"]), (12, 350))
+        channels = [(c["name"], c["kind"], c["uses"]) for c in await self.get("/api/channels")][:4]
+        self.assertEqual(channels, [("Public", "public", []),
+                                    ("#contingency-wx", "hashtag", ["alert", "automatic alerts"]),
+                                    ("#contingency-comm", "hashtag", ["comm"]),
+                                    ("Ridgeview ARES", "private", [])])
+        said = (await self.get("/api/channels/2/messages"))["messages"]
+        self.assertEqual([(m["sender"], m["own"]) for m in said],
+                         [("priya-hh", False), ("james-hh", False), ("Ridgeview Relay", True)])
 
     async def test_only_made_up_addresses(self):
         users = str(await self.get("/api/users"))

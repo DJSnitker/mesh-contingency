@@ -7,10 +7,10 @@ import { Reply, Runner } from './runner';
 import { ago } from './time';
 
 /**
- * Users and join requests: approve or deny a request, and whois, resetpass
- * or remove a user, through the same commands an admin sends over the
- * radio. Users are named by their full key, so two radios with the same
- * name can't be mixed up.
+ * Users and join requests: approve or deny a request, whois, resetpass or
+ * remove a user, and reload the users file after editing it, through the
+ * same commands an admin sends over the radio. Users are named by their full
+ * key, so two radios with the same name can't be mixed up.
  */
 @Component({
   selector: 'mc-users',
@@ -26,6 +26,8 @@ export class Users {
   protected readonly users = signal<User[] | null>(null);
   protected readonly requests = signal<JoinRequest[]>([]);
   protected readonly problem = signal<string | null>(null);
+  /** Whether the console may run reload (the users file, read again now). */
+  protected readonly canReload = signal(false);
   /** When the lists were read, for "last seen 5m ago". */
   protected readonly now = signal(Date.now() / 1000);
   protected readonly ago = ago;
@@ -40,6 +42,10 @@ export class Users {
   constructor() {
     this.runner.onDone = () => this.load();
     this.load();
+    this.api.commands().subscribe({
+      next: (commands) => this.canReload.set(commands.some((c) => c.name === 'reload')),
+      error: () => undefined, // load() says the bot can't be reached
+    });
   }
 
   load(): void {

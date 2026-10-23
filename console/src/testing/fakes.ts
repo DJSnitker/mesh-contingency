@@ -3,8 +3,11 @@ import { Observable, of } from 'rxjs';
 
 import {
   Answer,
+  Channel,
+  ChannelMessages,
   Checkins,
   CommandInfo,
+  Contacts,
   HistoryEntry,
   JoinRequest,
   Mailbox,
@@ -137,15 +140,67 @@ export const HISTORY: HistoryEntry[] = [
   { time: 800, by: 'KE5ABC', what: 'posted an alert to #contingency-wx' },
 ];
 
+export const CONTACTS: Contacts = {
+  max: 350,
+  contacts: [
+    {
+      key: 'a1'.repeat(32),
+      name: 'Alice',
+      type: 'chat',
+      user: true,
+      admin: false,
+      hops: 1,
+      last_advert: 1_000,
+    },
+    {
+      key: '37ca'.padEnd(64, '0'),
+      name: 'Hilltop',
+      type: 'repeater',
+      user: false,
+      admin: false,
+      hops: null,
+      last_advert: null,
+    },
+  ],
+};
+
+export const CHANNELS: Channel[] = [
+  { slot: 0, name: 'Public', kind: 'public', uses: [], messages: 2, last: 900 },
+  {
+    slot: 1,
+    name: '#contingency-wx',
+    kind: 'hashtag',
+    uses: ['alert', 'automatic alerts'],
+    messages: 0,
+    last: null,
+  },
+  { slot: 2, name: 'Family', kind: 'private', uses: [], messages: 0, last: null },
+  { slot: 3, name: '', kind: 'empty', uses: [], messages: 0, last: null },
+  { slot: 4, name: '', kind: 'empty', uses: [], messages: 0, last: null },
+];
+
+export const PUBLIC_MESSAGES: ChannelMessages = {
+  slot: 0,
+  keep: 200,
+  messages: [
+    { time: 900, sender: 'test-node', text: 'net at 7', hops: null, snr: null, own: true },
+    { time: 600, sender: 'Alice', text: 'anyone on?', hops: 2, snr: 6.5, own: false },
+  ],
+};
+
 function offer(name: string, usage: string, channel: string | null = null): CommandInfo {
   return { name, permission: 'admin', usage, summary: `${name} summary`, channel };
 }
 
 export const COMMANDS: CommandInfo[] = [
   offer('advert', 'advert [flood]'),
+  offer('alertmap', 'alertmap [county, ST]'),
   offer('alert', 'alert <message>', '#contingency-wx'),
   offer('backup', 'backup'),
   offer('comm', 'comm <message>', '#contingency-comm'),
+  offer('contact', 'contact remove|path <name or key>'),
+  offer('reload', 'reload'),
+  offer('testalert', 'testalert'),
   { ...offer('msg', 'msg <name> <message>'), permission: 'user' },
   offer('whois', 'whois <name or key>'),
 ];
@@ -188,6 +243,10 @@ export class FakeApi {
   inbox: () => Observable<Mailbox[]> = () => of(MAILBOXES);
   history: () => Observable<HistoryEntry[]> = () => of(HISTORY);
   weather: () => Observable<Weather> = () => of(WEATHER);
+  contacts: () => Observable<Contacts> = () => of(CONTACTS);
+  channels: () => Observable<Channel[]> = () => of(CHANNELS);
+  channelMessages: (slot: number) => Observable<ChannelMessages> = (slot) =>
+    of({ ...PUBLIC_MESSAGES, slot });
   answer: (command: string, text: string) => Observable<Answer> = (command) =>
     of({ command, messages: [`${command}: done`], asks: false, ok: true });
   readonly ran: [string, string][] = [];

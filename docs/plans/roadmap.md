@@ -462,6 +462,29 @@ first.
   arriving.
 - Maybe: remove all not heard from in N days; **Add** from a shared contact
   URI (`import_contact`).
+- **Done (12a):** a new admin command, `contact remove|path <name or key>`,
+  so the radio and the console do the same thing, with `remove`'s confirm
+  (asking about another contact starts over). A contact is found by its
+  whole name, then 4+ hex digits of its key, then the start of its name;
+  several matches ask for more of the key. The library only ever adds to its
+  copy of the contacts, so `remove` drops it there too. `/api/contacts` gives
+  the list (path length from `out_path_len`, -1 meaning none; `last_advert`
+  by the radio's clock) and the radio's `max_contacts`. On the Radio page the
+  list is there even with `contact` off, without the buttons. The badge,
+  danger-button and filter styles moved to `styles.scss` to be shared. Not
+  done: removing in bulk, and Add.
+- **Also (asked 2026-10-23): the radio's channels,** read-only, on the Radio
+  page (`/api/channels`): slot, name, kind (public, hashtag, private) and
+  what the bot posts there. `read_channels` in alerts.py, now also used by
+  `channel_slot`. No keys: one would let anyone read a private channel.
+  Changing channels stays with the MeshCore app for now (could join 12b).
+- **Also (asked 2026-10-23): a channel's messages,** in memory only (the
+  user's choice: nothing of other people's channel traffic on disk). The
+  bot subscribes to CHANNEL_MSG_RECV only while the console is on
+  (channel_log.py, the last 200 a slot); `post()` adds the bot's own posts,
+  which don't come back from the radio. Read every 10 s while a channel is
+  open and its tab shows. Contacts and channels became tabs, and the menu
+  the Dashboard, a line, then A–Z.
 
 **12b. Radio settings.** Shown first, then changeable one at a time:
 

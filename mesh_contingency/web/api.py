@@ -1,8 +1,9 @@
 """The web console's API, as JSON.
 
-Reading: the same things health, whois, checkins, inbox and history show
-over the radio, as tables instead of 140-character pages. Times are
-time.time() seconds; keys are full public keys. A sealed message's text, a
+Reading: the same things health, whois, checkins, inbox, history and
+contacts show over the radio, as tables instead of 140-character pages, and
+the radio's channel slots (not their keys).
+Times are time.time() seconds; keys are full public keys. A sealed message's text, a
 user's sealing key and message text in general never leave the node this
 way: the inbox lists who has mail, from whom and when, as inbox does without
 a passphrase.
@@ -22,19 +23,21 @@ import json
 import time
 
 from aiohttp import web
+from meshcore import EventType
 
-from ..alerts import message_limit
+from ..alerts import PUBLIC_SECRET, hashtag_secret, is_empty, message_limit, read_channels
 from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
 from ..area_weather import EVERY_MINUTES
-from ..commands.health import activity_items, people_items, radio_items
+from ..commands.health import RADIO_SECONDS, activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
 from ..commands.mailbox import FILENAME as MAILBOX
 from ..commands.mailbox import INBOX_KEY
 from ..commands.status import FILENAME as STATUSES
+from ..contacts import TYPE_NAMES
 from ..limits import wait_text
 from ..running import run_command
 from ..state import HISTORY_FILE
-from ..watch import LABELS
+from ..watch import LABELS, ask_radio
 
 routes = web.RouteTableDef()
 # Settings of a user that are about them, not for the console to show.
@@ -177,6 +180,96 @@ async def weather(request):
         "alerts_checked": watcher.last_check if watcher else None,
         "alerts_problem": watcher.problem if watcher else None,
     })
+
+
+@routes.get("/api/contacts")
+async def contacts(request):
+    """The radio's contacts by name, and how many it can hold (max, null if
+    it doesn't say). hops is the length of the path the radio keeps to one,
+    null if it has none (a message to it floods); last_advert is the radio's
+    time it last heard from it, null if never."""
+    ctx = _ctx(request)
+    radio = ctx.radio
+    if radio is None:
+        return web.json_response({"max": None, "contacts": []})
+    info = await ask_radio(radio.commands.send_device_query, EventType.DEVICE_INFO, RADIO_SECONDS) or {}
+    found = []
+    for contact in radio.contacts.values():
+        key = contact["public_key"].lower()
+        hops = contact.get("out_path_len", -1)
+        found.append({
+            "key": key,
+            "name": contact.get("adv_name") or None,
+            "type": TYPE_NAMES.get(contact.get("type"), "unknown"),
+            "user": key in ctx.users,
+            "admin": key in ctx.admins,
+            "hops": hops if hops is not None and hops >= 0 else None,
+            "last_advert": contact.get("last_advert") or None,
+        })
+    found.sort(key=lambda c: ((c["name"] or "").lower(), c["key"]))
+    return web.json_response({"max": info.get("max_contacts"), "contacts": found})
+
+
+def channel_kind(name, secret):
+    """public (the usual Public channel), hashtag (its key is worked out from
+    its #name, so anyone can join), private (any other key) or empty."""
+    if is_empty(name, secret):
+        return "empty"
+    if secret == PUBLIC_SECRET:
+        return "public"
+    return "hashtag" if name.startswith("#") and secret == hashtag_secret(name) else "private"
+
+
+@routes.get("/api/channels")
+async def channels(request):
+    """The radio's channel slots: each one's name, kind (channel_kind), what
+    the bot posts to it (uses: the alert and comm commands, testalert, the
+    automatic alerts and the weekly test), and how many of its messages are
+    kept since the bot started (messages; null if none are) and when the
+    newest came (last). Never a channel's key: with it anyone could read and
+    post on a private channel."""
+    ctx = _ctx(request)
+    if ctx.radio is None:
+        return web.json_response([])
+    state = ctx.state
+    uses = [(name, getattr(command, "channel", None)) for name, command in sorted(ctx.commands.items())]
+    if state.alert_test:
+        test = state.alert_test.settings
+        uses += [("testalert", test.channel)] if "testalert" in ctx.commands else []
+        uses += [("weekly test", test.channel)] if test.weekly else []
+    if state.alert_watcher:
+        uses.append(("automatic alerts", state.alert_watcher.settings.channel))
+    posting = {}
+    for use, channel in uses:
+        if channel:
+            posting.setdefault(hashtag_secret(channel), []).append(use)
+    try:
+        slots = await asyncio.wait_for(read_channels(ctx.radio), RADIO_SECONDS * 2)
+    except Exception as e:  # the radio didn't answer, or answered nonsense
+        return _error(502, f"can't read the radio's channels: {str(e) or type(e).__name__}")
+    log = state.channel_log
+    found = []
+    for slot, (name, secret) in enumerate(slots):
+        kept, last = log.summary(slot) if log else (None, None)
+        found.append({"slot": slot, "name": name, "kind": channel_kind(name, secret),
+                      "uses": [] if is_empty(name, secret) else posting.get(secret, []),
+                      "messages": kept, "last": last})
+    return web.json_response(found)
+
+
+@routes.get("/api/channels/{slot}/messages")
+async def channel_messages(request):
+    """A channel slot's messages since the bot started, newest first: when
+    each came, who sent it (null if it didn't say), the text, the hops it came
+    over and the signal (null for this node's own posts), and own: whether
+    this node posted it. messages is null if they aren't kept."""
+    log = _ctx(request).state.channel_log
+    try:
+        slot = int(request.match_info["slot"])
+    except ValueError:
+        return _error(404, "no such channel slot")
+    return web.json_response({"slot": slot, "keep": log.keep if log else None,
+                              "messages": log.messages(slot) if log else None})
 
 
 def offered(ctx):
