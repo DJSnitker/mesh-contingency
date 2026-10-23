@@ -7,6 +7,11 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/demo_console.py`: the web console on made-up data, to try it
+  without a node and to take the wiki's screenshots (`--screenshots DIR`).
+
 ## [0.7.0] - 2026-10-23
 
 The node can be run from a browser on its own computer: the web console

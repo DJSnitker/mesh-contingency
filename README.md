@@ -952,6 +952,8 @@ config.example.toml   example configuration
 users.example.toml    example users file
 deploy/
   mesh-contingency.service  systemd user unit (see "As a service")
+scripts/
+  demo_console.py     the web console on made-up data, for screenshots (see console/README.md)
 docs/
   branding/           the logo: lockups (light and dark), mark, app icons, favicon
   plans/              design plans and what was decided
