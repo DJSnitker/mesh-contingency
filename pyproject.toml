@@ -74,6 +74,8 @@ include = ["mesh_contingency*"]
 
 [tool.setuptools.package-data]
 "mesh_contingency.bible" = ["bsb.json.gz"]
+# The web console's app, built from console/ with npm run build before packaging.
+"mesh_contingency.web" = ["static/*", "static/media/*"]
 
 [tool.ruff]
 line-length = 120

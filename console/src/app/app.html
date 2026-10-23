@@ -1,0 +1,36 @@
+<nav class="rail" aria-label="Pages">
+  <a class="brand" routerLink="/">
+    <img src="mesh-contingency-mark.svg" alt="" width="32" height="32" />
+    <span>Mesh Contingency <small>console</small></span>
+  </a>
+  <ul>
+    @for (page of pages; track page.path) {
+      <li>
+        <a
+          [routerLink]="page.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          ariaCurrentWhenActive="page"
+        >
+          <mc-icon [name]="page.icon" /> {{ page.label }}
+        </a>
+      </li>
+    }
+  </ul>
+</nav>
+
+<main>
+  @if (signedOut()) {
+    <section class="panel signed-out" role="alert">
+      <mc-icon name="lock" />
+      <h1>Open the console's link</h1>
+      <p>
+        The bot didn't recognise this browser. Open the link in <code>console.url</code>, next to
+        <code>config.toml</code>; it's also printed when the bot starts. Each restart of the bot
+        makes a new link.
+      </p>
+    </section>
+  } @else {
+    <router-outlet />
+  }
+</main>

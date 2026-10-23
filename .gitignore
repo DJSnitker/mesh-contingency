@@ -18,6 +18,8 @@ backups/
 # The web console's link, with the key that opens it.
 console.url
 console.url.tmp
+# The web console's app, built from console/ (npm run build); packaged, not committed.
+mesh_contingency/web/static/
 
 # Python
 __pycache__/
