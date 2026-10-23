@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing done, 0.8.0 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.0)
+Status: every item but field testing done, 0.8.1 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.1)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -29,8 +29,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 12 | Manage the radio from the console: contacts and settings | feature | large | done (#57, #58) |
 | 13 | The weather now on the dashboard | feature | medium | done |
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
+| 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 
-Recommended order: everything but field testing is done and released (0.8.0). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
+Recommended order: everything but field testing is done and released (0.8.1). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -40,8 +41,10 @@ Where things stood on 2026-10-23:
 - **Merged and released:** everything but field testing. Since 0.7.0: #53
   (the demo console), #54 (this backlog), #55 (item 11), #56 (item 13), #57
   (12a: contacts, channels and their messages) and #58 (12b: radio
-  settings), released as **0.8.0** (this PR, tag `v0.8.0`). The wiki's Admin
-  Guide has "Use the web console" and "Change the radio's settings".
+  settings), released as **0.8.0** (#59, tag `v0.8.0`). The wiki's Admin
+  Guide has "Use the web console" and "Change the radio's settings". Then
+  #60 (`wx Taylor, TX`: a county as well as a zipcode), released as
+  **0.8.1** (this PR, tag `v0.8.1`); the wiki's Commands page covers it.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is

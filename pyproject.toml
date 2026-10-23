@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mesh-contingency"
-version = "0.8.0"
+version = "0.8.1"
 description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands, with pluggable third-party commands"
 readme = "README.md"
 license = "LicenseRef-Proprietary"

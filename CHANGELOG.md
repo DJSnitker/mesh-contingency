@@ -7,12 +7,25 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-23
+
+`wx` looks up a county as well as a zipcode. Pull request #60.
+
 ### Changed
 
 - **`wx` takes a county as well as a zipcode:** `wx Taylor, TX` (or
   `taylor county tx`, or its NWS code `wx TXC441`) gives the weather at the
   county's middle and the alerts issued for the county. `wx 79601` works as
   before.
+
+### Upgrading from 0.8.0
+
+```sh
+git pull
+```
+
+Then restart the bot. Nothing in `config.toml` changes, and the console
+needs no rebuild.
 
 ## [0.8.0] - 2026-10-23
 
@@ -486,6 +499,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.8.1]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.1
 [0.8.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.0
 [0.7.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.7.0
 [0.6.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.6.0
