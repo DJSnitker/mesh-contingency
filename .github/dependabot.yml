@@ -23,6 +23,12 @@ updates:
     directory: /console
     schedule:
       interval: weekly
+    # Angular pins the TypeScript it supports (22.2: >=6.0 <6.1), so newer
+    # TypeScript fails the build; it's raised by hand with an Angular upgrade
+    # (ng update), not proposed here. Patch releases still are.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
