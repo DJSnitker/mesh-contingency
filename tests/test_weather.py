@@ -188,12 +188,49 @@ class FetchWeatherTest(unittest.TestCase):
         })
         with mock.patch("mesh_contingency.weather._get_json", api):
             wx = weather.fetch_weather(" 33101 ")
-        self.assertEqual(wx["zipcode"], "33101")
+        self.assertEqual(wx["where"], "33101")
         self.assertEqual(wx["place"], "Miami, FL")
         self.assertEqual(wx["station"], "Miami Intl")
         self.assertEqual(weather.value(wx["obs"], "temperature"), 28.0)
         self.assertEqual(wx["pop"], 20)
         self.assertEqual(wx["alerts"], [{"event": "Rip Current Statement"}])
+
+
+class FetchCountyWeatherTest(unittest.TestCase):
+    ZONE = f"{weather.NWS_API}/zones/county/TXC441"
+
+    def test_assembles_full_result(self):
+        square = [[-100.0, 32.0], [-99.0, 32.0], [-99.0, 33.0], [-100.0, 33.0]]
+        stations = "https://api.weather.gov/gridpoints/SJT/1,1/stations"
+        hourly = "https://api.weather.gov/gridpoints/SJT/1,1/forecast/hourly"
+        api = FakeApi({
+            self.ZONE: {"properties": {"id": "TXC441", "name": "Taylor", "state": "TX"},
+                        "geometry": {"type": "Polygon", "coordinates": [square]}},
+            f"{weather.NWS_API}/points/32.5000,-99.5000": {
+                "properties": {"observationStations": stations, "forecastHourly": hourly}},
+            stations: {"features": [station("KABI", "Abilene Regional")]},
+            f"{weather.NWS_API}/stations/KABI/": observation(18.0),
+            hourly: {"properties": {"periods": [{"probabilityOfPrecipitation": {"value": 40}}]}},
+            f"{weather.NWS_API}/alerts/active?zone=TXC441": {"features": [{"properties": {"event": "Flood Watch"}}]},
+        })
+        with mock.patch("mesh_contingency.weather._get_json", api):
+            wx = weather.fetch_county_weather("TXC441")
+        self.assertEqual(wx["where"], "Taylor, TX")
+        self.assertEqual(wx["place"], "TXC441")
+        self.assertEqual(wx["station"], "Abilene Regional")
+        self.assertEqual(weather.value(wx["obs"], "temperature"), 18.0)
+        self.assertEqual(wx["pop"], 40)
+        self.assertEqual(wx["alerts"], [{"event": "Flood Watch"}])
+
+    def test_unknown_code(self):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.ZONE: http_error(404)})):
+            with self.assertRaisesRegex(ValueError, "^unknown county code TXC441$"):
+                weather.fetch_county_weather("TXC441")
+
+    def test_other_http_errors_propagate(self):
+        with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.ZONE: http_error(500)})):
+            with self.assertRaises(urllib.error.HTTPError):
+                weather.fetch_county_weather("TXC441")
 
 
 if __name__ == "__main__":

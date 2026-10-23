@@ -85,7 +85,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `ok [status]` | anyone | Check in: tell others you're ok |
 | `status <name or key>` | anyone | See someone's last check-in |
 | `verse [book chapter:verse[-verse]]` | anyone | A Bible verse (BSB), or the verse of the day |
-| `wx <zipcode>` | anyone | Weather and alerts for a US zipcode |
+| `wx <zipcode \| county, ST>` | anyone | Weather and alerts for a US zipcode or county |
 | `addgroup <address>` | users | Add an address to your emailall group; alone, list it |
 | `cleargroup` | users | Empty your emailall group |
 | `clearinbox [all]` | users | Delete the messages you've read, or all of them |
@@ -242,7 +242,8 @@ internet, or api.weather.gov is down) the console says so once and the bot
 keeps trying every round. Each post is in `history` as by "auto", and
 `health` shows `auto alerts 2 counties, checked 3m ago`. Posting goes only to
 the channel; nobody is sent a direct message. For anyone to look up a
-zipcode's alerts themselves, there is `wx <zipcode>`.
+zipcode's or county's alerts themselves, there is `wx <zipcode>` or
+`wx Taylor, TX`.
 
 ### Weekly alert test
 
@@ -376,6 +377,15 @@ Example `wx` reply:
 ```
 
 (`G18` is wind gusts in mph.)
+
+`wx` also takes a county, written as its name and state (`wx Taylor, TX`,
+`wx taylor county tx`) or as its NWS code (`wx TXC441`). The conditions are
+from the station nearest the county's middle, and the alerts are the ones the
+NWS has issued for the county:
+
+```
+Taylor, TX Clear, 0% precip 6h | 81F S11mph
+```
 
 ### Bible verses
 

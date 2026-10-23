@@ -1,9 +1,14 @@
-"""wx <zipcode>: current conditions, precipitation and alerts."""
+"""wx <zipcode | county, ST>: current conditions, precipitation and alerts."""
 
 import asyncio
+import re
 
+from ..alerts import parse_county
 from ..api import Command, CommandError, CommandResult
-from ..weather import POP_HOURS, c_to_f, fetch_weather, kmh_to_mph, mm_to_in, value
+from ..weather import POP_HOURS, c_to_f, county_code, fetch_county_weather, fetch_weather, kmh_to_mph, mm_to_in, value
+
+# An NWS county code, e.g. "TXC441".
+COUNTY_CODE = re.compile(r"[A-Z]{2}C\d{3}")
 
 
 def _compass(deg):
@@ -17,10 +22,30 @@ def _fmt(val, unit, digits=0):
     return "n/a" if val is None else f"{val:.{digits}f}{unit}"
 
 
+def parse_where(text):
+    """What wx was asked about: ("zip", "79601"), ("code", "TXC441") or
+    ("county", "Taylor, TX"). Raises ValueError if it is none of these."""
+    text = text.strip()
+    if text.isdigit():  # fetch_weather says if it isn't 5 digits
+        return "zip", text
+    if COUNTY_CODE.fullmatch(text.upper()):
+        return "code", text.upper()
+    return "county", parse_county(text)
+
+
+def lookup(kind, where):
+    """The weather for what parse_where found (blocking; network)."""
+    if kind == "zip":
+        return fetch_weather(where)
+    if kind == "county":
+        where = county_code(*where.rsplit(", ", 1))
+    return fetch_county_weather(where)
+
+
 def format_report(wx):
     """Return the full multi-line report for the console."""
     obs = wx["obs"]
-    lines = [f"Weather for {wx['zipcode']} ({wx['place']})"]
+    lines = [f"Weather for {wx['where']} ({wx['place']})"]
     if obs is None:
         lines.append("  No current observations available.")
     else:
@@ -95,19 +120,20 @@ def format_short(wx):
     else:
         sections.append("no current obs")
 
-    return Command.fit_reply(wx["zipcode"], sections)
+    return Command.fit_reply(wx["where"], sections)
 
 
 class WxCommand(Command):
-    args = "<zipcode>"
-    summary = "Weather, precipitation and alerts for a US zipcode"
+    args = "<zipcode | county, ST>"
+    summary = "Weather, precipitation and alerts for a US zipcode or county"
 
     async def execute(self, text, sender):
-        args = text.split()
-        if len(args) != 1:
-            raise CommandError(f"usage: {self.usage}")
         try:
-            wx = await asyncio.to_thread(fetch_weather, args[0])
+            kind, where = parse_where(text)
+        except ValueError:
+            raise CommandError(f"usage: {self.usage}") from None
+        try:
+            wx = await asyncio.to_thread(lookup, kind, where)
         except ValueError as e:
             raise CommandError(f"{self.name}: {e}") from e
         return CommandResult(console=format_report(wx), reply=format_short(wx))

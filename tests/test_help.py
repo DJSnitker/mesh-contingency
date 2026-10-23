@@ -29,13 +29,13 @@ class HelpCommandTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_usage_of_one_command(self):
         self.assertEqual(await self.ask("WX", "ff" * 32),
-                         "wx <zipcode> - Weather, precipitation and alerts for a US zipcode")
+                         "wx <zipcode | county, ST> - Weather, precipitation and alerts for a US zipcode or county")
         self.assertEqual(await self.ask("help", "ff" * 32),
                          "help [command] - List the commands you can use, or show how to use one")
 
     async def test_without_summary(self):
         self.commands["wx"].summary = ""
-        self.assertEqual(await self.ask("wx", "ff" * 32), "wx <zipcode>")
+        self.assertEqual(await self.ask("wx", "ff" * 32), "wx <zipcode | county, ST>")
 
     async def test_hidden_and_unknown_commands_look_the_same(self):
         for name in ("advert", "nope"):
