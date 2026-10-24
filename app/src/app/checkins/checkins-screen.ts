@@ -17,7 +17,8 @@ export const QUICK = [
 ];
 
 /**
- * The Check-ins screen: tell the others how you are (ok [status]), and look
+ * The Check-ins screen: tell the others how you are (ok [status], after
+ * confirming), and look
  * up someone's last check-in, or your own (status [name]). Anyone may check
  * in; the roll call (checkins) is for admins, so it isn't here.
  */
@@ -38,6 +39,17 @@ export const QUICK = [
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 8px;
+    }
+    .confirm {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--orange);
+      border-radius: 10px;
+      background: rgb(255 95 31 / 8%);
+    }
+    .confirm p {
+      margin: 0;
     }
     .quick button {
       justify-content: center;
@@ -83,7 +95,7 @@ export const QUICK = [
             class="btn btn-ghost"
             type="button"
             [disabled]="!link.ready()"
-            (click)="checkIn(choice.status)"
+            (click)="ask(choice.status)"
           >
             {{ choice.label }}
           </button>
@@ -104,12 +116,28 @@ export const QUICK = [
           class="btn btn-sm"
           type="button"
           [disabled]="!link.ready() || !status().trim() || left() < 0"
-          (click)="checkIn(status().trim())"
+          (click)="ask(status().trim())"
         >
           <mc-icon name="send" /> Check in
         </button>
         <span class="count" [class.problem]="left() < 0">{{ left() }} characters left</span>
       </div>
+      @if (pending() !== null) {
+        <div class="confirm" role="alertdialog" aria-labelledby="confirm-text">
+          <p id="confirm-text">
+            Send this check-in? <strong>“{{ pending() || 'ok' }}”</strong> replaces your last one,
+            and anyone can look it up.
+          </p>
+          <div class="actions">
+            <button class="btn btn-sm" type="button" [disabled]="!link.ready()" (click)="checkIn()">
+              <mc-icon name="send" /> Send
+            </button>
+            <button class="btn btn-ghost btn-sm" type="button" (click)="pending.set(null)">
+              Cancel
+            </button>
+          </div>
+        </div>
+      }
       @if (checkedIn(); as said) {
         <p class="checked-in">{{ said }}</p>
       }
@@ -164,6 +192,8 @@ export class CheckinsScreen {
   protected readonly status = signal('');
   protected readonly left = computed(() => MAX_COMMAND - `ok ${this.status().trim()}`.length);
   protected readonly checkedIn = signal<string | null>(null);
+  /** The check-in waiting to be confirmed ("" for plain ok), or null. */
+  protected readonly pending = signal<string | null>(null);
 
   protected readonly who = signal('');
   /** Who the last look-up was for ("" for your own). */
@@ -175,8 +205,19 @@ export class CheckinsScreen {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected async checkIn(status: string): Promise<void> {
+  /** Ask before checking in: what's sent is seen by anyone who looks. */
+  protected ask(status: string): void {
     this.checkedIn.set(null);
+    this.pending.set(status);
+  }
+
+  /** Send the check-in waiting to be confirmed. */
+  protected async checkIn(): Promise<void> {
+    const status = this.pending();
+    if (status === null) {
+      return;
+    }
+    this.pending.set(null);
     const exchange = await this.link.ask(status ? `ok ${status}` : 'ok', { one: true });
     if (!exchange.text) {
       return;

@@ -25,7 +25,9 @@ describe('CheckinsScreen', () => {
       QUICK.map((q) => q.label),
     );
     await press("I'm ok");
+    await press('Send');
     await press('Need help');
+    await press('Send');
     expect(ble.sent.map(([, text]) => text)).toEqual(['ok', 'ok need help']);
     expect(page.querySelector('.checked-in')?.textContent).toBe('Checked in as Dana: need help.');
   });
@@ -35,12 +37,33 @@ describe('CheckinsScreen', () => {
     const { page, type, press, button } = await open();
     type('status', 'need water');
     await press('Check in');
+    await press('Send');
     expect(ble.sent.map(([, text]) => text)).toEqual(['ok need water']);
     expect(page.querySelector('.checked-in')?.textContent).toBe('Checked in as Dana: need water.');
     expect(page.querySelector<HTMLInputElement>('[name="status"]')?.value).toBe('');
 
     type('status', 'x'.repeat(131));
     expect(button('Check in').disabled).toBe(true);
+  });
+
+  it('asks before sending, and sends nothing when cancelled', async () => {
+    ble.node = () => reply('ok, with how you are');
+    const { page, press, button } = await open();
+    await press('Need medical');
+    expect(ble.sent).toEqual([]);
+    expect(page.querySelector('.confirm')?.textContent).toContain('“need medical help”');
+    await press('Cancel');
+    expect(page.querySelector('.confirm')).toBeNull();
+    expect(ble.sent).toEqual([]);
+
+    await press("I'm ok");
+    expect(page.querySelector('.confirm')?.textContent).toContain('“ok”');
+    await press('Evacuating');
+    expect(page.querySelector('.confirm')?.textContent).toContain('“evacuating”');
+    await press('Send');
+    expect(ble.sent.map(([, text]) => text)).toEqual(['ok evacuating']);
+    expect(page.querySelector('.confirm')).toBeNull();
+    expect(button('Send')).toBeUndefined();
   });
 
   it("looks up someone's check-ins, a status with ; in it kept whole", async () => {

@@ -131,6 +131,7 @@ follows.
   passphrase asked each time, never stored), `msg` to a user, `clearinbox`
   and `clearinbox all`, `setpass` with its confirmation.
 - **Check-ins:** `ok [status]` with quick choices ("ok", "need help", ...),
+  each confirmed before it's sent,
   and `status [name]` (alone, your own). The roll call (`checkins`) is for
   admins, so it isn't in the app.
 - **Email:** `qm`, `emailall` and `email`; `setqm` and `addgroup`/`cleargroup`

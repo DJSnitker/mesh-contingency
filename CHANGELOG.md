@@ -33,7 +33,8 @@ may change how the bot is configured).
   each in numbered parts, is now put back together message by message.
 - **The phone app's Check-ins:** check in with one press (I'm ok, need
   help, need medical, sheltering in place, evacuating, no power) or in your
-  own words, and look up someone's last check-in or your own.
+  own words, confirming each before it's sent, and look up someone's last
+  check-in or your own.
 
 ### Fixed
 
