@@ -9,7 +9,11 @@
     "test": "ng test --watch=false",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "android": "ng build && cap sync android"
+    "android": "ng build && cap sync android",
+    "emulator:setup": "scripts/android.sh setup",
+    "emulator": "scripts/android.sh emulator",
+    "android:run": "scripts/android.sh run",
+    "android:live": "scripts/android.sh live"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

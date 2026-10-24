@@ -23,6 +23,29 @@ npm run format:check   # formatting (Prettier); npm run format fixes it
 npm run build          # the web build, into dist/
 ```
 
+## Trying it on this computer
+
+An Android emulator runs the app as a phone would, from `scripts/android.sh`
+(after the SDK below is set up):
+
+```sh
+npm run emulator:setup   # once: the emulator and a virtual phone, "mesh-contingency" (about 1.5 GB)
+npm run android:run      # build, start the virtual phone if needed, install the app and open it
+npm run android:live     # the same, then reload on the phone as you edit src/ (Ctrl+C stops)
+npm run emulator         # just start the virtual phone
+```
+
+The virtual phone keeps running after these finish, and the computer's
+keyboard types into it; close its window to stop it. Java 21 is found in
+sdkman when `JAVA_HOME` isn't set to 17 or 21. A phone plugged in over USB
+with USB debugging on is used instead of the emulator. After
+`android:live`, run `android:run` to put the built app back: live mode
+points the app at the dev server, which is gone once it stops.
+
+The emulator has no Bluetooth radio, so connecting to a radio needs a real
+phone; everything else runs there. `npm start` (a browser at
+http://127.0.0.1:4200) is quicker still for screens alone.
+
 ## Building for Android
 
 Needs Java 21 and the Android SDK (platform 36). On Linux, without Android

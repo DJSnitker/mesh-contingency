@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The ink colour of the web console's styles.scss. -->
+    <color name="ink">#0D1117</color>
+</resources>

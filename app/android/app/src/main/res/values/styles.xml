@@ -13,6 +13,10 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- The app's ink, behind the status and gesture bars where the web
+             view doesn't reach (WebView before Chromium 140 is padded
+             clear of them), so the bars' light icons show. -->
+        <item name="android:windowBackground">@color/ink</item>
     </style>
 
 
