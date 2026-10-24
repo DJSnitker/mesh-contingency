@@ -1,0 +1,64 @@
+# The phone app
+
+Mesh Contingency for phones (`com.meshcontingency`): users do what they'd
+type to the node (join, check in, the mailbox, email, the weather) from
+screens, over Bluetooth to their own MeshCore radio; plus chat with their
+contacts and channels, and their radio's settings. It talks to the node only
+through the radio, as direct messages. The plan, and what each step adds, is
+in [`docs/plans/mobile-app.md`](../docs/plans/mobile-app.md).
+
+An Angular app made into an Android app with [Capacitor](https://capacitorjs.com/);
+`android/` is the Android project Capacitor made, committed as it expects.
+The palette, type, panels and buttons are the web console's own stylesheet
+(`../console/src/styles.scss`, in `angular.json`); `src/app/icon.ts` is a
+copy of the console's icons, which `tests/test_app.py` keeps the same.
+
+## Working on it
+
+```sh
+npm ci                 # once, and after package-lock.json changes
+npm start              # in a browser at http://127.0.0.1:4200 (no Bluetooth there)
+npm test               # unit tests (Vitest)
+npm run format:check   # formatting (Prettier); npm run format fixes it
+npm run build          # the web build, into dist/
+```
+
+## Building for Android
+
+Needs Java 21 and the Android SDK (platform 36). On Linux, without Android
+Studio:
+
+```sh
+# Java 21, e.g. with sdkman: sdk install java 21.0.12+1.1-tem
+# The SDK's command-line tools from https://developer.android.com/studio#command-line-tools-only,
+# unzipped to ~/Android/Sdk/cmdline-tools/latest, then:
+export ANDROID_HOME=~/Android/Sdk
+yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "platform-tools" "build-tools;36.0.0"
+```
+
+Then, with `JAVA_HOME` pointing at Java 21:
+
+```sh
+npm run android                        # build the web app and copy it into android/
+(cd android && ./gradlew assembleDebug)
+# -> android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+CI builds the same APK on every pull request (the **Android build** job's
+`mesh-contingency-debug-apk` artifact), so a computer with the SDK isn't
+needed just to try it.
+
+## Installing it on a phone
+
+The debug APK installs on any Android 7 (API 24) or newer phone:
+
+- **Over USB:** turn on Developer options and USB debugging on the phone,
+  then `$ANDROID_HOME/platform-tools/adb install -r app-debug.apk`.
+- **Without a cable:** copy the APK to the phone and open it; Android asks
+  to allow installing apps from that source the first time.
+
+It's a debug build, signed with a key made on the computer that built it,
+for trying it out; a phone that has one build won't take another signed
+with a different key until the old one is uninstalled. Signed releases
+come with the app's first release.

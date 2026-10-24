@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: planned · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 2, the skeleton) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -155,8 +155,10 @@ is fetched from the internet), cards that fit a phone.
 
 `app/` beside `console/`: Angular 22, Capacitor 8, its Android project in
 `app/android/` (committed, as Capacitor expects; build outputs ignored).
-Shared styles come from `console/src` through the build's style include
-paths rather than a copy. CI gets an **App** job (unit tests and the web
+The console's stylesheet is listed in the app's build styles rather than
+copied. Its icons are a copy (`src/app/icon.ts`) that a repo test keeps the
+same: compiling the console's file from the app brings in a second Angular
+from `console/node_modules`, which breaks at run time. CI gets an **App** job (unit tests and the web
 build) and an **Android build** job (`./gradlew assembleDebug`, keeping the
 APK as an artifact). The Python package doesn't ship the app.
 

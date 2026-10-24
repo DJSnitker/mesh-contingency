@@ -969,6 +969,16 @@ console's app isn't built, so only its API answers`. After a `git pull` that
 changes `console/`, build again and restart the bot. Working on the app
 itself: see [`console/README.md`](console/README.md).
 
+### Phone app
+
+*In progress:* a phone app for users, in `app/`, that talks Bluetooth to
+the user's own MeshCore radio and reaches the node by ordinary direct
+messages, so the bot needs nothing new and its permissions, limits and
+sealing all apply. Android first; the plan is in
+[`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it's the
+app's frame: its screens say what each will do. Building it and installing
+it on a phone: see [`app/README.md`](app/README.md).
+
 ## Testing
 
 ```sh
@@ -977,7 +987,8 @@ itself: see [`console/README.md`](console/README.md).
 ```
 
 The web console's tests need aiohttp (`pip install -e ".[console]"`) and are
-skipped without it; its app has its own (`npm test` in `console/`).
+skipped without it; its app has its own (`npm test` in `console/`), and so
+does the phone app (`npm test` in `app/`).
 
 The tests use only the standard library. Network calls, the `mail` command
 and the radio are all faked (see `mesh_contingency/testing.py`), so they run
@@ -996,11 +1007,15 @@ Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
   the installed commands.
 - **Web console app**: formatting (Prettier), unit tests (Vitest) and the
   build, in `console/`.
+- **Phone app**: the same, in `app/`.
+- **Android build**: the phone app's debug APK, kept for 14 days as the
+  run's `mesh-contingency-debug-apk` artifact.
 
 The PR template has a short checklist. Never include real data (your
 `config.toml` or `users.toml`, email addresses, node keys) in code, tests or issues.
-Dependabot opens weekly PRs to update GitHub Actions, Python dependencies and
-the web console's npm packages.
+Dependabot opens weekly PRs to update GitHub Actions, Python dependencies, the
+web console's and the phone app's npm packages, and the phone app's Gradle
+dependencies.
 
 ## Project layout
 
@@ -1046,6 +1061,8 @@ mesh_contingency/
     mail.py           the shared email sending and address checks
     qm.py, emailall.py, email.py
 console/              the web console's Angular app (see console/README.md)
+app/                  the phone app: Angular and Capacitor, android/ its Android project
+                      (see app/README.md)
 examples/mesh-dice/   an example third-party command package
 .github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations

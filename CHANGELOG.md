@@ -7,6 +7,14 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+
+- **The phone app's frame** (`app/`, roadmap item 16): an Angular and
+  Capacitor app for users, `com.meshcontingency`, with its screens laid out
+  (each says what it will do), an Android project that builds a debug APK,
+  and CI jobs for both. It does nothing over Bluetooth yet. See
+  `app/README.md`.
+
 ### Fixed
 
 - **`checkins` counts only users:** `ok` is public, so a stranger's check-in
