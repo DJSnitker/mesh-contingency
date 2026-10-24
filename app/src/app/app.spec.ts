@@ -53,12 +53,6 @@ describe('App', () => {
     expect(more).toEqual(['Email', 'Weather and verse']);
   });
 
-  it('says what a screen not built yet will do', async () => {
-    const page = await open('/radio');
-    expect(page.querySelector('h1')?.textContent).toContain('Radio');
-    expect(page.textContent).toContain('"Radio" step');
-  });
-
   it('every route but the redirects is reachable from a tab or the Node screen', () => {
     const reachable = new Set([...TABS.map((t) => t.path), '/email', '/weather']);
     // A chat opens from the Chat screen's list.

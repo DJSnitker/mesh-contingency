@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 8, chat) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 9, radio) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -154,6 +154,10 @@ follows.
   bandwidth, SF and CR by MeshCore preset or by value, which asks first and
   says how to go back, as the console does: a radio on other settings than
   the mesh hears no one. Its contacts too: remove one, reset the path to one.
+  The presets are a copy of the bot's (`app/src/app/radio/presets.json`,
+  kept the same as `radio_presets.py` by `tests/test_app.py`). Like the bot,
+  the app restarts the radio after a frequency change so it's surely in use,
+  then offers to connect again.
 
 Styled like the web console: the same tokens and fonts (bundled, so nothing
 is fetched from the internet), cards that fit a phone.

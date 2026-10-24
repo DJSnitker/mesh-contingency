@@ -44,6 +44,13 @@ may change how the bot is configured).
   post held to what fits after the radio's name); unread counts, on the tab
   too; the history kept on the phone until cleared. The node's messages
   aren't kept: its commands stay on the Node screen.
+- **The phone app's Radio tab:** your own radio over Bluetooth (never the
+  node's): its name, frequency, TX power, position, clock, battery and
+  firmware; adverts nearby or across the mesh; rename it, set its power,
+  position and whether adverts share it, and its clock from the phone's;
+  its frequency by MeshCore preset or by value, which asks first, says how
+  to go back and restarts the radio; and its contacts, to reset the path to
+  one or remove one.
 
 ### Fixed
 

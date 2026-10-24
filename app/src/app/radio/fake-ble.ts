@@ -11,6 +11,8 @@ export interface FakeContact {
   name: string;
   publicKey: string;
   type: number;
+  /** Hops on its known path; -1 for none (flood). */
+  hops?: number;
 }
 
 /** The radio a FakeBle plays, and how it behaves. */
@@ -21,6 +23,19 @@ export interface FakeRadio {
   answersQuery: boolean;
   /** Answers anything at all once connected. */
   answers: boolean;
+  txPower: number;
+  maxTxPower: number;
+  /** Millionths of a degree. */
+  lat: number;
+  lon: number;
+  sharesPosition: boolean;
+  /** kHz and Hz, as the radio holds them. */
+  freq: number;
+  bw: number;
+  sf: number;
+  cr: number;
+  /** How far its clock is ahead of the phone's (seconds). */
+  clockAhead: number;
 }
 
 /**
@@ -33,7 +48,21 @@ export class FakeBle implements Ble {
     batteryMilliVolts: 3920,
     answersQuery: true,
     answers: true,
+    txPower: 22,
+    maxTxPower: 22,
+    lat: 0,
+    lon: 0,
+    sharesPosition: false,
+    freq: 910525,
+    bw: 62500,
+    sf: 7,
+    cr: 5,
+    clockAhead: 0,
   };
+  /** Adverts sent: "flood" or "zero-hop". */
+  adverts: string[] = [];
+  /** Times it was told to restart. */
+  reboots = 0;
   /** Why the next request or connect fails, if it should. */
   failPick: string | null = null;
   failConnect: string | null = null;
@@ -46,8 +75,8 @@ export class FakeBle implements Ble {
 
   contacts: FakeContact[] = [
     { name: 'Ridge Node', publicKey: NODE_KEY, type: 1 },
-    { name: 'Hill Repeater', publicKey: 'a1'.repeat(32), type: 2 },
-    { name: 'Erin', publicKey: 'e0'.repeat(32), type: 1 },
+    { name: 'Hill Repeater', publicKey: 'a1'.repeat(32), type: 2, hops: -1 },
+    { name: 'Erin', publicKey: 'e0'.repeat(32), type: 1, hops: 2 },
   ];
   /** The radio's channel slots ("" for an empty one). */
   channels: string[] = ['Public', '#contingency-wx', '', '#contingency-comm'];
@@ -141,7 +170,7 @@ export class FakeBle implements Ble {
   private answer(frame: Uint8Array): Uint8Array[] {
     switch (frame[0]) {
       case 1: // AppStart -> SelfInfo
-        return [selfInfo(this.radio.name)];
+        return [selfInfo(this.radio)];
       case 2: // SendTxtMsg -> Sent, then maybe the acknowledgement and the node's answer
         return this.sendText(frame);
       case 3: // SendChannelTxtMsg -> Ok
@@ -153,9 +182,71 @@ export class FakeBle implements Ble {
           ...this.contacts.map(contact),
           new Uint8Array([4, 0, 0, 0, 0]),
         ];
+      case 5: {
+        // GetDeviceTime -> CurrTime
+        const time = new Uint8Array(5);
+        time[0] = 9;
+        const now = Math.floor(Date.now() / 1000) + this.radio.clockAhead;
+        new DataView(time.buffer).setUint32(1, now, true);
+        return [time];
+      }
       case 6: // SetDeviceTime -> Ok
+        this.radio.clockAhead = 0;
+        return [OK];
       case 7: // SendSelfAdvert -> Ok
-        return [new Uint8Array([0])];
+        this.adverts.push(frame[1] === 1 ? 'flood' : 'zero-hop');
+        return [OK];
+      case 8: // SetAdvertName -> Ok
+        this.radio.name = new TextDecoder().decode(frame.slice(1));
+        return [OK];
+      case 11: {
+        // SetRadioParams -> Ok
+        const view = new DataView(frame.buffer, frame.byteOffset);
+        Object.assign(this.radio, {
+          freq: view.getUint32(1, true),
+          bw: view.getUint32(5, true),
+          sf: frame[9],
+          cr: frame[10],
+        });
+        return [OK];
+      }
+      case 12: // SetTxPower -> Ok, or Err above its maximum
+        if (frame[1] > this.radio.maxTxPower) {
+          return [new Uint8Array([1])];
+        }
+        this.radio.txPower = frame[1];
+        return [OK];
+      case 13: // ResetPath -> Ok
+      case 15: {
+        // RemoveContact -> Ok
+        const key = toHex(frame.slice(1, 33));
+        const found = this.contacts.find((c) => c.publicKey === key);
+        if (!found) {
+          return [new Uint8Array([1])];
+        }
+        if (frame[0] === 13) {
+          found.hops = -1;
+        } else {
+          this.contacts = this.contacts.filter((c) => c !== found);
+        }
+        return [OK];
+      }
+      case 14: {
+        // SetAdvertLatLon -> Ok
+        const view = new DataView(frame.buffer, frame.byteOffset);
+        this.radio.lat = view.getInt32(1, true);
+        this.radio.lon = view.getInt32(5, true);
+        return [OK];
+      }
+      case 19: // Reboot: answers nothing, and goes away
+        this.reboots++;
+        setTimeout(() => this.drop(), 0);
+        return [];
+      case 38: // SetOtherParams -> Ok
+        if (frame.length >= 4) {
+          this.radio.sharesPosition = frame[3] === 1;
+        }
+        return [OK];
       case 10: // SyncNextMessage -> a message, or NoMoreMessages
         return [this.waiting.shift() ?? new Uint8Array([10])];
       case 20: // GetBatteryVoltage -> BatteryVoltage
@@ -213,6 +304,8 @@ function contact(c: FakeContact): Uint8Array {
   frame[0] = 3; // Contact
   frame.set(fromHex(c.publicKey), 1);
   frame[33] = c.type;
+  frame[35] = (c.hops ?? 0) & 0xff; // outPathLen
+  new DataView(frame.buffer).setUint32(132, 1_790_000_000, true); // lastAdvert
   frame.set(new TextEncoder().encode(c.name), 100); // advName, 32 bytes
   return frame;
 }
@@ -244,19 +337,26 @@ function channelInfo(index: number, name: string): Uint8Array {
   return frame;
 }
 
-function selfInfo(name: string): Uint8Array {
+/** The radio's answer to a setting it took. */
+const OK = new Uint8Array([0]);
+
+function selfInfo(radio: FakeRadio): Uint8Array {
+  const name = new TextEncoder().encode(radio.name);
   const frame = new Uint8Array(58 + name.length);
   const view = new DataView(frame.buffer);
   frame[0] = 5; // SelfInfo
   frame[1] = 1; // type: companion
-  frame[2] = 22; // txPower
-  frame[3] = 22; // maxTxPower
+  frame[2] = radio.txPower;
+  frame[3] = radio.maxTxPower;
   frame.fill(0xab, 4, 36); // publicKey
-  view.setUint32(48, 910525, true); // radioFreq, kHz
-  view.setUint32(52, 62500, true); // radioBw, Hz
-  frame[56] = 7; // radioSf
-  frame[57] = 5; // radioCr
-  frame.set(new TextEncoder().encode(name), 58);
+  view.setInt32(36, radio.lat, true);
+  view.setInt32(40, radio.lon, true);
+  frame[45] = radio.sharesPosition ? 1 : 0; // advert location policy
+  view.setUint32(48, radio.freq, true); // kHz
+  view.setUint32(52, radio.bw, true); // Hz
+  frame[56] = radio.sf;
+  frame[57] = radio.cr;
+  frame.set(name, 58);
   return frame;
 }
 

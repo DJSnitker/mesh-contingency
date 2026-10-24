@@ -134,14 +134,85 @@ describe('Radio', () => {
   });
 
   describe('messages', () => {
-    it("lists the radio's contacts by name, with their keys", async () => {
+    it("lists the radio's contacts by name, with their keys and paths", async () => {
       const r = radio();
       await r.pick();
+      const heard = 1_790_000_000;
       expect(await r.contacts()).toEqual([
-        { publicKey: 'e0'.repeat(32), name: 'Erin', type: 1 },
-        { publicKey: 'a1'.repeat(32), name: 'Hill Repeater', type: 2 },
-        { publicKey: NODE_KEY, name: 'Ridge Node', type: 1 },
+        { publicKey: 'e0'.repeat(32), name: 'Erin', type: 1, hops: 2, lastAdvert: heard },
+        {
+          publicKey: 'a1'.repeat(32),
+          name: 'Hill Repeater',
+          type: 2,
+          hops: null,
+          lastAdvert: heard,
+        },
+        { publicKey: NODE_KEY, name: 'Ridge Node', type: 1, hops: 0, lastAdvert: heard },
       ]);
+    });
+
+    it('changes its name, power, position and whether adverts share it', async () => {
+      const r = radio();
+      await r.pick();
+      await r.rename('Dana T1000');
+      expect(r.name()).toBe('Dana T1000');
+      expect(JSON.parse(localStorage.getItem(REMEMBERED)!).name).toBe('Dana T1000');
+
+      await r.setPower(14);
+      expect(r.self()?.txPower).toBe(14);
+      await expect(r.setPower(30)).rejects.toThrow('the radio refused taking the TX power');
+
+      await r.setPosition(32.448736, -99.733144);
+      expect([r.self()?.advLat, r.self()?.advLon]).toEqual([32448736, -99733144]);
+      expect(r.sharesPosition()).toBe(false);
+      await r.sharePosition(true);
+      expect(ble.radio.sharesPosition).toBe(true);
+      expect(r.sharesPosition()).toBe(true);
+    });
+
+    it('reads its clock against the phone, and sets it', async () => {
+      ble.radio.clockAhead = -300;
+      const r = radio();
+      await r.pick();
+      // Connecting sets it; it drifts again.
+      ble.radio.clockAhead = -300;
+      await r.refresh();
+      expect(r.clockOffset()).toBeCloseTo(-300, -1);
+      await r.setClock();
+      expect(r.clockOffset()).toBeCloseTo(0, -1);
+    });
+
+    it('sends a flood or zero-hop advert', async () => {
+      const r = radio();
+      await r.pick();
+      await r.advert();
+      await r.advert('zero-hop');
+      expect(ble.adverts).toEqual(['flood', 'zero-hop']);
+    });
+
+    it('sets its frequency, then restarts it and says so when it goes', async () => {
+      const r = radio();
+      await r.pick();
+      expect(r.frequency()).toEqual({ freq: 910.525, bw: 62.5, sf: 7, cr: 5 });
+      await r.setFrequency({ freq: 927.875, bw: 62.5, sf: 7, cr: 5 });
+      expect([ble.radio.freq, ble.radio.bw, ble.radio.sf, ble.radio.cr]).toEqual([
+        927875, 62500, 7, 5,
+      ]);
+      expect(ble.reboots).toBe(1);
+      await vi.waitFor(() => expect(r.state()).toBe('lost'));
+      expect(r.problem()).toContain('The radio is restarting');
+      await r.reconnect();
+      expect(r.frequency()).toEqual({ freq: 927.875, bw: 62.5, sf: 7, cr: 5 });
+    });
+
+    it('removes a contact, and resets the path to one', async () => {
+      const r = radio();
+      await r.pick();
+      await r.resetPath('e0'.repeat(32));
+      expect((await r.contacts()).find((c) => c.name === 'Erin')?.hops).toBeNull();
+      await r.removeContact('a1'.repeat(32));
+      expect((await r.contacts()).map((c) => c.name)).toEqual(['Erin', 'Ridge Node']);
+      await expect(r.removeContact('a1'.repeat(32))).rejects.toThrow('refused');
     });
 
     it('sends a direct message, true once it is acknowledged', async () => {

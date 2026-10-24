@@ -22,6 +22,18 @@ export interface RadioContact {
   publicKey: string;
   name: string;
   type: number;
+  /** Hops on the path the radio knows to it, or null to flood (none known). */
+  hops: number | null;
+  /** When its last advert was heard (seconds since 1970, by its clock), or 0. */
+  lastAdvert: number;
+}
+
+/** A radio's frequency (MHz), bandwidth (kHz), spreading factor and coding rate. */
+export interface Frequency {
+  freq: number;
+  bw: number;
+  sf: number;
+  cr: number;
 }
 
 /** A direct message the radio received. */
@@ -73,6 +85,19 @@ export class Radio {
   readonly self = signal<SelfInfo | null>(null);
   readonly batteryMilliVolts = signal<number | null>(null);
   readonly firmware = signal<string | null>(null);
+  /** How far the radio's clock is ahead of the phone's (seconds), when read. */
+  readonly clockOffset = signal<number | null>(null);
+  /** Whether its adverts carry its position (newer firmware says). */
+  readonly sharesPosition = computed(() => !!this.self()?.reserved?.[1]);
+  /** Its frequency, bandwidth, SF and CR. */
+  readonly frequency = computed<Frequency | null>(() => {
+    const self = this.self();
+    return self
+      ? { freq: self.radioFreq / 1000, bw: self.radioBw / 1000, sf: self.radioSf, cr: self.radioCr }
+      : null;
+  });
+  /** It was told to restart, so it going away is expected. */
+  private restarting = false;
   /** Why the last connect failed, or why the radio went away. */
   readonly problem = signal<string | null>(null);
   readonly hasRemembered = computed(() => this.name() !== null);
@@ -146,16 +171,109 @@ export class Radio {
       within(connection.getContacts(), ANSWER_MS, 'its contacts'),
     );
     return contacts
-      .map((c) => ({ publicKey: toHex(c.publicKey), name: c.advName, type: c.type }))
+      .map((c) => ({
+        publicKey: toHex(c.publicKey),
+        name: c.advName,
+        type: c.type,
+        hops: c.outPathLen < 0 ? null : c.outPathLen,
+        lastAdvert: c.lastAdvert,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  /** Advertise the radio across the mesh, so others (the node) learn it. */
-  async advert(): Promise<void> {
-    const connection = this.open();
-    await this.exclusive(() =>
-      within(connection.sendFloodAdvert(), ANSWER_MS, 'sending an advert'),
+  /**
+   * Advertise the radio, so others (the node) learn it: across the mesh
+   * (flood), or only to radios in direct range (zero-hop).
+   */
+  async advert(kind: 'flood' | 'zero-hop' = 'flood'): Promise<void> {
+    await this.request('sending an advert', (c) =>
+      kind === 'flood' ? c.sendFloodAdvert() : c.sendZeroHopAdvert(),
     );
+  }
+
+  /** Read again what the radio says about itself: name, settings, battery, clock. */
+  async refresh(): Promise<void> {
+    this.self.set(await this.request('its name', (c) => c.getSelfInfo()));
+    const battery = await this.request('its battery', (c) => c.getBatteryVoltage()).catch(
+      () => null,
+    );
+    this.batteryMilliVolts.set(battery?.batteryMilliVolts ?? null);
+    const time = await this.request('its clock', (c) => c.getDeviceTime()).catch(() => null);
+    this.clockOffset.set(time ? time.epochSecs - Math.round(Date.now() / 1000) : null);
+  }
+
+  /** The name others see, after its next advert. */
+  async rename(name: string): Promise<void> {
+    await this.request('taking the name', (c) => c.setAdvertName(name));
+    await this.refresh();
+    this.name.set(name);
+    const remembered = this.remembered();
+    if (remembered) {
+      this.remember({ ...remembered, name });
+    }
+  }
+
+  async setPower(dBm: number): Promise<void> {
+    await this.request('taking the TX power', (c) => c.setTxPower(dBm));
+    await this.refresh();
+  }
+
+  /** The position its adverts carry, when it shares one (degrees). */
+  async setPosition(lat: number, lon: number): Promise<void> {
+    await this.request('taking the position', (c) =>
+      c.setAdvertLatLong(Math.round(lat * 1e6), Math.round(lon * 1e6)),
+    );
+    await this.refresh();
+  }
+
+  /**
+   * Whether its adverts carry its position. meshcore.js sends only the first
+   * of these settings, so the frame is written here, keeping the others.
+   */
+  async sharePosition(share: boolean): Promise<void> {
+    const self = this.self();
+    const frame = new Uint8Array([
+      38, // SetOtherParams
+      self?.manualAddContacts ?? 0,
+      self?.reserved?.[2] ?? 0, // telemetry modes
+      share ? 1 : 0,
+    ]);
+    await this.request('taking the setting', (c) => okOrErr(c, () => c.sendToRadioFrame(frame)));
+    await this.refresh();
+  }
+
+  /** Set the radio's clock from the phone's. */
+  async setClock(): Promise<void> {
+    await this.request('setting its clock', (c) => c.syncDeviceTime());
+    await this.refresh();
+  }
+
+  /**
+   * Set its frequency, bandwidth, SF and CR, then restart it so they're
+   * surely in use, as the bot does with its own radio. It's gone until it's
+   * connected again.
+   */
+  async setFrequency(f: Frequency): Promise<void> {
+    await this.request('taking the settings', (c) =>
+      c.setRadioParams(Math.round(f.freq * 1000), Math.round(f.bw * 1000), f.sf, f.cr),
+    );
+    await this.reboot();
+  }
+
+  /** Restart the radio. It answers nothing, and is gone until connected again. */
+  async reboot(): Promise<void> {
+    const connection = this.open();
+    this.restarting = true;
+    await this.exclusive(() => connection.sendCommandReboot());
+  }
+
+  async removeContact(publicKey: string): Promise<void> {
+    await this.request('removing the contact', (c) => c.removeContact(fromHex(publicKey)));
+  }
+
+  /** Forget the path to a contact: the next message floods, and finds a new one. */
+  async resetPath(publicKey: string): Promise<void> {
+    await this.request('resetting the path', (c) => c.resetPath(fromHex(publicKey)));
   }
 
   /** The radio's channels, in slot order, leaving out empty slots. */
@@ -244,6 +362,22 @@ export class Radio {
     return this.connection;
   }
 
+  /**
+   * Ask the radio something, once the request before has its answer, giving
+   * up after ANSWER_MS. Its Err (a rejection with nothing) becomes an error.
+   */
+  private request<T>(
+    what: string,
+    ask: (connection: CapacitorBleConnection) => Promise<T>,
+  ): Promise<T> {
+    const connection = this.open();
+    return this.exclusive(() =>
+      within(ask(connection), ANSWER_MS, what).catch((error) => {
+        throw error ?? new Error(`the radio refused ${what}`);
+      }),
+    );
+  }
+
   /** Run a request once the one before has its answer (or gave up). */
   private exclusive<T>(request: () => Promise<T>): Promise<T> {
     const run = this.lock.then(request, request);
@@ -329,6 +463,7 @@ export class Radio {
       this.connection = connection;
       this.self.set(self);
       this.name.set(self.name);
+      this.restarting = false;
       this.batteryMilliVolts.set(battery?.batteryMilliVolts ?? null);
       this.firmware.set(connection.firmware);
       this.state.set('connected');
@@ -340,7 +475,11 @@ export class Radio {
         if (this.connection === connection) {
           this.connection = null;
           this.state.set('lost');
-          this.problem.set('The radio went out of range or was turned off.');
+          this.problem.set(
+            this.restarting
+              ? 'The radio is restarting. Connect again once it’s back, in about half a minute.'
+              : 'The radio went out of range or was turned off.',
+          );
         }
       });
     } catch (error) {
@@ -377,6 +516,23 @@ export class Radio {
       // Then it's picked again next time.
     }
   }
+}
+
+/** Send, and resolve on the radio's Ok (or reject on its Err). */
+function okOrErr(connection: CapacitorBleConnection, send: () => Promise<void>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const onOk = () => {
+      connection.off(Constants.ResponseCodes['Err'], onErr);
+      resolve();
+    };
+    const onErr = () => {
+      connection.off(Constants.ResponseCodes['Ok'], onOk);
+      reject(new Error('the radio refused the setting'));
+    };
+    connection.once(Constants.ResponseCodes['Ok'], onOk);
+    connection.once(Constants.ResponseCodes['Err'], onErr);
+    send().catch(reject);
+  });
 }
 
 /** What went wrong, for the user. */

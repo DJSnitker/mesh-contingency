@@ -21,6 +21,8 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     publicKey: Uint8Array;
     advLat: number;
     advLon: number;
+    /** Newer firmware: multi-acks, then whether adverts share the position, then telemetry modes. */
+    reserved: Uint8Array;
     manualAddContacts: number;
     radioFreq: number;
     radioBw: number;
@@ -107,6 +109,24 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     syncDeviceTime(): Promise<void>;
     getContacts(): Promise<Contact[]>;
     sendFloodAdvert(): Promise<void>;
+    sendZeroHopAdvert(): Promise<void>;
+    getDeviceTime(): Promise<{ epochSecs: number }>;
+    // These resolve on the radio's Ok and reject (with nothing) on its Err.
+    setAdvertName(name: string): Promise<void>;
+    setTxPower(dBm: number): Promise<void>;
+    /** Millionths of a degree. */
+    setAdvertLatLong(latitude: number, longitude: number): Promise<void>;
+    /** Frequency in kHz, bandwidth in Hz. */
+    setRadioParams(
+      radioFreq: number,
+      radioBw: number,
+      radioSf: number,
+      radioCr: number,
+    ): Promise<void>;
+    removeContact(publicKey: Uint8Array): Promise<void>;
+    resetPath(publicKey: Uint8Array): Promise<void>;
+    /** Answers nothing: it restarts. */
+    sendCommandReboot(): Promise<void>;
     /** The channel slots, until the radio says there are no more. */
     getChannels(): Promise<ChannelInfo[]>;
     /** Resolves on the radio's Ok; rejects (with nothing) on its Err. */
