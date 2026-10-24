@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing done, 0.8.2 released; field testing paused · Written 2026-10-21 · Updated 2026-10-23 (0.8.2)
+Status: every item but field testing and the phone app done, 0.8.2 released; field testing paused · Written 2026-10-21 · Updated 2026-10-24 (phone app planned)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -31,8 +31,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 | 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
+| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | planned: [mobile-app.md](mobile-app.md) |
 
-Recommended order: everything but field testing is done and released (0.8.2). Field testing (9) when the radios arrive, and the web console checks in it on the node meanwhile.
+Recommended order: everything but field testing is done and released (0.8.2). Next, the phone app (16), PR by PR; its Bluetooth checks, like field testing (9), wait for the radios.
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -78,6 +79,8 @@ Steps, in order:
 5. Use the web console day to day, and note anything that would make it
    better; access from other devices is out of scope until it has real
    logins and HTTPS (see [web-console.md](web-console.md)).
+6. The phone app (item 16, `com.meshcontingency`): next is
+   PR 2 of [mobile-app.md](mobile-app.md), the skeleton.
 
 Paused: item 9, field testing, until more radios arrive.
 
