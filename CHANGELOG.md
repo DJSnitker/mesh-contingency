@@ -19,6 +19,13 @@ may change how the bot is configured).
   and firmware, sets its clock from the phone's, and reconnects to it when
   the app opens. Android asks only for Nearby devices (location only on
   Android 11 and older), and release builds have no internet permission.
+- **The phone app reaches the node:** pick the node from the radio's
+  contacts (or send an advert so it hears you), see whether you're a user
+  (`whoami`), and Join. Commands go one at a time, retried until delivered;
+  numbered replies are put back together; the node's notices (new message,
+  welcome) are shown. The replies the app reads are pinned in
+  `tests/fixtures/app_replies.json`, which the bot's tests and the app's
+  both check.
 
 ### Fixed
 

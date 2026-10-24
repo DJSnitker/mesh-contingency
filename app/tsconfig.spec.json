@@ -5,7 +5,9 @@
   "compilerOptions": {
     "types": [
       "vitest/globals"
-    ]
+    ],
+    // replies.spec.ts reads the reply fixtures the bot's tests share.
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*.d.ts",
