@@ -124,7 +124,7 @@ class CheckinsCommand(StatusBase):
 
         # Validate page number
         if page_num < 1 or page_num > total_pages:
-            raise CommandError(f"checkins: page {page_num} out of range (1-{total_pages})")
+            raise CommandError(f"{self.name}: page {page_num} out of range (1-{total_pages})")
 
         # Build list of all users with their status
         entries = []
@@ -167,23 +167,18 @@ class CheckinsCommand(StatusBase):
 
         # Format output
         lines = ["Roll Call:"]
-        checked_in_count = 0
-        missing_count = 0
-
         for entry in page_entries:
             if entry["checked_in"]:
                 lines.append(f"✓ {entry['name']}: {entry['status']} ({entry['time_ago']})")
-                checked_in_count += 1
             else:
                 lines.append(f"✗ {entry['name']}: missing")
-                missing_count += 1
 
-        # Summary line
-        total_users = len(self.get_all_users())
-        total_checked_in = len(self.get_checked_in())
-        summary = f"\n{total_checked_in}/{total_users} checked in. Page {page_num}/{total_pages}."
+        # Summary line: only users count, though anyone may check in with ok.
+        users = self.ctx.directory.users
+        total_checked_in = sum(key in users for key in self.get_checked_in())
+        summary = f"\n{total_checked_in}/{len(users)} checked in. Page {page_num}/{total_pages}."
         if total_pages > 1:
-            summary += " Use 'checkins page <n>' to see other pages."
+            summary += f" Use '{self.name} page <n>' to see other pages."
 
         console_output = "\n".join(lines) + summary
         reply = console_output

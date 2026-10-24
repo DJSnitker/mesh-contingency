@@ -47,6 +47,7 @@ def geocode_zip(zipcode):
         data = _get_json(f"{ZIP_API}/{zipcode}")
     except urllib.error.HTTPError as e:
         if e.code == 404:
+            e.close()
             raise ValueError(f"unknown zipcode {zipcode}") from e
         raise
     place = data["places"][0]
@@ -61,7 +62,8 @@ def latest_observation(stations_url):
         sid = station["properties"]["stationIdentifier"]
         try:
             obs = _get_json(f"{NWS_API}/stations/{sid}/observations/latest")["properties"]
-        except urllib.error.HTTPError:
+        except urllib.error.HTTPError as e:  # a station that's down: try the next
+            e.close()
             continue
         # Stations sometimes report an observation with no temperature; try the next one.
         if value(obs, "temperature") is not None:
@@ -73,7 +75,7 @@ def precip_chance(hourly_url):
     """Return the highest chance of precipitation (%) over the next POP_HOURS, or None."""
     try:
         periods = _get_json(hourly_url)["properties"]["periods"][:POP_HOURS]
-    except (urllib.error.URLError, KeyError):
+    except (OSError, KeyError, ValueError):  # URLError and timeouts are OSErrors; ValueError, bad JSON
         # The gridpoint forecast endpoint is flaky; precip chance is optional.
         return None
     chances = [value(p, "probabilityOfPrecipitation") for p in periods]
@@ -159,6 +161,7 @@ def fetch_county_weather(code):
         zone = _get_json(f"{NWS_API}/zones/county/{code}")
     except urllib.error.HTTPError as e:
         if e.code == 404:
+            e.close()
             raise ValueError(f"unknown county code {code}") from e
         raise
     lat, lon = _middle(zone["geometry"])

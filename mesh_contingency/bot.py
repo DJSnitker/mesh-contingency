@@ -663,9 +663,11 @@ async def _main(output):
             loop.remove_signal_handler(signal.SIGHUP)
             loop.remove_signal_handler(signal.SIGUSR1)
             loop.remove_signal_handler(signal.SIGTERM)
-        # A lost radio may not answer; don't hang on it.
+        # A lost radio may not answer; don't hang on it, and disconnect even
+        # if it didn't stop fetching.
         with contextlib.suppress(Exception):
             await asyncio.wait_for(mc.stop_auto_message_fetching(), DISCONNECT_SECONDS)
+        with contextlib.suppress(Exception):
             await asyncio.wait_for(mc.disconnect(), DISCONNECT_SECONDS)
     if lost or restarting:
         return 1

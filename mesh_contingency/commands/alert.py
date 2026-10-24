@@ -15,11 +15,13 @@ from ..api import Command, CommandError, CommandResult
 class AlertCommand(Command):
     args = "<message>"
     summary = "Post a message to the public alert channel"
+    # The channel it posts to unless its config entry sets channel.
+    default_channel = DEFAULT_CHANNEL
 
     def __init__(self, ctx):
         super().__init__(ctx)
         self.radio = ctx.radio  # connected MeshCore instance
-        self.channel = check_channel(ctx.options.get("channel", DEFAULT_CHANNEL))
+        self.channel = check_channel(ctx.options.get("channel", self.default_channel))
 
     async def channel_slot(self):
         """Return (slot, added): the radio's slot for the channel, adding it if needed."""

@@ -26,7 +26,7 @@ from aiohttp import web
 
 from ..limits import RateLimiter
 from . import HOSTS, URL_FILE
-from .api import routes
+from .api import CTX, LIMITER, LOG_STREAMS, OUTPUT, routes
 
 COOKIE = "mesh_console"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -49,6 +49,7 @@ SECURITY_HEADERS = {
 }
 # Seconds a stopping bot waits for requests still being answered.
 SHUTDOWN_SECONDS = 3
+STATIC_DIR = web.AppKey("static", Path)  # where the app's files are
 
 
 def make_app(ctx, key, port, limiter=None, output=None, static=STATIC):
@@ -79,11 +80,11 @@ def make_app(ctx, key, port, limiter=None, output=None, static=STATIC):
 
     app = web.Application(middlewares=[guard])
     app.on_response_prepare.append(add_security_headers)
-    app["ctx"] = ctx
-    app["static"] = Path(static).resolve()
-    app["limiter"] = limiter or RateLimiter()
-    app["output"] = output
-    app["log_streams"] = set()  # the queues of open live logs
+    app[CTX] = ctx
+    app[STATIC_DIR] = Path(static).resolve()
+    app[LIMITER] = limiter or RateLimiter()
+    app[OUTPUT] = output
+    app[LOG_STREAMS] = set()
     app.on_shutdown.append(end_logs)
     app.add_routes(routes)
     app.router.add_get("/{path:.*}", page)
@@ -101,7 +102,7 @@ def built(static):
 async def page(request):
     """A file of the app, or the app itself for any other address (its
     pages are its own: /users is the app at /users)."""
-    static, path = request.app["static"], request.match_info["path"]
+    static, path = request.app[STATIC_DIR], request.match_info["path"]
     if path == "api" or path.startswith("api/"):
         return web.json_response({"error": f"no such API: /{path[:60]}"}, status=404)
     if not built(static):
@@ -117,7 +118,7 @@ async def page(request):
 
 async def end_logs(app):
     """End the open live logs, which would otherwise hold up stopping."""
-    for queue in app["log_streams"]:
+    for queue in app[LOG_STREAMS]:
         queue.put_nowait(None)
 
 

@@ -190,6 +190,13 @@ class CheckinsTest(unittest.IsolatedAsyncioTestCase):
         # Summary should show 2/5 total users
         self.assertIn("2/5 checked in", result.reply)
 
+    async def test_checkins_summary_counts_only_users(self):
+        # ok is public: a stranger's check-in isn't one of the users'.
+        await self.ok.execute("ok", ALICE)
+        await self.ok.execute("passing through", Sender("Stranger", "e5" * 32))
+        result = await self.checkins.execute("", ALICE)
+        self.assertIn("1/5 checked in", result.reply)
+
     async def test_checkins_pagination_message_shows_navigation(self):
         result = await self.six_users().execute("", ALICE)
         self.assertIn("Use 'checkins page <n>' to see other pages.", result.reply)

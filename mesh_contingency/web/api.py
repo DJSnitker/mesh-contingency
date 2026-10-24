@@ -43,6 +43,11 @@ from ..state import HISTORY_FILE
 from ..watch import LABELS, ask_radio
 
 routes = web.RouteTableDef()
+# What the app holds for the handlers (server.make_app sets them).
+CTX = web.AppKey("ctx", object)  # the console's Context
+LIMITER = web.AppKey("limiter", object)  # the RateLimiter, shared with the radio
+OUTPUT = web.AppKey("output", object)  # the bot's SafeOutput, or None: no live log
+LOG_STREAMS = web.AppKey("log_streams", set)  # the queues of open live logs
 # Settings of a user that are about them, not for the console to show.
 HIDDEN_SETTINGS = {"name", INBOX_KEY}
 # The longest text /api/run takes: more than a direct message can hold.
@@ -52,7 +57,7 @@ KEEPALIVE_SECONDS = 15
 
 
 def _ctx(request):
-    return request.app["ctx"]
+    return request.app[CTX]
 
 
 @routes.get("/api/overview")
@@ -350,7 +355,7 @@ async def run(request):
     if len(text) > MAX_TEXT:
         return _error(400, f"text too long ({len(text)} characters; at most {MAX_TEXT})")
     print(f"[{CONSOLE.name}] {name + ' (private)' if command.private else (name + ' ' + text).strip()}", flush=True)
-    wait, _ = request.app["limiter"].check(CONSOLE.public_key, command.name, command.rate)
+    wait, _ = request.app[LIMITER].check(CONSOLE.public_key, command.name, command.rate)
     if wait:
         print(f"  -> {command.name} limit reached", flush=True)
         return _error(429, f"{command.name}: limit reached, try again in {wait_text(wait)}")
@@ -365,7 +370,7 @@ async def run(request):
 async def log(request):
     """The lines kept so far, then each new one as it's printed, as
     server-sent events: data: {"time", "line"}."""
-    output = request.app["output"]
+    output = request.app[OUTPUT]
     if output is None:
         return _error(404, "no log kept")
     response = web.StreamResponse(headers={"Content-Type": "text/event-stream", "Cache-Control": "no-cache"})
@@ -376,7 +381,7 @@ async def log(request):
     def listener(when, line):  # may be called from another thread
         loop.call_soon_threadsafe(queue.put_nowait, (when, line))
 
-    streams = request.app["log_streams"]
+    streams = request.app[LOG_STREAMS]
     streams.add(queue)
     try:
         for when, line in output.listen(listener):
