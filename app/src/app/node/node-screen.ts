@@ -4,13 +4,14 @@ import { RouterLink } from '@angular/router';
 
 import { Icon } from '../icon';
 import { COMPANION, Radio, RadioContact } from '../radio/radio';
-import { FIRST_REPLY_MS, NodeLink } from './node-link';
+import { NodeLink } from './node-link';
+import { StepLine } from './step-line';
 
 /** The Node screen: the user's radio, the node, and whether they're a user. */
 @Component({
   selector: 'mc-node',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Icon, RouterLink],
+  imports: [DatePipe, Icon, RouterLink, StepLine],
   styles: `
     .panel {
       display: grid;
@@ -180,41 +181,28 @@ import { FIRST_REPLY_MS, NodeLink } from './node-link';
         }
 
         @if (link.exchange(); as ex) {
-          <p class="step" [class.problem]="ex.step === 'not delivered' || ex.step === 'failed'">
-            @switch (ex.step) {
-              @case ('sending') {
-                Sending {{ ex.label }}{{ ex.attempt > 1 ? ' (try ' + ex.attempt + ')' : '' }}…
-              }
-              @case ('waiting') {
-                {{ ex.label }} delivered; waiting for the answer. Over several hops it can take
-                {{ firstReplyMinutes }} minutes.
-              }
-              @case ('not delivered') {
-                {{ ex.label }} wasn't delivered: the node's radio didn't acknowledge it. Is it in
-                range?
-              }
-              @case ('no answer') {
-                No answer to {{ ex.label }} in {{ firstReplyMinutes }} minutes.
-              }
-              @case ('failed') {
-                {{ ex.label }} couldn't be sent: {{ ex.text }}
-              }
-              @default {
-                The node answered {{ ex.label }}:
-              }
-            }
-          </p>
+          <mc-step-line [exchange]="ex" />
           @if (ex.step === 'answered' && ex.text) {
             <p class="said">{{ ex.text }}</p>
           }
         }
 
         <div class="actions">
-          <button class="btn btn-sm" type="button" [disabled]="!ready()" (click)="link.check()">
+          <button
+            class="btn btn-sm"
+            type="button"
+            [disabled]="!link.ready()"
+            (click)="link.check()"
+          >
             Check
           </button>
           @if (!link.whoami()?.user) {
-            <button class="btn btn-sm" type="button" [disabled]="!ready()" (click)="link.join()">
+            <button
+              class="btn btn-sm"
+              type="button"
+              [disabled]="!link.ready()"
+              (click)="link.join()"
+            >
               Join
             </button>
           }
@@ -294,7 +282,6 @@ export class NodeScreen {
   protected readonly link = inject(NodeLink);
   protected readonly contacts = signal<RadioContact[] | null>(null);
   protected readonly said = signal<string | null>(null);
-  protected readonly firstReplyMinutes = FIRST_REPLY_MS / 60_000;
 
   constructor() {
     // The radio's contacts, to pick the node from, once it's connected.
@@ -303,12 +290,6 @@ export class NodeScreen {
         void this.loadContacts();
       }
     });
-  }
-
-  /** Commands can go out: a radio, and no command in flight. */
-  protected ready(): boolean {
-    const step = this.link.exchange()?.step;
-    return this.radio.state() === 'connected' && step !== 'sending' && step !== 'waiting';
   }
 
   protected async loadContacts(): Promise<void> {

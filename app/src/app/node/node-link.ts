@@ -1,7 +1,7 @@
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, inject, Injectable, InjectionToken, signal } from '@angular/core';
 
 import { DirectMessage, Radio, RadioContact } from '../radio/radio';
-import { Join, parseJoin, parseNotice, parseWhoami, reassemble, WhoAmI } from './replies';
+import { group, Join, parseJoin, parseNotice, parseWhoami, reassemble, WhoAmI } from './replies';
 
 /** How long the node has to start answering (ms): minutes, over several hops. */
 export const FIRST_REPLY_MS = 180_000;
@@ -9,10 +9,19 @@ export const FIRST_REPLY_MS = 180_000;
 export const QUIET_MS = 10_000;
 /** After a numbered part, how long to wait for the rest (ms). */
 export const PARTS_MS = 90_000;
+/** How long NodeLink waits (ms); tests shorten them. */
+export const TIMING = new InjectionToken('TIMING', {
+  factory: () => ({ firstReplyMs: FIRST_REPLY_MS, quietMs: QUIET_MS, partsMs: PARTS_MS }),
+});
 /** Where the chosen node is remembered. */
 export const CHOSEN = 'mc.node';
 /** Notices kept on the screen. */
 export const MAX_NOTICES = 20;
+/**
+ * The longest command the app sends (characters). A direct message holds a
+ * little more; the app keeps to the length the bot's replies use.
+ */
+export const MAX_COMMAND = 133;
 
 /** The node, as the app remembers it: its full key and its name. */
 export interface ChosenNode {
@@ -48,6 +57,7 @@ export interface NodeNotice {
 @Injectable({ providedIn: 'root' })
 export class NodeLink {
   private readonly radio = inject(Radio);
+  private readonly timing = inject(TIMING);
 
   readonly node = signal<ChosenNode | null>(this.remembered());
   /** The command in flight, or the last one. */
@@ -62,6 +72,18 @@ export class NodeLink {
   readonly unanswered = signal(false);
   /** What the last join said, if the app could read it. */
   readonly joined = signal<Join | null>(null);
+  /** The radio's connection, for screens that only need to know it's up. */
+  readonly radioState = this.radio.state;
+  /** A command can go out: a radio, a node, and no command in flight. */
+  readonly ready = computed(() => {
+    const step = this.exchange()?.step;
+    return (
+      this.radio.state() === 'connected' &&
+      this.node() !== null &&
+      step !== 'sending' &&
+      step !== 'waiting'
+    );
+  });
 
   private queue: Promise<unknown> = Promise.resolve();
   /** Hears the node's messages while a command waits for its answer. */
@@ -109,18 +131,29 @@ export class NodeLink {
 
   /**
    * Send the node a command and wait for its answer. `one`: the command
-   * answers in one message, so there's no waiting for more. `label` is what
-   * the screen shows for it, when the command itself shouldn't be.
+   * answers with one message (perhaps in numbered parts), so there's no
+   * waiting for more once it's in. `label` is what the screen shows for it,
+   * when the command itself shouldn't be (a passphrase). `keep: false`: the
+   * answer goes only to the caller, and isn't kept for the screens after (an
+   * opened inbox).
    */
-  ask(command: string, options: { one?: boolean; label?: string } = {}): Promise<Exchange> {
+  ask(
+    command: string,
+    options: { one?: boolean; label?: string; keep?: boolean } = {},
+  ): Promise<Exchange> {
     const run = this.queue.then(() =>
-      this.send(command, options.one ?? false, options.label ?? command),
+      this.send(command, options.one ?? false, options.label ?? command, options.keep ?? true),
     );
     this.queue = run.catch(() => undefined);
     return run;
   }
 
-  private async send(command: string, one: boolean, label: string): Promise<Exchange> {
+  private async send(
+    command: string,
+    one: boolean,
+    label: string,
+    keep: boolean,
+  ): Promise<Exchange> {
     const node = this.node();
     let exchange: Exchange = { label, step: 'sending', attempt: 1, messages: [], text: null };
     const update = (change: Partial<Exchange>) => {
@@ -139,7 +172,7 @@ export class NodeLink {
     const answered = new Promise<Step>((resolve) => (finish = resolve));
     let timer = setTimeout(
       () => finish(exchange.messages.length ? 'answered' : 'no answer'),
-      FIRST_REPLY_MS,
+      this.timing.firstReplyMs,
     );
     const wait = (ms: number) => {
       clearTimeout(timer);
@@ -147,17 +180,14 @@ export class NodeLink {
     };
     this.collector = (text) => {
       update({ messages: [...exchange.messages, text] });
-      const whole = reassemble(exchange.messages);
-      if (whole.numbered) {
-        if (whole.complete) {
-          finish('answered');
-        } else {
-          wait(PARTS_MS);
-        }
-      } else if (one) {
+      // A reply can hold several messages, each perhaps in numbered parts:
+      // wait for the missing parts, then (unless it's one message) a little
+      // for more.
+      const complete = group(exchange.messages).every((g) => g.complete);
+      if (complete && one) {
         finish('answered');
       } else {
-        wait(QUIET_MS);
+        wait(complete ? this.timing.quietMs : this.timing.partsMs);
       }
     };
 
@@ -177,6 +207,9 @@ export class NodeLink {
     } finally {
       clearTimeout(timer);
       this.collector = null;
+    }
+    if (!keep) {
+      this.exchange.set({ ...exchange, messages: [], text: null });
     }
     return exchange;
   }
