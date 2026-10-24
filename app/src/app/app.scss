@@ -1,0 +1,66 @@
+// A phone's layout: a header, the screen, and the tabs at the bottom, inside
+// the safe area (clear of the notch, the status bar and the gesture bar).
+:host {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+}
+
+.top {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ink-2);
+}
+
+.name {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.radio-state {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+main {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--line);
+  background: var(--ink-2);
+
+  a {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 8px 2px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-decoration: none;
+
+    mc-icon {
+      font-size: 1.3rem;
+    }
+
+    &.active {
+      color: var(--orange);
+    }
+  }
+}

@@ -68,6 +68,60 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  app:
+    name: Phone app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      # The Android Gradle plugin is tested on Java 17 and 21; the runner has
+      # the Android SDK already.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad  # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            app/android/*.gradle*
+            app/android/**/gradle-wrapper.properties
+      - run: npm ci
+      # Builds the Angular app and copies it into the Android project.
+      - run: npm run android
+      - name: Build the debug APK
+        working-directory: app/android
+        run: ./gradlew --no-daemon assembleDebug
+      # Unsigned for release: a debug build, to install for trying it out.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: mesh-contingency-debug-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
   package:
     name: Package and plugin install
     runs-on: ubuntu-latest

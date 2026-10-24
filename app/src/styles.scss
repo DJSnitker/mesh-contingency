@@ -1,0 +1,15 @@
+// The web console's palette, type, panels and buttons come first
+// (angular.json styles: console/src/styles.scss); this is what a phone adds.
+// Fonts are bundled, never loaded from the internet: the app is for when the
+// internet is down.
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  // No pull-to-refresh or rubber-banding of the whole page in the web view.
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}

@@ -1,0 +1,19 @@
+<header class="top">
+  <img src="mesh-contingency-mark.svg" alt="" width="28" height="28" />
+  <span class="name">Mesh Contingency</span>
+  <!-- Bluetooth comes next; until then there's never a radio. -->
+  <span class="radio-state">No radio</span>
+</header>
+
+<main>
+  <router-outlet />
+</main>
+
+<nav class="tabs" aria-label="Screens">
+  @for (tab of tabs; track tab.path) {
+    <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page">
+      <mc-icon [name]="tab.icon" />
+      <span>{{ tab.label }}</span>
+    </a>
+  }
+</nav>

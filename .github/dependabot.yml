@@ -1,5 +1,5 @@
-# Weekly pull requests to keep GitHub Actions, Python and the web console's
-# npm dependencies current.
+# Weekly pull requests to keep GitHub Actions, Python, and the web console's
+# and the phone app's npm and Gradle dependencies current.
 # Each one runs CI before it can be merged.
 version: 2
 updates:
@@ -33,4 +33,30 @@ updates:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
       npm:
+        patterns: ["*"]
+
+  # The phone app: the same Angular and TypeScript rule as the console.
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
+      capacitor:
+        patterns: ["@capacitor/*", "@capacitor-community/*"]
+      npm:
+        patterns: ["*"]
+
+  # Its Android project's Gradle plugin and libraries; Capacitor sets most of
+  # them (variables.gradle), so these mostly follow a Capacitor upgrade.
+  - package-ecosystem: gradle
+    directory: /app/android
+    schedule:
+      interval: weekly
+    groups:
+      gradle:
         patterns: ["*"]
