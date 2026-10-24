@@ -1,9 +1,11 @@
 import { Routes } from '@angular/router';
 
 import { CheckinsScreen } from './checkins/checkins-screen';
+import { EmailScreen } from './email/email-screen';
 import { MailboxScreen } from './mailbox/mailbox-screen';
 import { NodeScreen } from './node/node-screen';
 import { Planned } from './planned';
+import { WeatherScreen } from './weather/weather-screen';
 
 /**
  * The app's screens (docs/plans/mobile-app.md). Each is Planned until the PR
@@ -34,26 +36,8 @@ export const routes: Routes = [
       pr: 'Radio',
     },
   },
-  {
-    path: 'email',
-    component: Planned,
-    title: 'Email',
-    data: {
-      icon: 'mail',
-      what: 'Email your message to your preset contact or group, or any address, and change your addresses.',
-      pr: 'Email, weather and verse',
-    },
-  },
-  {
-    path: 'weather',
-    component: Planned,
-    title: 'Weather and verse',
-    data: {
-      icon: 'cloud',
-      what: 'The weather and alerts for a zipcode or county, and a Bible verse.',
-      pr: 'Email, weather and verse',
-    },
-  },
+  { path: 'email', component: EmailScreen, title: 'Email' },
+  { path: 'weather', component: WeatherScreen, title: 'Weather and verse' },
   { path: '**', redirectTo: 'node' },
 ];
 

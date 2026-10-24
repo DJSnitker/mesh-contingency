@@ -7,6 +7,7 @@ import {
   parseNotice,
   parseReply,
   parseStatus,
+  parseVerse,
   parseWhoami,
   reassemble,
 } from './replies';
@@ -70,6 +71,16 @@ describe('replies', () => {
         { name: 'Erin', keyPrefix: 'e1e1e1e1e1e1', status: 'need help', ago: '2h ago' },
       ],
     });
+  });
+
+  it('reads a verse from a book of several words', () => {
+    expect(parseVerse('Song of Solomon 2:1 I am a rose of Sharon')).toEqual({
+      kind: 'verse',
+      outcome: 'found',
+      reference: 'Song of Solomon 2:1',
+      text: 'I am a rose of Sharon',
+    });
+    expect(parseVerse('1 John 4:8 God is love.')).toMatchObject({ reference: '1 John 4:8' });
   });
 
   it("reads what it doesn't know as nothing, so its text is shown", () => {
