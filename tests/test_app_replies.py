@@ -13,6 +13,7 @@ from mesh_contingency.api import Sender, split_reply
 from mesh_contingency.bot import UNRECOGNIZED_REPLY
 from mesh_contingency.commands.join import ApproveCommand, JoinCommand
 from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
+from mesh_contingency.commands.status import OkCommand, StatusCommand
 from mesh_contingency.commands.users import WhoAmICommand
 from mesh_contingency.directory import Directory
 from mesh_contingency.running import run_command
@@ -23,7 +24,8 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = json.loads((ROOT / "tests/fixtures/app_replies.json").read_text(encoding="utf-8"))
 # The commands the app sends, with the permissions the example config gives them.
 COMMANDS = {"join": JoinCommand, "approve": ApproveCommand, "whoami": WhoAmICommand, "msg": MsgCommand,
-            "inbox": InboxCommand, "clearinbox": ClearInboxCommand, "setpass": SetPassCommand}
+            "inbox": InboxCommand, "clearinbox": ClearInboxCommand, "setpass": SetPassCommand,
+            "ok": OkCommand, "status": StatusCommand}
 PERMISSIONS = tomllib.loads((ROOT / "config.example.toml").read_text(encoding="utf-8"))["commands"]
 
 

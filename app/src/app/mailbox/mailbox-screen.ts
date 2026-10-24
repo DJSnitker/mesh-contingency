@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
 import { Icon } from '../icon';
+import { NeedsNode } from '../node/needs-node';
 import { MAX_COMMAND, NodeLink } from '../node/node-link';
 import {
   parseClearInbox,
@@ -42,7 +42,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
 @Component({
   selector: 'mc-mailbox',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RouterLink, StepLine],
+  imports: [Icon, NeedsNode, StepLine],
   styles: `
     .panel {
       display: grid;
@@ -51,32 +51,6 @@ export function passphraseProblem(passphrase: string, again: string): string | n
     h2,
     p {
       margin: 0;
-    }
-    label {
-      display: grid;
-      gap: 4px;
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-    input,
-    textarea {
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--ink);
-      color: var(--text);
-      font: inherit;
-      font-size: 1rem;
-    }
-    textarea {
-      min-height: 5em;
-      resize: vertical;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
     }
     .messages {
       display: grid;
@@ -96,29 +70,11 @@ export function passphraseProblem(passphrase: string, again: string): string | n
       color: var(--muted);
       font-size: 0.8rem;
     }
-    .said {
-      margin: 0;
-      padding: 10px 12px;
-      border-left: 3px solid var(--sky);
-      background: var(--ink-3);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    .count {
-      color: var(--muted);
-      font-size: 0.8rem;
-    }
   `,
   template: `
     <h1><mc-icon name="inbox" /> Mailbox</h1>
 
-    @if (!link.node() || link.radioState() !== 'connected') {
-      <section class="panel">
-        <p class="muted">
-          Connect your radio and pick the node first, on the <a routerLink="/node">Node</a> screen.
-        </p>
-      </section>
-    }
+    <mc-needs-node />
 
     @if (link.exchange(); as ex) {
       @if (ex.step !== 'answered') {
@@ -128,7 +84,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
 
     <section class="panel inbox">
       <h2>Your messages</h2>
-      <label>
+      <label class="field">
         Passphrase, if you set one
         <input
           type="password"
@@ -210,7 +166,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
 
     <section class="panel send">
       <h2>Leave a message</h2>
-      <label>
+      <label class="field">
         For (a user's name)
         <input
           type="text"
@@ -220,7 +176,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
           (input)="to.set(value($event))"
         />
       </label>
-      <label>
+      <label class="field">
         Message
         <textarea name="msg-text" [value]="text()" (input)="text.set(value($event))"></textarea>
       </label>
@@ -247,7 +203,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
         them. A forgotten one can't be recovered, and the messages sealed with it are lost. The app
         never keeps it.
       </p>
-      <label>
+      <label class="field">
         New passphrase ({{ minPassphrase }} to {{ maxPassphrase }} characters, no spaces)
         <input
           type="password"
@@ -258,7 +214,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
           (input)="newPassphrase.set(value($event))"
         />
       </label>
-      <label>
+      <label class="field">
         Again
         <input
           type="password"

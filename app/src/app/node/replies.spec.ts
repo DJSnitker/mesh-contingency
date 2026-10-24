@@ -1,7 +1,15 @@
 // The replies in tests/fixtures/app_replies.json, which the bot's own tests
 // check it really sends (tests/test_app_replies.py).
 import fixtures from '../../../../tests/fixtures/app_replies.json';
-import { group, parseJoin, parseNotice, parseReply, parseWhoami, reassemble } from './replies';
+import {
+  group,
+  parseJoin,
+  parseNotice,
+  parseReply,
+  parseStatus,
+  parseWhoami,
+  reassemble,
+} from './replies';
 
 interface Case {
   name: string;
@@ -51,9 +59,23 @@ describe('replies', () => {
     });
   });
 
+  it('tells apart two who checked in under one name by their key prefix', () => {
+    expect(
+      parseStatus('Erin (e0e0e0e0e0e0): ok (5m ago); Erin (e1e1e1e1e1e1): need help (2h ago)'),
+    ).toEqual({
+      kind: 'status',
+      outcome: 'found',
+      entries: [
+        { name: 'Erin', keyPrefix: 'e0e0e0e0e0e0', status: 'ok', ago: '5m ago' },
+        { name: 'Erin', keyPrefix: 'e1e1e1e1e1e1', status: 'need help', ago: '2h ago' },
+      ],
+    });
+  });
+
   it("reads what it doesn't know as nothing, so its text is shown", () => {
     expect(parseWhoami('whoami: something new')).toBeNull();
     expect(parseJoin('hello')).toBeNull();
     expect(parseNotice('join: request sent to the admins as Bob')).toBeNull();
+    expect(parseStatus('Erin is fine')).toBeNull();
   });
 });

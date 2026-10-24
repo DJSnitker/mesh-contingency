@@ -1,23 +1,7 @@
-import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withHashLocation } from '@angular/router';
-
-import fixtures from '../../../../tests/fixtures/app_replies.json';
-import { App } from '../app';
-import { routes } from '../app.routes';
-import { CHOSEN, NodeLink, TIMING } from '../node/node-link';
-import { BLE } from '../radio/ble';
-import { FakeBle, NODE_KEY } from '../radio/fake-ble';
-import { REMEMBERED } from '../radio/radio';
+import { CHOSEN } from '../node/node-link';
+import { FakeBle } from '../radio/fake-ble';
+import { openScreen, reply } from '../screens.testing';
 import { passphraseProblem, recipient } from './mailbox-screen';
-
-/** What the bot really replies, from the shared fixtures. */
-function reply(name: string): string[] {
-  const found = fixtures.cases.find((c) => c.name === name);
-  if (!found) {
-    throw new Error(`no fixture ${name}`);
-  }
-  return found.reply;
-}
 
 describe('MailboxScreen', () => {
   let ble: FakeBle;
@@ -27,54 +11,7 @@ describe('MailboxScreen', () => {
     localStorage.clear();
   });
 
-  /** The Mailbox screen, with the radio connected and the node picked (unless `ready` is false). */
-  async function open(ready = true) {
-    if (ready) {
-      localStorage.setItem(
-        REMEMBERED,
-        JSON.stringify({ deviceId: 'AA:BB:CC:DD:EE:FF', name: 'Field T1000' }),
-      );
-      localStorage.setItem(CHOSEN, JSON.stringify({ publicKey: NODE_KEY, name: 'Ridge Node' }));
-    }
-    TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        provideRouter(routes, withHashLocation()),
-        { provide: BLE, useValue: ble },
-        { provide: TIMING, useValue: { firstReplyMs: 2000, quietMs: 50, partsMs: 200 } },
-      ],
-    });
-    const fixture = TestBed.createComponent(App);
-    await TestBed.inject(Router).navigateByUrl('/mailbox');
-    await fixture.whenStable();
-    const page = fixture.nativeElement as HTMLElement;
-    const link = TestBed.inject(NodeLink);
-    if (ready) {
-      await vi.waitFor(() => expect(link.ready()).toBe(true));
-    }
-    const settle = async () => {
-      await vi.waitFor(() => expect(link.ready()).toBe(true));
-      fixture.detectChanges();
-      await fixture.whenStable();
-    };
-    const type = (name: string, text: string) => {
-      const field = page.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
-      field.value = text;
-      field.dispatchEvent(new Event('input'));
-      fixture.detectChanges();
-    };
-    const button = (text: string) =>
-      [...page.querySelectorAll('button')].find((b) => b.textContent?.trim().startsWith(text))!;
-    /** Press a button by its text, and wait for the node's answer. */
-    const press = async (text: string) => {
-      const found = button(text);
-      expect(found, `a "${text}" button`).toBeTruthy();
-      found.click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await settle();
-    };
-    return { page, link, type, press, button, fixture };
-  }
+  const open = (ready = true) => openScreen('/mailbox', ble, ready);
 
   it('asks for the radio and the node first', async () => {
     const { page, button } = await open(false);

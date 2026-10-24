@@ -33,11 +33,6 @@ import { StepLine } from './step-line';
     dd {
       margin: 0;
     }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
     .contacts {
       display: grid;
       gap: 8px;
@@ -48,14 +43,6 @@ import { StepLine } from './step-line';
     .contacts button {
       width: 100%;
       justify-content: flex-start;
-    }
-    .said {
-      margin: 0;
-      padding: 10px 12px;
-      border-left: 3px solid var(--sky);
-      background: var(--ink-3);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
     }
     .notices {
       display: grid;
