@@ -5,7 +5,7 @@ import { FakeBle, NODE_KEY } from '../radio/fake-ble';
 import { MIN_ACK_MS, Radio, SEND_ATTEMPTS } from '../radio/radio';
 import { CHOSEN, FIRST_REPLY_MS, NodeLink, PARTS_MS, QUIET_MS } from './node-link';
 
-const NODE = { publicKey: NODE_KEY, name: 'Ridge Node', type: 1 };
+const NODE = { publicKey: NODE_KEY, name: 'Ridge Node', type: 1, hops: 0, lastAdvert: 0 };
 
 describe('NodeLink', () => {
   let ble: FakeBle;

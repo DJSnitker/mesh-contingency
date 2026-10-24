@@ -1,0 +1,187 @@
+{
+  "about": "MeshCore's regional radio presets: a copy of mesh_contingency/radio_presets.py (https://api.meshcore.nz/api/v1/config, taken 2026-10-23), which tests/test_app.py keeps the same.",
+  "presets": [
+    {
+      "title": "Australia",
+      "freq": 915.8,
+      "bw": 250,
+      "sf": 10,
+      "cr": 5
+    },
+    {
+      "title": "Australia (Narrow)",
+      "freq": 916.575,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 7
+    },
+    {
+      "title": "Australia (Mid)",
+      "freq": 915.075,
+      "bw": 125,
+      "sf": 9,
+      "cr": 5
+    },
+    {
+      "title": "Australia: SA, WA",
+      "freq": 923.125,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "Australia: QLD",
+      "freq": 923.125,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 5
+    },
+    {
+      "title": "Brazil",
+      "freq": 923.125,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "Canada",
+      "freq": 910.525,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "Costa Rica",
+      "freq": 910.525,
+      "bw": 125,
+      "sf": 11,
+      "cr": 5
+    },
+    {
+      "title": "EU/UK (Narrow)",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "EU/UK (Deprecated)",
+      "freq": 869.525,
+      "bw": 250,
+      "sf": 11,
+      "cr": 5
+    },
+    {
+      "title": "Czech Republic (Narrow)",
+      "freq": 869.432,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "EU 433MHz (Long Range)",
+      "freq": 433.65,
+      "bw": 250,
+      "sf": 11,
+      "cr": 5
+    },
+    {
+      "title": "EU 433MHz (Narrow)",
+      "freq": 433.65,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "Hungary",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "Netherlands",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "Netherlands (Limburg)",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "New Zealand (Narrow)",
+      "freq": 917.375,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "New Zealand (Gisborne)",
+      "freq": 917.375,
+      "bw": 250,
+      "sf": 11,
+      "cr": 5
+    },
+    {
+      "title": "Portugal 433",
+      "freq": 433.375,
+      "bw": 62.5,
+      "sf": 9,
+      "cr": 6
+    },
+    {
+      "title": "Portugal 868",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 6
+    },
+    {
+      "title": "Slovakia",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "Switzerland",
+      "freq": 869.618,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 8
+    },
+    {
+      "title": "USA",
+      "freq": 910.525,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "USA - Southern California",
+      "freq": 927.875,
+      "bw": 62.5,
+      "sf": 7,
+      "cr": 5
+    },
+    {
+      "title": "Vietnam (Narrow)",
+      "freq": 920.25,
+      "bw": 62.5,
+      "sf": 8,
+      "cr": 5
+    },
+    {
+      "title": "Vietnam (Deprecated)",
+      "freq": 920.25,
+      "bw": 250,
+      "sf": 11,
+      "cr": 5
+    }
+  ]
+}

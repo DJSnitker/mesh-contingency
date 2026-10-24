@@ -28,6 +28,10 @@ notices; `replies.ts` reads them. What it reads is pinned in
 `tests/test_app_replies.py` both check, so a reply can't change on one side
 only.
 
+`src/app/radio/presets.json` is a copy of the bot's MeshCore presets
+(`mesh_contingency/radio_presets.py`) for the Radio tab, which
+`tests/test_app.py` also keeps the same.
+
 Android asks only for Nearby devices (location on Android 11 and older,
 which needed it to scan). Release builds have no internet permission; the
 debug manifest (`android/app/src/debug/`) adds it for live reload.
