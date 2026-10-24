@@ -13,6 +13,18 @@ The palette, type, panels and buttons are the web console's own stylesheet
 (`../console/src/styles.scss`, in `angular.json`); `src/app/icon.ts` is a
 copy of the console's icons, which `tests/test_app.py` keeps the same.
 
+## How it talks to the radio
+
+`src/app/radio/`: `Radio` (the service the screens use: connect, reconnect,
+the radio's name and battery) over `CapacitorBleConnection`, a meshcore.js
+`Connection` on the Bluetooth plugin, writing one frame at a time. The
+plugin is behind the `BLE` token, so the tests use `FakeBle`, a pretend
+companion radio that answers frames as a real one does.
+
+Android asks only for Nearby devices (location on Android 11 and older,
+which needed it to scan). Release builds have no internet permission; the
+debug manifest (`android/app/src/debug/`) adds it for live reload.
+
 ## Working on it
 
 ```sh
@@ -42,8 +54,9 @@ with USB debugging on is used instead of the emulator. After
 `android:live`, run `android:run` to put the built app back: live mode
 points the app at the dev server, which is gone once it stops.
 
-The emulator has no Bluetooth radio, so connecting to a radio needs a real
-phone; everything else runs there. `npm start` (a browser at
+The emulator's Bluetooth is pretend, with no MeshCore radio near it: it
+asks for the permission and scans, but finding a radio needs a real phone
+and radio. Everything else runs there. `npm start` (a browser at
 http://127.0.0.1:4200) is quicker still for screens alone.
 
 ## Building for Android

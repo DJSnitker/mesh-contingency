@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 2, the skeleton) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 3, Bluetooth) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -54,7 +54,9 @@ adds one, `CapacitorBleConnection`, on top of the Capacitor plugin, the same
 shape as its `WebBleConnection`: the Nordic UART service
 `6E400001-…`, writing to RX `…0002`, notifications from TX `…0003`. Writes
 go through a queue (one GATT write at a time, which meshcore.js leaves as a
-to-do).
+to-do). Only its own files are imported (`src/constants.js`,
+`src/connection/connection.js`): its index also loads the Node.js-only serial
+and TCP connections. `src/types/meshcore.d.ts` types the parts the app uses.
 
 ## The parts
 
@@ -62,9 +64,10 @@ to-do).
 
 - Scan for radios offering the MeshCore service; the user picks theirs. The
   phone's own pairing dialog asks for the radio's Bluetooth PIN.
-- Android 12+ asks for Nearby devices (`BLUETOOTH_SCAN`,
-  `BLUETOOTH_CONNECT`); older Android asks for location, which BLE scans
-  needed then. iOS later needs `NSBluetoothAlwaysUsageDescription`.
+- Android 12+ asks for Nearby devices (`BLUETOOTH_SCAN`, marked
+  `neverForLocation`, and `BLUETOOTH_CONNECT`); older Android asks for
+  location, which BLE scans needed then. Release builds have no internet
+  permission; debug builds add it (`src/debug/`) for live reload. iOS later needs `NSBluetoothAlwaysUsageDescription`.
 - The radio is remembered and reconnected to when the app opens. One phone
   app at a time can hold a radio's Bluetooth: if the official MeshCore app is
   connected, this one can't be, and says so.

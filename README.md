@@ -975,9 +975,10 @@ itself: see [`console/README.md`](console/README.md).
 the user's own MeshCore radio and reaches the node by ordinary direct
 messages, so the bot needs nothing new and its permissions, limits and
 sealing all apply. Android first; the plan is in
-[`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it's the
-app's frame: its screens say what each will do. Building it and installing
-it on a phone: see [`app/README.md`](app/README.md).
+[`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it connects
+to the radio (its name, battery and firmware); the other screens say what
+each will do. Building it, running it on an emulator and installing it on a
+phone: see [`app/README.md`](app/README.md).
 
 ## Testing
 

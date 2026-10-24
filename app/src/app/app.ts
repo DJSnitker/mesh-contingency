@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { TABS } from './app.routes';
 import { Icon } from './icon';
+import { Radio } from './radio/radio';
 
 @Component({
   selector: 'mc-root',
@@ -13,4 +14,24 @@ import { Icon } from './icon';
 })
 export class App {
   protected readonly tabs = TABS;
+  protected readonly radio = inject(Radio);
+
+  /** The header's word on the radio. */
+  protected readonly radioState = computed(() => {
+    switch (this.radio.state()) {
+      case 'connected':
+        return this.radio.name();
+      case 'connecting':
+        return 'Connecting…';
+      case 'lost':
+        return 'Radio lost';
+      default:
+        return 'No radio';
+    }
+  });
+
+  constructor() {
+    // Back to the radio from last time, if there was one.
+    void this.radio.reconnect();
+  }
 }
