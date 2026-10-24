@@ -147,7 +147,7 @@ class PrecipChanceTest(unittest.TestCase):
             self.assertIsNone(weather.precip_chance(self.URL))
 
     def test_none_on_errors(self):
-        for failure in (http_error(500), urllib.error.URLError("down")):
+        for failure in (http_error(500), urllib.error.URLError("down"), TimeoutError("read timed out")):
             with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: failure})):
                 self.assertIsNone(weather.precip_chance(self.URL))
         with mock.patch("mesh_contingency.weather._get_json", FakeApi({self.URL: {"unexpected": 1}})):

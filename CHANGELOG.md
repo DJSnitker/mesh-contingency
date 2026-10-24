@@ -7,6 +7,24 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`checkins` counts only users:** `ok` is public, so a stranger's check-in
+  made the summary say e.g. `6/5 checked in`.
+- **`wx` survives a slow hourly forecast:** a read timeout or bad answer
+  from the NWS's hourly forecast now only leaves out the chance of rain, as
+  any other failure there already did.
+- **Stopping disconnects the radio** even when it doesn't answer the request
+  to stop fetching messages.
+- **`[contacts] auto_add`** that isn't a list of types (e.g. `"chat"`) now
+  stops the bot with a clear message instead of a confusing one or a crash.
+
+### Changed
+
+- `comm` is `alert` on its own channel, sharing its code.
+- The web console stores its state under aiohttp `AppKey`s, which silences
+  aiohttp's warnings.
+
 ## [0.8.2] - 2026-10-23
 
 Admins can set a user's email addresses, over the radio or from the console.

@@ -57,6 +57,8 @@ def free_port():
 
 @unittest.skipIf(aiohttp_missing(), "the web console needs aiohttp: pip install -e .[console]")
 class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
+    keeps_log = True  # False: the app is given no output, so it has no live log
+
     async def asyncSetUp(self):
         from aiohttp import CookieJar
         from aiohttp.test_utils import TestClient, TestServer
@@ -80,7 +82,8 @@ class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
         self.port = free_port()
         self.host = f"127.0.0.1:{self.port}"
         self.static = self.folder / "static"  # no app built, unless a test builds one
-        self.app = make_app(self.ctx, KEY, self.port, output=self.output, static=self.static)
+        self.app = make_app(self.ctx, KEY, self.port, output=self.output if self.keeps_log else None,
+                            static=self.static)
         server = TestServer(self.app, host="127.0.0.1", port=self.port)
         # A cookie for an IP address needs unsafe=True; browsers keep it anyway.
         self.client = TestClient(server, cookie_jar=CookieJar(unsafe=True))
@@ -562,8 +565,13 @@ class LogTest(ConsoleTestCase):
         await self.app.on_shutdown.send(self.app)
         self.assertEqual(await asyncio.wait_for(response.content.read(), 5), b"")
 
+
+
+class NoLogTest(ConsoleTestCase):
+    keeps_log = False
+
     async def test_no_log_kept(self):
-        self.app["output"] = None
+        await self.log_in()
         response = await self.client.get("/api/log")
         self.assertEqual(response.status, 404)
 

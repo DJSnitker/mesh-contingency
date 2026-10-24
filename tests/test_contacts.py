@@ -31,6 +31,11 @@ class LoadAutoAddTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "unknown type.*robot"):
             load_auto_add({"contacts": {"auto_add": ["chat", "robot"]}})
 
+    def test_not_a_list_exits(self):
+        for value in ("chat", 1, [1]):
+            with self.assertRaisesRegex(SystemExit, "must be a list of types"):
+                load_auto_add({"contacts": {"auto_add": value}})
+
 
 class LoadNotifyAdminsTest(unittest.TestCase):
     def test_default_on(self):

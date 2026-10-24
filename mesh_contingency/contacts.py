@@ -35,6 +35,8 @@ def load_auto_add(config):
     contacts = config.get("contacts")
     if contacts is None or "auto_add" not in contacts:
         return None
+    if not isinstance(contacts["auto_add"], list) or not all(isinstance(t, str) for t in contacts["auto_add"]):
+        raise SystemExit(f'[contacts] auto_add must be a list of types, e.g. ["chat"]; use {list(NODE_TYPES)}')
     unknown = [t for t in contacts["auto_add"] if t not in NODE_TYPES]
     if unknown:
         raise SystemExit(f"[contacts] auto_add: unknown type(s) {unknown}; use {list(NODE_TYPES)}")
