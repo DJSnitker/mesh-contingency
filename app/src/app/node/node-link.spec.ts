@@ -79,7 +79,7 @@ describe('NodeLink', () => {
     const link = await connected();
     link.choose(NODE);
     ble.node = () => ['(2/2) world', '(1/2) hello'];
-    const exchange = await link.ask('wx 59601');
+    const exchange = await link.ask('wx 59601', { one: true });
     expect(exchange.step).toBe('answered');
     expect(exchange.text).toBe('hello world');
     expect(exchange.messages).toEqual(['(2/2) world', '(1/2) hello']);
@@ -118,6 +118,37 @@ describe('NodeLink', () => {
     expect(await asked).toMatchObject({
       step: 'not delivered',
       attempt: SEND_ATTEMPTS,
+      text: null,
+    });
+  });
+
+  it('waits for every part of a reply holding several numbered messages', async () => {
+    const link = await connected();
+    link.choose(NODE);
+    vi.useFakeTimers();
+    ble.node = () => ['(1/2) a', '(2/2) b', '(1/2) c'];
+    const asked = link.ask('inbox');
+    await vi.advanceTimersByTimeAsync(QUIET_MS + 1000);
+    expect(link.exchange()?.step).toBe('waiting');
+    ble.deliver(NODE_KEY, '(2/2) d');
+    await vi.advanceTimersByTimeAsync(QUIET_MS + 1000);
+    expect((await asked).text).toBe('a b\nc d');
+  });
+
+  it("doesn't keep an answer it was asked not to", async () => {
+    const link = await connected();
+    link.choose(NODE);
+    ble.node = () => ['Erin just now: meet at noon'];
+    const exchange = await link.ask('inbox correcthorse12', {
+      one: true,
+      label: 'inbox',
+      keep: false,
+    });
+    expect(exchange.text).toBe('Erin just now: meet at noon');
+    expect(link.exchange()).toMatchObject({
+      label: 'inbox',
+      step: 'answered',
+      messages: [],
       text: null,
     });
   });

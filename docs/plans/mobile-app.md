@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 4, commands over the mesh) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 5, the mailbox) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -97,7 +97,9 @@ and TCP connections. `src/types/meshcore.d.ts` types the parts the app uses.
   as "likely not a user", and Join is offered either way.
 - Replies come as one or more direct messages from the node. A numbered reply
   (`(1/3) ...`) is put back in order and shown once every part is in, or
-  after a while with what came. Waits are generous (minutes over several
+  after a while with what came. A reply can hold several messages each in
+  numbered parts (an inbox of long messages), so parts are grouped by message,
+  and a reply of several messages ends after a short quiet. Waits are generous (minutes over several
   hops) and say so.
 - A message from the node that isn't a reply (a new-message notice, the
   join welcome, "An admin changed your email addresses") shows as a notice,
@@ -155,11 +157,14 @@ is fetched from the internet), cards that fit a phone.
 
 ### Privacy
 
-- The passphrase is typed for each `inbox` and `setpass` and never stored.
+- The passphrase is typed for each `inbox` and `setpass` and never stored:
+  it's held only while the Mailbox screen is open (for its next page), and
+  the screens show `inbox` and `setpass` without it.
   It travels as any direct message does (encrypted between the two radios);
   the bot already never prints a private command's text.
 - Opened messages are shown, not kept on the phone, apart from the current
-  screen.
+  screen: the app's record of the last command drops an inbox's answer once
+  the Mailbox screen has it.
 - Nothing leaves the phone except through the radio.
 
 ## In the repo

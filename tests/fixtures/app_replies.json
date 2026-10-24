@@ -3,7 +3,8 @@
     "What the bot sends that the phone app reads (app/src/app/node/replies.ts), so changing a reply can't silently break the app.",
     "tests/test_app_replies.py runs each case against the bot's real commands and checks the messages are exactly these; the app's tests (replies.spec.ts) check it reads each as `parsed`.",
     "A case: `before`, steps run first ([sender, text]); then `as` sends `send`. `reply` is what comes back to `as`; or, with `to`, the direct messages the node sends `to` meanwhile (a notice).",
-    "A `split` case: the bot splits `text` into `reply`, and the app puts it back together."
+    "A `split` case: the bot splits `text` into `reply`, and the app puts it back together.",
+    "Mailbox cases: Dana's passphrase in them is correcthorse12; a fixture's passphrase is never a real one."
   ],
   "senders": {
     "Admin": "ad",
@@ -14,15 +15,21 @@
   },
   "users": {
     "Dana": {},
-    "Erin": { "qm": "erin@example.com" }
+    "Erin": {
+      "qm": "erin@example.com"
+    }
   },
-  "admins": ["Admin"],
+  "admins": [
+    "Admin"
+  ],
   "cases": [
     {
       "name": "whoami, a user",
       "as": "Dana",
       "send": "whoami",
-      "reply": ["Dana (d0d0d0d0d0d0); no passphrase; no messages"],
+      "reply": [
+        "Dana (d0d0d0d0d0d0); no passphrase; no messages"
+      ],
       "parsed": {
         "kind": "whoami",
         "user": true,
@@ -37,10 +44,17 @@
     },
     {
       "name": "whoami, a user with a setting and a message waiting",
-      "before": [["Dana", "msg Erin see you at the shelter"]],
+      "before": [
+        [
+          "Dana",
+          "msg Erin see you at the shelter"
+        ]
+      ],
       "as": "Erin",
       "send": "whoami",
-      "reply": ["Erin (e0e0e0e0e0e0); no passphrase; qm erin@example.com; 1 message(s), 1 unread"],
+      "reply": [
+        "Erin (e0e0e0e0e0e0); no passphrase; qm erin@example.com; 1 message(s), 1 unread"
+      ],
       "parsed": {
         "kind": "whoami",
         "user": true,
@@ -48,7 +62,9 @@
         "keyPrefix": "e0e0e0e0e0e0",
         "admin": false,
         "passphrase": false,
-        "settings": ["qm erin@example.com"],
+        "settings": [
+          "qm erin@example.com"
+        ],
         "messages": 1,
         "unread": 1
       }
@@ -57,54 +73,527 @@
       "name": "whoami, not a user",
       "as": "BobNode",
       "send": "whoami",
-      "reply": ["unrecognized user or function"],
-      "parsed": { "kind": "whoami", "user": false }
+      "reply": [
+        "unrecognized user or function"
+      ],
+      "parsed": {
+        "kind": "whoami",
+        "user": false
+      }
     },
     {
       "name": "join",
       "as": "BobNode",
       "send": "join",
-      "reply": ["join: request sent to the admins as BobNode"],
-      "parsed": { "kind": "join", "outcome": "sent", "name": "BobNode" }
+      "reply": [
+        "join: request sent to the admins as BobNode"
+      ],
+      "parsed": {
+        "kind": "join",
+        "outcome": "sent",
+        "name": "BobNode"
+      }
     },
     {
       "name": "join, again",
-      "before": [["BobNode", "join"]],
+      "before": [
+        [
+          "BobNode",
+          "join"
+        ]
+      ],
       "as": "BobNode",
       "send": "join",
-      "reply": ["join: request updated as BobNode"],
-      "parsed": { "kind": "join", "outcome": "updated", "name": "BobNode" }
+      "reply": [
+        "join: request updated as BobNode"
+      ],
+      "parsed": {
+        "kind": "join",
+        "outcome": "updated",
+        "name": "BobNode"
+      }
     },
     {
       "name": "join, already a user",
       "as": "Dana",
       "send": "join",
-      "reply": ["join: you're already a user"],
-      "parsed": { "kind": "join", "outcome": "already" }
+      "reply": [
+        "join: you're already a user"
+      ],
+      "parsed": {
+        "kind": "join",
+        "outcome": "already"
+      }
     },
     {
       "name": "join, a radio name that can't be used",
       "as": "Bob (base)",
       "send": "join",
-      "reply": ["join: your radio's name can't contain ( or ); change it on the radio and try again"],
-      "parsed": { "kind": "join", "outcome": "refused" }
+      "reply": [
+        "join: your radio's name can't contain ( or ); change it on the radio and try again"
+      ],
+      "parsed": {
+        "kind": "join",
+        "outcome": "refused"
+      }
     },
     {
       "name": "the welcome, when an admin approves",
-      "before": [["BobNode", "join"]],
+      "before": [
+        [
+          "BobNode",
+          "join"
+        ]
+      ],
       "as": "Admin",
       "send": "approve BobNode",
       "to": "BobNode",
-      "reply": ["Welcome, BobNode: you're now a user. Send help for your commands."],
-      "parsed": { "kind": "notice", "notice": "welcome" }
+      "reply": [
+        "Welcome, BobNode: you're now a user. Send help for your commands."
+      ],
+      "parsed": {
+        "kind": "notice",
+        "notice": "welcome"
+      }
     },
     {
       "name": "a new message",
       "as": "Erin",
       "send": "msg Dana are you ok?",
       "to": "Dana",
-      "reply": ["inbox: new message from Erin; send inbox to read"],
-      "parsed": { "kind": "notice", "notice": "message", "from": "Erin" }
+      "reply": [
+        "inbox: new message from Erin; send inbox to read"
+      ],
+      "parsed": {
+        "kind": "notice",
+        "notice": "message",
+        "from": "Erin"
+      }
+    },
+    {
+      "name": "inbox, no messages",
+      "as": "Dana",
+      "send": "inbox",
+      "reply": [
+        "inbox: no messages"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "empty"
+      }
+    },
+    {
+      "name": "inbox, two messages",
+      "before": [
+        [
+          "Erin",
+          "msg Dana see you at the shelter"
+        ],
+        [
+          "Erin",
+          "msg Dana bring water"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox",
+      "reply": [
+        "Erin just now: see you at the shelter",
+        "Erin just now: bring water"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "messages",
+        "messages": [
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "see you at the shelter"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "bring water"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inbox, two long messages, each in numbered parts",
+      "before": [
+        [
+          "Erin",
+          "msg Dana the road past the river bridge is flooded so take the north route by the water tower and meet us at the church on main street by six"
+        ],
+        [
+          "Erin",
+          "msg Dana we have room for four more people at the shelter and plenty of water but we are short on blankets and batteries so bring any you can spare"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox",
+      "reply": [
+        "(1/2) Erin just now: the road past the river bridge is flooded so take the north route by the water tower and meet us at the church",
+        "(2/2) on main street by six",
+        "(1/2) Erin just now: we have room for four more people at the shelter and plenty of water but we are short on blankets and batteries",
+        "(2/2) so bring any you can spare"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "messages",
+        "messages": [
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "the road past the river bridge is flooded so take the north route by the water tower and meet us at the church on main street by six"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "we have room for four more people at the shelter and plenty of water but we are short on blankets and batteries so bring any you can spare"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inbox, a page of a longer one",
+      "before": [
+        [
+          "Erin",
+          "msg Dana note 1"
+        ],
+        [
+          "Erin",
+          "msg Dana note 2"
+        ],
+        [
+          "Erin",
+          "msg Dana note 3"
+        ],
+        [
+          "Erin",
+          "msg Dana note 4"
+        ],
+        [
+          "Erin",
+          "msg Dana note 5"
+        ],
+        [
+          "Erin",
+          "msg Dana note 6"
+        ],
+        [
+          "Erin",
+          "msg Dana note 7"
+        ],
+        [
+          "Erin",
+          "msg Dana note 8"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox",
+      "reply": [
+        "Erin just now: note 1",
+        "Erin just now: note 2",
+        "Erin just now: note 3",
+        "Erin just now: note 4",
+        "Erin just now: note 5",
+        "Erin just now: note 6",
+        "Erin just now: note 7",
+        "inbox: page 1 of 2; send inbox 2 for more"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "messages",
+        "page": 1,
+        "pages": 2,
+        "messages": [
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 1"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 2"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 3"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 4"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 5"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 6"
+          },
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "note 7"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inbox, sealed messages waiting",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ],
+        [
+          "Erin",
+          "msg Dana meet at noon"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox",
+      "reply": [
+        "inbox: 1 message(s) from Erin just now. Send inbox <passphrase> to read."
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "sealed",
+        "count": 1,
+        "senders": [
+          {
+            "from": "Erin",
+            "ago": "just now"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inbox, sealed messages opened",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ],
+        [
+          "Erin",
+          "msg Dana meet at noon"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox correcthorse12",
+      "reply": [
+        "Erin just now: meet at noon"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "messages",
+        "messages": [
+          {
+            "from": "Erin",
+            "ago": "just now",
+            "text": "meet at noon"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inbox, wrong passphrase",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ]
+      ],
+      "as": "Dana",
+      "send": "inbox wronghorse123",
+      "reply": [
+        "inbox: wrong passphrase"
+      ],
+      "parsed": {
+        "kind": "inbox",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "msg",
+      "as": "Dana",
+      "send": "msg Erin are you ok?",
+      "reply": [
+        "msg: saved for Erin (1 in their inbox)"
+      ],
+      "parsed": {
+        "kind": "msg",
+        "outcome": "saved",
+        "to": "Erin",
+        "waiting": 1
+      }
+    },
+    {
+      "name": "msg, no such user",
+      "as": "Dana",
+      "send": "msg Zed hello",
+      "reply": [
+        "msg: no user Zed; put a name with spaces in ( )"
+      ],
+      "parsed": {
+        "kind": "msg",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "clearinbox, keeping one that came since",
+      "before": [
+        [
+          "Erin",
+          "msg Dana one"
+        ],
+        [
+          "Dana",
+          "inbox"
+        ],
+        [
+          "Erin",
+          "msg Dana two"
+        ]
+      ],
+      "as": "Dana",
+      "send": "clearinbox",
+      "reply": [
+        "clearinbox: deleted 1 message(s); 1 new one(s) kept, see inbox"
+      ],
+      "parsed": {
+        "kind": "clearinbox",
+        "deleted": 1,
+        "kept": 1
+      }
+    },
+    {
+      "name": "clearinbox all",
+      "before": [
+        [
+          "Erin",
+          "msg Dana one"
+        ],
+        [
+          "Erin",
+          "msg Dana two"
+        ]
+      ],
+      "as": "Dana",
+      "send": "clearinbox all",
+      "reply": [
+        "clearinbox: deleted 2 message(s)"
+      ],
+      "parsed": {
+        "kind": "clearinbox",
+        "deleted": 2,
+        "kept": 0
+      }
+    },
+    {
+      "name": "setpass",
+      "as": "Dana",
+      "send": "setpass correcthorse12",
+      "reply": [
+        "setpass: passphrase set; new messages to you will be sealed.",
+        "A forgotten passphrase can't be recovered, and messages sealed with it are lost."
+      ],
+      "parsed": {
+        "kind": "setpass",
+        "outcome": "set",
+        "deleted": 0
+      }
+    },
+    {
+      "name": "setpass, the same again",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ]
+      ],
+      "as": "Dana",
+      "send": "setpass correcthorse12",
+      "reply": [
+        "setpass: that is already your passphrase"
+      ],
+      "parsed": {
+        "kind": "setpass",
+        "outcome": "already"
+      }
+    },
+    {
+      "name": "setpass, asking first when sealed messages would be lost",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ],
+        [
+          "Erin",
+          "msg Dana meet at noon"
+        ]
+      ],
+      "as": "Dana",
+      "send": "setpass batterystaple9",
+      "reply": [
+        "setpass: your 1 sealed message(s) only open with your old passphrase, and will be deleted.",
+        "Read them first with inbox <old passphrase>, or send the same setpass again within 5 min to confirm."
+      ],
+      "parsed": {
+        "kind": "setpass",
+        "outcome": "confirm",
+        "sealed": 1
+      }
+    },
+    {
+      "name": "setpass, confirmed",
+      "before": [
+        [
+          "Dana",
+          "setpass correcthorse12"
+        ],
+        [
+          "Erin",
+          "msg Dana meet at noon"
+        ],
+        [
+          "Dana",
+          "setpass batterystaple9"
+        ]
+      ],
+      "as": "Dana",
+      "send": "setpass batterystaple9",
+      "reply": [
+        "setpass: passphrase set; new messages to you will be sealed.",
+        "A forgotten passphrase can't be recovered, and messages sealed with it are lost.",
+        "setpass: deleted 1 message(s) sealed with the old passphrase."
+      ],
+      "parsed": {
+        "kind": "setpass",
+        "outcome": "set",
+        "deleted": 1
+      }
+    },
+    {
+      "name": "setpass, too short",
+      "as": "Dana",
+      "send": "setpass short",
+      "reply": [
+        "setpass: a passphrase must be 12 to 16 characters"
+      ],
+      "parsed": {
+        "kind": "setpass",
+        "outcome": "refused"
+      }
     },
     {
       "name": "a long reply, in numbered parts",

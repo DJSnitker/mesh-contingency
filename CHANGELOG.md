@@ -26,6 +26,11 @@ may change how the bot is configured).
   welcome) are shown. The replies the app reads are pinned in
   `tests/fixtures/app_replies.json`, which the bot's tests and the app's
   both check.
+- **The phone app's Mailbox:** open your inbox (with your passphrase, if
+  you set one, never kept), page through it, clear the messages read or
+  all, leave a message for a user, and set a passphrase, confirming first
+  when sealed messages would be lost. A reply of several long messages,
+  each in numbered parts, is now put back together message by message.
 
 ### Fixed
 

@@ -1,25 +1,17 @@
 import { Routes } from '@angular/router';
 
+import { MailboxScreen } from './mailbox/mailbox-screen';
 import { NodeScreen } from './node/node-screen';
 import { Planned } from './planned';
 
 /**
  * The app's screens (docs/plans/mobile-app.md). Each is Planned until the PR
- * that builds it; its data says what it will do. Node connects to the radio.
+ * that builds it; its data says what it will do.
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'node' },
   { path: 'node', component: NodeScreen, title: 'Node' },
-  {
-    path: 'mailbox',
-    component: Planned,
-    title: 'Mailbox',
-    data: {
-      icon: 'inbox',
-      what: 'Read the messages left for you, leave one for another user, and seal yours with a passphrase.',
-      pr: 'Mailbox',
-    },
-  },
+  { path: 'mailbox', component: MailboxScreen, title: 'Mailbox' },
   {
     path: 'checkins',
     component: Planned,

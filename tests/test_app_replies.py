@@ -1,6 +1,8 @@
 """The replies the phone app reads (tests/fixtures/app_replies.json) are what
 the bot really sends. The app's tests check it reads the same file."""
 
+import contextlib
+import io
 import json
 import tempfile
 import tomllib
@@ -10,7 +12,7 @@ from pathlib import Path
 from mesh_contingency.api import Sender, split_reply
 from mesh_contingency.bot import UNRECOGNIZED_REPLY
 from mesh_contingency.commands.join import ApproveCommand, JoinCommand
-from mesh_contingency.commands.mailbox import InboxCommand, MsgCommand
+from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
 from mesh_contingency.commands.users import WhoAmICommand
 from mesh_contingency.directory import Directory
 from mesh_contingency.running import run_command
@@ -21,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = json.loads((ROOT / "tests/fixtures/app_replies.json").read_text(encoding="utf-8"))
 # The commands the app sends, with the permissions the example config gives them.
 COMMANDS = {"join": JoinCommand, "approve": ApproveCommand, "whoami": WhoAmICommand, "msg": MsgCommand,
-            "inbox": InboxCommand}
+            "inbox": InboxCommand, "clearinbox": ClearInboxCommand, "setpass": SetPassCommand}
 PERMISSIONS = tomllib.loads((ROOT / "config.example.toml").read_text(encoding="utf-8"))["commands"]
 
 
@@ -57,7 +59,8 @@ class Node:
                    "admin": sender.public_key in admins}[command.permission]
         if not allowed:
             return [UNRECOGNIZED_REPLY]
-        return (await run_command(command, rest, sender, self.state)).messages
+        with contextlib.redirect_stdout(io.StringIO()):  # the bot's console lines
+            return (await run_command(command, rest, sender, self.state)).messages
 
 
 class AppRepliesTest(unittest.IsolatedAsyncioTestCase):
