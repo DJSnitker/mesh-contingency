@@ -21,6 +21,13 @@ the radio's name and battery) over `CapacitorBleConnection`, a meshcore.js
 plugin is behind the `BLE` token, so the tests use `FakeBle`, a pretend
 companion radio that answers frames as a real one does.
 
+`src/app/node/`: `NodeLink` sends the node commands through the radio, one
+at a time, and collects its answers (numbered parts put back in order) and
+notices; `replies.ts` reads them. What it reads is pinned in
+`../tests/fixtures/app_replies.json`, which `replies.spec.ts` and the bot's
+`tests/test_app_replies.py` both check, so a reply can't change on one side
+only.
+
 Android asks only for Nearby devices (location on Android 11 and older,
 which needed it to scan). Release builds have no internet permission; the
 debug manifest (`android/app/src/debug/`) adds it for live reload.

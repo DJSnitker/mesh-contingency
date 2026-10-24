@@ -29,6 +29,36 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     name: string;
   }
 
+  /** One of the radio's contacts. */
+  export interface Contact {
+    publicKey: Uint8Array;
+    /** 1 a companion (chat), 2 a repeater, 3 a room server, 4 a sensor. */
+    type: number;
+    flags: number;
+    outPathLen: number;
+    advName: string;
+    lastAdvert: number;
+  }
+
+  /** A direct message the radio received. */
+  export interface ContactMessage {
+    /** The first 6 bytes of the sender's key. */
+    pubKeyPrefix: Uint8Array;
+    pathLen: number;
+    txtType: number;
+    senderTimestamp: number;
+    text: string;
+  }
+
+  /** The radio's answer to sending a direct message. */
+  export interface Sent {
+    result: number;
+    /** The code the recipient's acknowledgement will carry. */
+    expectedAckCrc: number;
+    /** How long the radio expects the acknowledgement to take (ms). */
+    estTimeout: number;
+  }
+
   /** The radio's firmware, from a device query. */
   export interface DeviceInfo {
     firmwareVer: number;
@@ -57,5 +87,19 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     getSelfInfo(timeoutMillis?: number | null): Promise<SelfInfo>;
     getBatteryVoltage(): Promise<{ batteryMilliVolts: number }>;
     syncDeviceTime(): Promise<void>;
+    getContacts(): Promise<Contact[]>;
+    sendFloodAdvert(): Promise<void>;
+    /** The next waiting message, or null when there are none. */
+    syncNextMessage(): Promise<{
+      contactMessage?: ContactMessage;
+      channelMessage?: unknown;
+    } | null>;
+    sendCommandSendTxtMsg(
+      txtType: number,
+      attempt: number,
+      senderTimestamp: number,
+      pubKeyPrefix: Uint8Array,
+      text: string,
+    ): Promise<void>;
   }
 }

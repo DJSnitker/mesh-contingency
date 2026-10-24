@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 3, Bluetooth) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 4, commands over the mesh) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -89,15 +89,20 @@ and TCP connections. `src/types/meshcore.d.ts` types the parts the app uses.
 - One command at a time: the next waits until the last is answered or given
   up on, so replies can't be mixed up, and the bot's per-command rate limits
   aren't hit by the app itself.
-- The radio retries the message until it's acknowledged; the screen shows
-  sending, delivered or not delivered.
+- The app sends it again while it isn't acknowledged: three tries with the
+  same timestamp, as MeshCore's own app does (the radio doesn't retry by
+  itself). The screen shows sending, delivered or not delivered.
+- `whoami` from someone who isn't a user gets `unrecognized user or
+  function`, sent at most once every 5 minutes; so silence after it is read
+  as "likely not a user", and Join is offered either way.
 - Replies come as one or more direct messages from the node. A numbered reply
   (`(1/3) ...`) is put back in order and shown once every part is in, or
   after a while with what came. Waits are generous (minutes over several
   hops) and say so.
 - A message from the node that isn't a reply (a new-message notice, the
   join welcome, "An admin changed your email addresses") shows as a notice,
-  and as a phone notification while the app is open.
+  even while a command waits; the fixtures pin those texts too. The welcome
+  makes the app check again. (A phone notification for them comes later.)
 - A refusal or failure from the bot (`limit reached`, `wrong passphrase`,
   `not sent, no internet at the node`) is shown as it says.
 
@@ -109,7 +114,8 @@ never lost or hidden.
 
 So the bot can't change a reply and silently break the app, the formats are
 pinned in one place both sides test: `tests/fixtures/app_replies.json`, a
-list of `{command, reply, parsed}` cases. A Python test runs each command
+list of cases (who sends what, the messages that come back, and what the
+app reads from them; plus a long reply split into numbered parts). A Python test runs each command
 against a fake state and checks the bot still says exactly `reply`; the app's
 tests check its parser turns `reply` into `parsed`. Changing a reply then
 means changing the fixture, which fails the app's tests until its parser
@@ -134,7 +140,9 @@ follows.
   fits. The history is kept on the phone (app storage, clearable), since the
   radio only holds messages until they're fetched. The node isn't one of the
   chats: its contact opens the Node screen, and what's sent to it (a
-  passphrase with `inbox`) is never kept.
+  passphrase with `inbox`) is never kept. Until this step, channel messages
+  the app fetches from the radio (fetching direct messages fetches them too)
+  aren't shown or kept.
 - **Radio:** the user's own radio, over Bluetooth: its name, TX power,
   position and whether adverts share it, clock (set from the phone),
   battery, firmware, an advert (zero-hop or flood), and its frequency,

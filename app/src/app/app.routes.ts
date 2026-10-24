@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { Node } from './node';
+import { NodeScreen } from './node/node-screen';
 import { Planned } from './planned';
 
 /**
@@ -9,7 +9,7 @@ import { Planned } from './planned';
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'node' },
-  { path: 'node', component: Node, title: 'Node' },
+  { path: 'node', component: NodeScreen, title: 'Node' },
   {
     path: 'mailbox',
     component: Planned,

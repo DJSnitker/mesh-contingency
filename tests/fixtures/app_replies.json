@@ -1,0 +1,119 @@
+{
+  "about": [
+    "What the bot sends that the phone app reads (app/src/app/node/replies.ts), so changing a reply can't silently break the app.",
+    "tests/test_app_replies.py runs each case against the bot's real commands and checks the messages are exactly these; the app's tests (replies.spec.ts) check it reads each as `parsed`.",
+    "A case: `before`, steps run first ([sender, text]); then `as` sends `send`. `reply` is what comes back to `as`; or, with `to`, the direct messages the node sends `to` meanwhile (a notice).",
+    "A `split` case: the bot splits `text` into `reply`, and the app puts it back together."
+  ],
+  "senders": {
+    "Admin": "ad",
+    "Dana": "d0",
+    "Erin": "e0",
+    "BobNode": "b0",
+    "Bob (base)": "bb"
+  },
+  "users": {
+    "Dana": {},
+    "Erin": { "qm": "erin@example.com" }
+  },
+  "admins": ["Admin"],
+  "cases": [
+    {
+      "name": "whoami, a user",
+      "as": "Dana",
+      "send": "whoami",
+      "reply": ["Dana (d0d0d0d0d0d0); no passphrase; no messages"],
+      "parsed": {
+        "kind": "whoami",
+        "user": true,
+        "name": "Dana",
+        "keyPrefix": "d0d0d0d0d0d0",
+        "admin": false,
+        "passphrase": false,
+        "settings": [],
+        "messages": 0,
+        "unread": 0
+      }
+    },
+    {
+      "name": "whoami, a user with a setting and a message waiting",
+      "before": [["Dana", "msg Erin see you at the shelter"]],
+      "as": "Erin",
+      "send": "whoami",
+      "reply": ["Erin (e0e0e0e0e0e0); no passphrase; qm erin@example.com; 1 message(s), 1 unread"],
+      "parsed": {
+        "kind": "whoami",
+        "user": true,
+        "name": "Erin",
+        "keyPrefix": "e0e0e0e0e0e0",
+        "admin": false,
+        "passphrase": false,
+        "settings": ["qm erin@example.com"],
+        "messages": 1,
+        "unread": 1
+      }
+    },
+    {
+      "name": "whoami, not a user",
+      "as": "BobNode",
+      "send": "whoami",
+      "reply": ["unrecognized user or function"],
+      "parsed": { "kind": "whoami", "user": false }
+    },
+    {
+      "name": "join",
+      "as": "BobNode",
+      "send": "join",
+      "reply": ["join: request sent to the admins as BobNode"],
+      "parsed": { "kind": "join", "outcome": "sent", "name": "BobNode" }
+    },
+    {
+      "name": "join, again",
+      "before": [["BobNode", "join"]],
+      "as": "BobNode",
+      "send": "join",
+      "reply": ["join: request updated as BobNode"],
+      "parsed": { "kind": "join", "outcome": "updated", "name": "BobNode" }
+    },
+    {
+      "name": "join, already a user",
+      "as": "Dana",
+      "send": "join",
+      "reply": ["join: you're already a user"],
+      "parsed": { "kind": "join", "outcome": "already" }
+    },
+    {
+      "name": "join, a radio name that can't be used",
+      "as": "Bob (base)",
+      "send": "join",
+      "reply": ["join: your radio's name can't contain ( or ); change it on the radio and try again"],
+      "parsed": { "kind": "join", "outcome": "refused" }
+    },
+    {
+      "name": "the welcome, when an admin approves",
+      "before": [["BobNode", "join"]],
+      "as": "Admin",
+      "send": "approve BobNode",
+      "to": "BobNode",
+      "reply": ["Welcome, BobNode: you're now a user. Send help for your commands."],
+      "parsed": { "kind": "notice", "notice": "welcome" }
+    },
+    {
+      "name": "a new message",
+      "as": "Erin",
+      "send": "msg Dana are you ok?",
+      "to": "Dana",
+      "reply": ["inbox: new message from Erin; send inbox to read"],
+      "parsed": { "kind": "notice", "notice": "message", "from": "Erin" }
+    },
+    {
+      "name": "a long reply, in numbered parts",
+      "split": true,
+      "text": "Sunny, high 72, wind S 10 mph, 10% rain tonight | Wind Advisory until 9 PM: gusts to 45 mph, secure loose objects and use extra caution driving high profile vehicles on the interstate",
+      "reply": [
+        "(1/2) Sunny, high 72, wind S 10 mph, 10% rain tonight | Wind Advisory until 9 PM: gusts to 45 mph, secure loose objects and use extra",
+        "(2/2) caution driving high profile vehicles on the interstate"
+      ]
+    }
+  ]
+}

@@ -2,8 +2,16 @@ import { TestBed } from '@angular/core/testing';
 
 import { BLE } from './ble';
 import { QUERY_MS } from './ble-connection';
-import { FakeBle } from './fake-ble';
-import { ANSWER_MS, describe as describeProblem, Radio, REMEMBERED } from './radio';
+import { FakeBle, NODE_KEY } from './fake-ble';
+import {
+  ANSWER_MS,
+  describe as describeProblem,
+  DirectMessage,
+  MIN_ACK_MS,
+  Radio,
+  REMEMBERED,
+  SEND_ATTEMPTS,
+} from './radio';
 
 describe('Radio', () => {
   let ble: FakeBle;
@@ -17,6 +25,8 @@ describe('Radio', () => {
     ble = new FakeBle();
     localStorage.clear();
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it('connects to the radio picked, and reads its name, battery and firmware', async () => {
     const r = radio();
@@ -107,7 +117,7 @@ describe('Radio', () => {
       ble.radio.answers = false;
       const r = radio();
       const picked = r.pick();
-      await vi.advanceTimersByTimeAsync(QUERY_MS + ANSWER_MS);
+      await vi.advanceTimersByTimeAsync(QUERY_MS + ANSWER_MS + 1000);
       await picked;
       expect(r.state()).toBe('none');
       expect(r.problem()).toContain("didn't answer (its name)");
@@ -120,5 +130,72 @@ describe('Radio', () => {
   it('explains Bluetooth being off and a missing permission', () => {
     expect(describeProblem(new Error('Bluetooth not enabled.'))).toContain('Bluetooth is off');
     expect(describeProblem(new Error('Permission denied.'))).toContain('Nearby devices');
+  });
+
+  describe('messages', () => {
+    it("lists the radio's contacts by name, with their keys", async () => {
+      const r = radio();
+      await r.pick();
+      expect(await r.contacts()).toEqual([
+        { publicKey: 'e0'.repeat(32), name: 'Erin', type: 1 },
+        { publicKey: 'a1'.repeat(32), name: 'Hill Repeater', type: 2 },
+        { publicKey: NODE_KEY, name: 'Ridge Node', type: 1 },
+      ]);
+    });
+
+    it('sends a direct message, true once it is acknowledged', async () => {
+      const r = radio();
+      await r.pick();
+      expect(await r.sendText(NODE_KEY, 'whoami')).toBe(true);
+      expect(ble.sent).toEqual([['c0c0c0c0c0c0', 'whoami', 0]]);
+    });
+
+    it('tries again while it is not acknowledged, then gives up', async () => {
+      const r = radio();
+      await r.pick();
+      vi.useFakeTimers();
+      try {
+        ble.ackFrom = 1;
+        const attempts: number[] = [];
+        const again = r.sendText(NODE_KEY, 'whoami', (n) => attempts.push(n));
+        await vi.advanceTimersByTimeAsync(MIN_ACK_MS + 1000);
+        expect(await again).toBe(true);
+        expect(attempts).toEqual([1, 2]);
+
+        ble.ackFrom = null;
+        const never = r.sendText(NODE_KEY, 'whoami');
+        await vi.advanceTimersByTimeAsync(MIN_ACK_MS * SEND_ATTEMPTS + 1000);
+        expect(await never).toBe(false);
+        expect(ble.sent.slice(2).map(([, , attempt]) => attempt)).toEqual([0, 1, 2]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('fetches direct messages when the radio says they are waiting', async () => {
+      const r = radio();
+      await r.pick();
+      const heard: DirectMessage[] = [];
+      r.messages.subscribe((m) => heard.push(m));
+      ble.deliver('e0'.repeat(32), 'hello');
+      ble.deliver(NODE_KEY, 'inbox: new message from Erin; send inbox to read');
+      await vi.waitFor(() =>
+        expect(heard.map((m) => [m.from, m.text])).toEqual([
+          ['e0e0e0e0e0e0', 'hello'],
+          ['c0c0c0c0c0c0', 'inbox: new message from Erin; send inbox to read'],
+        ]),
+      );
+    });
+
+    it('sends an advert', async () => {
+      const r = radio();
+      await r.pick();
+      await r.advert();
+      expect(ble.commands()).toContain(7);
+    });
+
+    it('says when there is no radio to send through', async () => {
+      await expect(radio().sendText(NODE_KEY, 'whoami')).rejects.toThrow('no radio connected');
+    });
   });
 });
