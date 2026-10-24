@@ -977,7 +977,7 @@ messages, so the bot needs nothing new and its permissions, limits and
 sealing all apply. Android first; the plan is in
 [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it connects
 to the radio (its name, battery and firmware), finds the node, joins, and
-has the mailbox;
+has the mailbox and check-ins;
 the other screens say what each will do. The replies it reads are pinned
 in `tests/fixtures/app_replies.json`: change a reply there and in the app
 together. Building it, running it on an emulator and installing it on a

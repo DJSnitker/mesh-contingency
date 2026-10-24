@@ -596,6 +596,153 @@
       }
     },
     {
+      "name": "ok",
+      "as": "Dana",
+      "send": "ok",
+      "reply": [
+        "ok: saved for Dana"
+      ],
+      "parsed": {
+        "kind": "ok",
+        "outcome": "saved",
+        "name": "Dana"
+      }
+    },
+    {
+      "name": "ok, with how you are",
+      "as": "Dana",
+      "send": "ok need water",
+      "reply": [
+        "ok: saved for Dana"
+      ],
+      "parsed": {
+        "kind": "ok",
+        "outcome": "saved",
+        "name": "Dana"
+      }
+    },
+    {
+      "name": "ok, not a user",
+      "as": "BobNode",
+      "send": "ok",
+      "reply": [
+        "ok: saved for BobNode"
+      ],
+      "parsed": {
+        "kind": "ok",
+        "outcome": "saved",
+        "name": "BobNode"
+      }
+    },
+    {
+      "name": "status, your own",
+      "before": [
+        [
+          "Dana",
+          "ok need water"
+        ]
+      ],
+      "as": "Dana",
+      "send": "status",
+      "reply": [
+        "Dana: need water (just now)"
+      ],
+      "parsed": {
+        "kind": "status",
+        "outcome": "found",
+        "entries": [
+          {
+            "name": "Dana",
+            "status": "need water",
+            "ago": "just now"
+          }
+        ]
+      }
+    },
+    {
+      "name": "status, someone else",
+      "before": [
+        [
+          "Erin",
+          "ok"
+        ]
+      ],
+      "as": "Dana",
+      "send": "status Erin",
+      "reply": [
+        "Erin: ok (just now)"
+      ],
+      "parsed": {
+        "kind": "status",
+        "outcome": "found",
+        "entries": [
+          {
+            "name": "Erin",
+            "status": "ok",
+            "ago": "just now"
+          }
+        ]
+      }
+    },
+    {
+      "name": "status, several, one with ; in it",
+      "before": [
+        [
+          "Dana",
+          "ok"
+        ],
+        [
+          "Erin",
+          "ok fine; at the shelter"
+        ]
+      ],
+      "as": "BobNode",
+      "send": "status n",
+      "reply": [
+        "Erin: fine; at the shelter (just now); Dana: ok (just now)"
+      ],
+      "parsed": {
+        "kind": "status",
+        "outcome": "found",
+        "entries": [
+          {
+            "name": "Erin",
+            "status": "fine; at the shelter",
+            "ago": "just now"
+          },
+          {
+            "name": "Dana",
+            "status": "ok",
+            "ago": "just now"
+          }
+        ]
+      }
+    },
+    {
+      "name": "status, nobody by that name",
+      "as": "Dana",
+      "send": "status Zed",
+      "reply": [
+        "status: no status for Zed"
+      ],
+      "parsed": {
+        "kind": "status",
+        "outcome": "none"
+      }
+    },
+    {
+      "name": "status, your own before checking in",
+      "as": "Dana",
+      "send": "status",
+      "reply": [
+        "usage: status <name or key>"
+      ],
+      "parsed": {
+        "kind": "status",
+        "outcome": "none"
+      }
+    },
+    {
       "name": "a long reply, in numbered parts",
       "split": true,
       "text": "Sunny, high 72, wind S 10 mph, 10% rain tonight | Wind Advisory until 9 PM: gusts to 45 mph, secure loose objects and use extra caution driving high profile vehicles on the interstate",

@@ -41,3 +41,49 @@ h1 {
     text-decoration: none;
   }
 }
+
+// A screen's form: a labelled field, a row of buttons, and what the node
+// said as it came.
+.field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+
+  input,
+  textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--text);
+    font: inherit;
+    font-size: 1rem;
+  }
+
+  textarea {
+    min-height: 5em;
+    resize: vertical;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.said {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--sky);
+  background: var(--ink-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 0.8rem;
+}

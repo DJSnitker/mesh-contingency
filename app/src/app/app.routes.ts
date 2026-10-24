@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+import { CheckinsScreen } from './checkins/checkins-screen';
 import { MailboxScreen } from './mailbox/mailbox-screen';
 import { NodeScreen } from './node/node-screen';
 import { Planned } from './planned';
@@ -12,16 +13,7 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'node' },
   { path: 'node', component: NodeScreen, title: 'Node' },
   { path: 'mailbox', component: MailboxScreen, title: 'Mailbox' },
-  {
-    path: 'checkins',
-    component: Planned,
-    title: 'Check-ins',
-    data: {
-      icon: 'check',
-      what: "Tell the others you're ok, or how you are, and look up someone's last check-in.",
-      pr: 'Check-ins',
-    },
-  },
+  { path: 'checkins', component: CheckinsScreen, title: 'Check-ins' },
   {
     path: 'chat',
     component: Planned,

@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 5, the mailbox) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 6, check-ins) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -131,7 +131,8 @@ follows.
   passphrase asked each time, never stored), `msg` to a user, `clearinbox`
   and `clearinbox all`, `setpass` with its confirmation.
 - **Check-ins:** `ok [status]` with quick choices ("ok", "need help", ...),
-  and `status <name>`.
+  and `status [name]` (alone, your own). The roll call (`checkins`) is for
+  admins, so it isn't in the app.
 - **Email:** `qm`, `emailall` and `email`; `setqm` and `addgroup`/`cleargroup`
   to see and change the addresses.
 - **Weather and verse:** `wx <zip | county, ST>` and `verse [reference]`.

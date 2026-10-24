@@ -113,7 +113,21 @@ export type SetPass =
   | { kind: 'setpass'; outcome: 'confirm'; sealed: number }
   | { kind: 'setpass'; outcome: 'already' | 'refused' };
 
-export type Reply = WhoAmI | Join | Inbox | Msg | ClearInbox | SetPass;
+export type Ok =
+  { kind: 'ok'; outcome: 'saved'; name: string } | { kind: 'ok'; outcome: 'refused' };
+
+export interface CheckIn {
+  name: string;
+  /** The key prefix, when two who checked in share the name. */
+  keyPrefix?: string;
+  status: string;
+  ago: string;
+}
+
+export type Status =
+  { kind: 'status'; outcome: 'found'; entries: CheckIn[] } | { kind: 'status'; outcome: 'none' };
+
+export type Reply = WhoAmI | Join | Inbox | Msg | ClearInbox | SetPass | Ok | Status;
 
 const AGO = String.raw`just now|\d+[dhm] ago`;
 const ENTRY = new RegExp(String.raw`^(.+?) (${AGO}): ([\s\S]*)$`);
@@ -190,6 +204,41 @@ export function parseSetPass(messages: string[]): SetPass | null {
   return first.startsWith('setpass: ') ? { kind: 'setpass', outcome: 'refused' } : null;
 }
 
+export function parseOk(text: string): Ok | null {
+  const saved = /^ok: saved for (.+)$/.exec(text);
+  if (saved) {
+    return { kind: 'ok', outcome: 'saved', name: saved[1] };
+  }
+  return text.startsWith('ok: ') ? { kind: 'ok', outcome: 'refused' } : null;
+}
+
+// One check-in, "Name: status (5m ago)", up to the "; " before the next. A
+// status may hold "; " itself, so an entry ends only where "(ago)" does.
+const CHECK_IN = new RegExp(String.raw`(.+?): ([\s\S]*?) \((${AGO})\)(?:; |$)`, 'gy');
+const WHO = /^(.+) \(([0-9a-f]{12})\)$/;
+
+export function parseStatus(text: string): Status | null {
+  if (text.startsWith('status: no status for ') || text.startsWith('usage: status')) {
+    return { kind: 'status', outcome: 'none' };
+  }
+  const entries: CheckIn[] = [];
+  CHECK_IN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = CHECK_IN.exec(text))) {
+    const who = WHO.exec(match[1]);
+    entries.push({
+      name: who ? who[1] : match[1],
+      ...(who ? { keyPrefix: who[2] } : {}),
+      status: match[2],
+      ago: match[3],
+    });
+    if (CHECK_IN.lastIndex === text.length) {
+      return { kind: 'status', outcome: 'found', entries };
+    }
+  }
+  return null;
+}
+
 /** What the app reads from the node's reply to a command, or null when it can't. */
 export function parseReply(command: string, messages: string[]): Reply | null {
   const text = reassemble(messages).text;
@@ -206,6 +255,10 @@ export function parseReply(command: string, messages: string[]): Reply | null {
       return parseClearInbox(text);
     case 'setpass':
       return parseSetPass(messages);
+    case 'ok':
+      return parseOk(text);
+    case 'status':
+      return parseStatus(text);
     default:
       return null;
   }
