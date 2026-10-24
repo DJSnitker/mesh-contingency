@@ -32,6 +32,21 @@ export interface DirectMessage {
   receivedAt: number;
 }
 
+/** One of the radio's channels: its slot, and its name ("Public", "#contingency-wx"). */
+export interface RadioChannel {
+  index: number;
+  name: string;
+}
+
+/** A message the radio heard on one of its channels. */
+export interface ChannelMessage {
+  /** The channel's slot. */
+  channel: number;
+  /** As sent: "<sender's name>: <text>". */
+  text: string;
+  receivedAt: number;
+}
+
 /** Where the last radio is remembered, to reconnect to when the app opens. */
 export const REMEMBERED = 'mc.radio';
 
@@ -65,8 +80,15 @@ export class Radio {
   /** The open connection, while connected. */
   connection: CapacitorBleConnection | null = null;
 
-  /** Direct messages as they arrive (channel messages are for the Chat step). */
+  /** Direct messages as they arrive. */
   readonly messages = new Subject<DirectMessage>();
+  /** Channel messages as they arrive. */
+  readonly channelMessages = new Subject<ChannelMessage>();
+  /**
+   * The radio answers requests by kind, not by which request: two "Ok"s
+   * can't be told apart. So one request at a time waits for its answer.
+   */
+  private lock: Promise<unknown> = Promise.resolve();
   private draining = false;
   private drainAgain = false;
 
@@ -119,7 +141,10 @@ export class Radio {
 
   /** The radio's contacts, by name. */
   async contacts(): Promise<RadioContact[]> {
-    const contacts = await within(this.open().getContacts(), ANSWER_MS, 'its contacts');
+    const connection = this.open();
+    const contacts = await this.exclusive(() =>
+      within(connection.getContacts(), ANSWER_MS, 'its contacts'),
+    );
     return contacts
       .map((c) => ({ publicKey: toHex(c.publicKey), name: c.advName, type: c.type }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -127,7 +152,34 @@ export class Radio {
 
   /** Advertise the radio across the mesh, so others (the node) learn it. */
   async advert(): Promise<void> {
-    await within(this.open().sendFloodAdvert(), ANSWER_MS, 'sending an advert');
+    const connection = this.open();
+    await this.exclusive(() =>
+      within(connection.sendFloodAdvert(), ANSWER_MS, 'sending an advert'),
+    );
+  }
+
+  /** The radio's channels, in slot order, leaving out empty slots. */
+  async channels(): Promise<RadioChannel[]> {
+    const connection = this.open();
+    const channels = await this.exclusive(() =>
+      within(connection.getChannels(), ANSWER_MS, 'its channels'),
+    );
+    return channels.filter((c) => c.name).map((c) => ({ index: c.channelIdx, name: c.name }));
+  }
+
+  /**
+   * Post to a channel. Nothing acknowledges a channel message: this resolves
+   * once the radio has taken it to send.
+   */
+  async sendToChannel(index: number, text: string): Promise<void> {
+    const connection = this.open();
+    await this.exclusive(() =>
+      within(connection.sendChannelTextMessage(index, text), ANSWER_MS, 'sending').catch(
+        (error) => {
+          throw error ?? new Error('the radio refused the message');
+        },
+      ),
+    );
   }
 
   /**
@@ -153,12 +205,14 @@ export class Radio {
       const timestamp = Math.floor(Date.now() / 1000);
       for (let attempt = 0; attempt < SEND_ATTEMPTS; attempt++) {
         onAttempt?.(attempt + 1);
-        const sent = await within(
-          this.whenSent(connection, () =>
-            connection.sendCommandSendTxtMsg(0, attempt, timestamp, fromHex(publicKey), text),
+        const sent = await this.exclusive(() =>
+          within(
+            this.whenSent(connection, () =>
+              connection.sendCommandSendTxtMsg(0, attempt, timestamp, fromHex(publicKey), text),
+            ),
+            ANSWER_MS,
+            'sending',
           ),
-          ANSWER_MS,
-          'sending',
         );
         const wait = Math.max(sent.estTimeout * 1.2, MIN_ACK_MS);
         const acked = await new Promise<boolean>((resolve) => {
@@ -190,6 +244,13 @@ export class Radio {
     return this.connection;
   }
 
+  /** Run a request once the one before has its answer (or gave up). */
+  private exclusive<T>(request: () => Promise<T>): Promise<T> {
+    const run = this.lock.then(request, request);
+    this.lock = run.catch(() => undefined);
+    return run;
+  }
+
   /** Send, and resolve with the radio's Sent answer (or reject on its error). */
   private whenSent(connection: CapacitorBleConnection, send: () => Promise<void>): Promise<Sent> {
     return new Promise<Sent>((resolve, reject) => {
@@ -218,9 +279,9 @@ export class Radio {
       do {
         this.drainAgain = false;
         for (;;) {
-          const next = await within(connection.syncNextMessage(), ANSWER_MS, 'its messages').catch(
-            () => null,
-          );
+          const next = await this.exclusive(() =>
+            within(connection.syncNextMessage(), ANSWER_MS, 'its messages'),
+          ).catch(() => null);
           if (!next || this.connection !== connection) {
             break;
           }
@@ -228,6 +289,13 @@ export class Radio {
             this.messages.next({
               from: toHex(next.contactMessage.pubKeyPrefix),
               text: next.contactMessage.text,
+              receivedAt: Date.now(),
+            });
+          }
+          if (next.channelMessage) {
+            this.channelMessages.next({
+              channel: next.channelMessage.channelIdx,
+              text: next.channelMessage.text,
               receivedAt: Date.now(),
             });
           }

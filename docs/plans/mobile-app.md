@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 7, email, weather and verse) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (PR 8, chat) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -145,9 +145,9 @@ follows.
   fits. The history is kept on the phone (app storage, clearable), since the
   radio only holds messages until they're fetched. The node isn't one of the
   chats: its contact opens the Node screen, and what's sent to it (a
-  passphrase with `inbox`) is never kept. Until this step, channel messages
-  the app fetches from the radio (fetching direct messages fetches them too)
-  aren't shown or kept.
+  passphrase with `inbox`) is never kept. The radio answers requests by
+  kind, not by which request, so the app asks it one thing at a time: a chat
+  message sent while a command waits can't take the command's answer.
 - **Radio:** the user's own radio, over Bluetooth: its name, TX power,
   position and whether adverts share it, clock (set from the phone),
   battery, firmware, an advert (zero-hop or flood), and its frequency,

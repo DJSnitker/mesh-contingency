@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { TABS } from './app.routes';
+import { ChatHistory } from './chat/chat-history';
 import { Icon } from './icon';
 import { Radio } from './radio/radio';
 
@@ -15,6 +16,8 @@ import { Radio } from './radio/radio';
 export class App {
   protected readonly tabs = TABS;
   protected readonly radio = inject(Radio);
+  /** Started with the app, so messages are kept while Chat isn't open. */
+  protected readonly chats = inject(ChatHistory);
 
   /** The header's word on the radio. */
   protected readonly radioState = computed(() => {

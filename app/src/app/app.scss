@@ -73,4 +73,23 @@ main {
       color: var(--orange);
     }
   }
+
+  a {
+    position: relative;
+  }
+
+  .badge {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 6px);
+    min-width: 1.4em;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--orange);
+    color: var(--ink);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.4em;
+    text-align: center;
+  }
 }

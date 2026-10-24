@@ -15,6 +15,11 @@
     <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page">
       <mc-icon [name]="tab.icon" />
       <span>{{ tab.label }}</span>
+      @if (tab.path === '/chat' && chats.unread()) {
+        <span class="badge" [attr.aria-label]="chats.unread() + ' unread'">{{
+          chats.unread()
+        }}</span>
+      }
     </a>
   }
 </nav>

@@ -50,6 +50,24 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     text: string;
   }
 
+  /** A message heard on one of the radio's channels. */
+  export interface ChannelMessage {
+    channelIdx: number;
+    /** 0xff when sent direct, else the hops it came over. */
+    pathLen: number;
+    txtType: number;
+    senderTimestamp: number;
+    /** "<sender's name>: <text>". */
+    text: string;
+  }
+
+  /** One of the radio's channel slots ("" for an empty one). */
+  export interface ChannelInfo {
+    channelIdx: number;
+    name: string;
+    secret: Uint8Array;
+  }
+
   /** The radio's answer to sending a direct message. */
   export interface Sent {
     result: number;
@@ -89,10 +107,14 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     syncDeviceTime(): Promise<void>;
     getContacts(): Promise<Contact[]>;
     sendFloodAdvert(): Promise<void>;
+    /** The channel slots, until the radio says there are no more. */
+    getChannels(): Promise<ChannelInfo[]>;
+    /** Resolves on the radio's Ok; rejects (with nothing) on its Err. */
+    sendChannelTextMessage(channelIdx: number, text: string): Promise<void>;
     /** The next waiting message, or null when there are none. */
     syncNextMessage(): Promise<{
       contactMessage?: ContactMessage;
-      channelMessage?: unknown;
+      channelMessage?: ChannelMessage;
     } | null>;
     sendCommandSendTxtMsg(
       txtType: number,

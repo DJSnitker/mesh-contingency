@@ -39,6 +39,11 @@ may change how the bot is configured).
   preset contact, your group or any address (confirmed first), see and
   change your addresses; get the weather and alerts for a zipcode or county,
   and a Bible verse or the verse of the day.
+- **The phone app's Chat:** direct messages with the radio's contacts
+  (delivered or not shown for each) and its channels, to read and post (a
+  post held to what fits after the radio's name); unread counts, on the tab
+  too; the history kept on the phone until cleared. The node's messages
+  aren't kept: its commands stay on the Node screen.
 
 ### Fixed
 
