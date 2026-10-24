@@ -57,6 +57,15 @@ updates:
     directory: /app/android
     schedule:
       interval: weekly
+    # Capacitor 8 builds with the Android Gradle plugin 8, which Gradle 9.6+
+    # can't run (it removed an internal API AGP 8 uses), and AGP 9 changes
+    # how Kotlin plugins build. Both majors wait for a Capacitor upgrade;
+    # minor and patch releases are still proposed.
+    ignore:
+      - dependency-name: gradle-wrapper
+        update-types: ["version-update:semver-major"]
+      - dependency-name: com.android.tools.build:gradle
+        update-types: ["version-update:semver-major"]
     groups:
       gradle:
         patterns: ["*"]
