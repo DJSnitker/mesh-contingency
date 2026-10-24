@@ -5,6 +5,7 @@ import { QUERY_MS } from './ble-connection';
 import { FakeBle, NODE_KEY } from './fake-ble';
 import {
   ANSWER_MS,
+  ChannelMessage,
   describe as describeProblem,
   DirectMessage,
   MIN_ACK_MS,
@@ -153,6 +154,8 @@ describe('Radio', () => {
     it('tries again while it is not acknowledged, then gives up', async () => {
       const r = radio();
       await r.pick();
+      // The fetch of waiting messages on connect finishes first.
+      await new Promise((resolve) => setTimeout(resolve, 20));
       vi.useFakeTimers();
       try {
         ble.ackFrom = 1;
@@ -192,6 +195,45 @@ describe('Radio', () => {
       await r.pick();
       await r.advert();
       expect(ble.commands()).toContain(7);
+    });
+
+    it("reads the radio's channels, leaving out empty slots", async () => {
+      const r = radio();
+      await r.pick();
+      expect(await r.channels()).toEqual([
+        { index: 0, name: 'Public' },
+        { index: 1, name: '#contingency-wx' },
+        { index: 3, name: '#contingency-comm' },
+      ]);
+    });
+
+    it('posts to a channel, and fetches what is heard on one', async () => {
+      const r = radio();
+      await r.pick();
+      await r.sendToChannel(3, 'net at 7');
+      expect(ble.channelSent).toEqual([[3, 'net at 7']]);
+
+      const heard: ChannelMessage[] = [];
+      r.channelMessages.subscribe((m) => heard.push(m));
+      ble.hear(1, 'Ridge Node', 'Flash Flood Warning: Taylor');
+      await vi.waitFor(() =>
+        expect(heard.map((m) => [m.channel, m.text])).toEqual([
+          [1, 'Ridge Node: Flash Flood Warning: Taylor'],
+        ]),
+      );
+    });
+
+    it('waits for one answer before asking the next', async () => {
+      const r = radio();
+      await r.pick();
+      const [contacts, channels, delivered] = await Promise.all([
+        r.contacts(),
+        r.channels(),
+        r.sendText(NODE_KEY, 'whoami'),
+      ]);
+      expect(contacts.map((c) => c.name)).toEqual(['Erin', 'Hill Repeater', 'Ridge Node']);
+      expect(channels).toHaveLength(3);
+      expect(delivered).toBe(true);
     });
 
     it('says when there is no radio to send through', async () => {

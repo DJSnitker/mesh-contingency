@@ -49,6 +49,10 @@ export class FakeBle implements Ble {
     { name: 'Hill Repeater', publicKey: 'a1'.repeat(32), type: 2 },
     { name: 'Erin', publicKey: 'e0'.repeat(32), type: 1 },
   ];
+  /** The radio's channel slots ("" for an empty one). */
+  channels: string[] = ['Public', '#contingency-wx', '', '#contingency-comm'];
+  /** Channel messages the radio sent: [slot, text]. */
+  channelSent: [number, string][] = [];
   /** Direct messages the radio sent: [recipient key prefix, text, attempt]. */
   sent: [string, string, number][] = [];
   /** The try (from 0) the recipient first acknowledges; null for never. */
@@ -118,6 +122,12 @@ export class FakeBle implements Ble {
     setTimeout(() => this.notify?.(new DataView(new Uint8Array([0x83]).buffer)), 0); // MsgWaiting
   }
 
+  /** A message is heard on a channel slot, from someone named `from`. */
+  hear(channel: number, from: string, text: string): void {
+    this.waiting.push(channelMessage(channel, `${from}: ${text}`));
+    setTimeout(() => this.notify?.(new DataView(new Uint8Array([0x83]).buffer)), 0); // MsgWaiting
+  }
+
   /** The radio goes out of range. */
   drop(): void {
     this.onDisconnect?.('AA:BB:CC:DD:EE:FF');
@@ -134,6 +144,9 @@ export class FakeBle implements Ble {
         return [selfInfo(this.radio.name)];
       case 2: // SendTxtMsg -> Sent, then maybe the acknowledgement and the node's answer
         return this.sendText(frame);
+      case 3: // SendChannelTxtMsg -> Ok
+        this.channelSent.push([frame[2], new TextDecoder().decode(frame.slice(7))]);
+        return [new Uint8Array([0])];
       case 4: // GetContacts -> ContactsStart, Contact..., EndOfContacts
         return [
           new Uint8Array([2, this.contacts.length, 0, 0, 0]),
@@ -155,6 +168,10 @@ export class FakeBle implements Ble {
         ];
       case 22: // DeviceQuery -> DeviceInfo
         return this.radio.answersQuery ? [deviceInfo()] : [];
+      case 31: // GetChannel -> ChannelInfo, or Err past the last slot
+        return frame[1] < this.channels.length
+          ? [channelInfo(frame[1], this.channels[frame[1]])]
+          : [new Uint8Array([1])];
       default:
         return [];
     }
@@ -206,6 +223,24 @@ function contactMessage(fromKey: string, text: string): Uint8Array {
   frame[0] = 7; // ContactMsgRecv
   frame.set(fromHex(fromKey).slice(0, 6), 1);
   frame.set(body, 13);
+  return frame;
+}
+
+function channelMessage(channel: number, text: string): Uint8Array {
+  const body = new TextEncoder().encode(text);
+  const frame = new Uint8Array(8 + body.length);
+  frame[0] = 8; // ChannelMsgRecv
+  frame[1] = channel;
+  frame[2] = 1; // pathLen
+  frame.set(body, 8);
+  return frame;
+}
+
+function channelInfo(index: number, name: string): Uint8Array {
+  const frame = new Uint8Array(2 + 32 + 16);
+  frame[0] = 18; // ChannelInfo
+  frame[1] = index;
+  frame.set(new TextEncoder().encode(name), 2); // name, 32 bytes
   return frame;
 }
 

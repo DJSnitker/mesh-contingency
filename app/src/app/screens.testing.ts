@@ -2,7 +2,12 @@
 // picked, and pressing its buttons; the node answers with the bot's real
 // replies from tests/fixtures/app_replies.json.
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withHashLocation } from '@angular/router';
+import {
+  provideRouter,
+  Router,
+  withComponentInputBinding,
+  withHashLocation,
+} from '@angular/router';
 
 import fixtures from '../../../tests/fixtures/app_replies.json';
 import { App } from './app';
@@ -33,7 +38,7 @@ export async function openScreen(path: string, ble: FakeBle, ready = true) {
   TestBed.configureTestingModule({
     imports: [App],
     providers: [
-      provideRouter(routes, withHashLocation()),
+      provideRouter(routes, withHashLocation(), withComponentInputBinding()),
       { provide: BLE, useValue: ble },
       { provide: TIMING, useValue: { firstReplyMs: 2000, quietMs: 50, partsMs: 200 } },
     ],
