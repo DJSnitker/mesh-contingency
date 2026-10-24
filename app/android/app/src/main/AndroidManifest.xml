@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -35,7 +36,18 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
+    <!-- Permissions. No internet: the app talks only to the radio. (Debug
+         builds add it, src/debug/, for live reload from the dev server.) -->
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Bluetooth, from the plugin's manifest, narrowed: scans never derive
+         where the phone is, so Android 12+ asks only for Nearby devices, and
+         location is asked only on Android 11 and older, which needed it to
+         scan. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
 </manifest>

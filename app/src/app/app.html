@@ -1,8 +1,9 @@
 <header class="top">
   <img src="mesh-contingency-mark.svg" alt="" width="28" height="28" />
   <span class="name">Mesh Contingency</span>
-  <!-- Bluetooth comes next; until then there's never a radio. -->
-  <span class="radio-state">No radio</span>
+  <a class="radio-state" routerLink="/node" [class.connected]="radio.state() === 'connected'">{{
+    radioState()
+  }}</a>
 </header>
 
 <main>

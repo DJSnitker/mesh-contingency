@@ -12,8 +12,13 @@ may change how the bot is configured).
 - **The phone app's frame** (`app/`, roadmap item 16): an Angular and
   Capacitor app for users, `com.meshcontingency`, with its screens laid out
   (each says what it will do), an Android project that builds a debug APK,
-  and CI jobs for both. It does nothing over Bluetooth yet. See
-  `app/README.md`.
+  and CI jobs for both. See `app/README.md`; `npm run android:run` there
+  runs it on an Android emulator.
+- **The phone app connects to the user's radio** over Bluetooth: the Node
+  screen finds MeshCore radios, connects, shows the radio's name, battery
+  and firmware, sets its clock from the phone's, and reconnects to it when
+  the app opens. Android asks only for Nearby devices (location only on
+  Android 11 and older), and release builds have no internet permission.
 
 ### Fixed
 

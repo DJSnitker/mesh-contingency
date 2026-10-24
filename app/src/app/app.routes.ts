@@ -1,27 +1,15 @@
 import { Routes } from '@angular/router';
 
+import { Node } from './node';
 import { Planned } from './planned';
 
 /**
  * The app's screens (docs/plans/mobile-app.md). Each is Planned until the PR
- * that builds it; its data says what it will do.
+ * that builds it; its data says what it will do. Node connects to the radio.
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'node' },
-  {
-    path: 'node',
-    component: Planned,
-    title: 'Node',
-    data: {
-      icon: 'radio',
-      what: 'Connect to your radio over Bluetooth, pick the node, see whether you are a user, and ask to join.',
-      pr: 'Bluetooth and the node',
-      more: [
-        { path: '/email', label: 'Email', icon: 'mail' },
-        { path: '/weather', label: 'Weather and verse', icon: 'cloud' },
-      ],
-    },
-  },
+  { path: 'node', component: Node, title: 'Node' },
   {
     path: 'mailbox',
     component: Planned,

@@ -6,6 +6,15 @@ const config: CapacitorConfig = {
   appName: 'Mesh Contingency',
   webDir: 'dist',
   plugins: {
+    // The phone's list of radios when finding one (Android).
+    BluetoothLe: {
+      displayStrings: {
+        scanning: 'Looking for MeshCore radios…',
+        cancel: 'Cancel',
+        availableDevices: 'MeshCore radios',
+        noDeviceFound: 'No MeshCore radio found. Is it on, and near the phone?',
+      },
+    },
     SystemBars: {
       // Draw under the status and gesture bars, as index.html's
       // viewport-fit=cover asks; the header and tabs pad themselves by

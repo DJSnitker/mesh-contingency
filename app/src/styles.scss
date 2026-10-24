@@ -13,3 +13,31 @@ body {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+// A screen's heading, with its icon.
+h1 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+// Links from a screen to others (Node's email and weather).
+.more {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  a {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--text);
+    text-decoration: none;
+  }
+}
