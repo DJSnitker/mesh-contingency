@@ -4,7 +4,8 @@
     "tests/test_app_replies.py runs each case against the bot's real commands and checks the messages are exactly these; the app's tests (replies.spec.ts) check it reads each as `parsed`.",
     "A case: `before`, steps run first ([sender, text]); then `as` sends `send`. `reply` is what comes back to `as`; or, with `to`, the direct messages the node sends `to` meanwhile (a notice).",
     "A `split` case: the bot splits `text` into `reply`, and the app puts it back together.",
-    "Mailbox cases: Dana's passphrase in them is correcthorse12; a fixture's passphrase is never a real one."
+    "Mailbox cases: Dana's passphrase in them is correcthorse12; a fixture's passphrase is never a real one.",
+    "Email cases fake the node's `mail` (`email` says how it fails, if it does); weather cases give the weather the node would fetch (`weather`, or `weather_error`)."
   ],
   "senders": {
     "Admin": "ad",
@@ -740,6 +741,373 @@
       "parsed": {
         "kind": "status",
         "outcome": "none"
+      }
+    },
+    {
+      "name": "qm",
+      "as": "Erin",
+      "send": "qm on my way to the shelter",
+      "reply": [
+        "qm: sent"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "qm",
+        "outcome": "sent"
+      }
+    },
+    {
+      "name": "qm, no address set",
+      "as": "Dana",
+      "send": "qm on my way",
+      "reply": [
+        "qm: not configured for you"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "qm",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "qm, no internet at the node",
+      "as": "Erin",
+      "send": "qm on my way",
+      "email": "no internet",
+      "reply": [
+        "qm: not sent, no internet at the node; try again later"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "qm",
+        "outcome": "not sent",
+        "why": "no internet at the node; try again later"
+      }
+    },
+    {
+      "name": "emailall",
+      "before": [
+        [
+          "Dana",
+          "addgroup family@example.com"
+        ]
+      ],
+      "as": "Dana",
+      "send": "emailall we are safe",
+      "reply": [
+        "emailall: sent"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "emailall",
+        "outcome": "sent"
+      }
+    },
+    {
+      "name": "email",
+      "as": "Dana",
+      "send": "email bob@example.com we are safe",
+      "reply": [
+        "email: sent"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "email",
+        "outcome": "sent"
+      }
+    },
+    {
+      "name": "email, not an address",
+      "as": "Dana",
+      "send": "email bob we are safe",
+      "reply": [
+        "email: invalid address"
+      ],
+      "parsed": {
+        "kind": "email",
+        "command": "email",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "setqm, showing it",
+      "as": "Erin",
+      "send": "setqm",
+      "reply": [
+        "qm: erin@example.com"
+      ],
+      "parsed": {
+        "kind": "setqm",
+        "outcome": "shown",
+        "addresses": [
+          "erin@example.com"
+        ]
+      }
+    },
+    {
+      "name": "setqm, none set",
+      "as": "Dana",
+      "send": "setqm",
+      "reply": [
+        "qm: no address set"
+      ],
+      "parsed": {
+        "kind": "setqm",
+        "outcome": "shown",
+        "addresses": []
+      }
+    },
+    {
+      "name": "setqm, setting it",
+      "as": "Dana",
+      "send": "setqm dana@example.com",
+      "reply": [
+        "qm now sends to dana@example.com"
+      ],
+      "parsed": {
+        "kind": "setqm",
+        "outcome": "set",
+        "addresses": [
+          "dana@example.com"
+        ]
+      }
+    },
+    {
+      "name": "setqm, not an address",
+      "as": "Dana",
+      "send": "setqm nope",
+      "reply": [
+        "setqm: not an email address: nope"
+      ],
+      "parsed": {
+        "kind": "setqm",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "addgroup, none yet",
+      "as": "Dana",
+      "send": "addgroup",
+      "reply": [
+        "emailall: no addresses"
+      ],
+      "parsed": {
+        "kind": "addgroup",
+        "outcome": "shown",
+        "addresses": []
+      }
+    },
+    {
+      "name": "addgroup, adding one",
+      "as": "Dana",
+      "send": "addgroup a@example.com",
+      "reply": [
+        "addgroup: a@example.com added (1 in the group)"
+      ],
+      "parsed": {
+        "kind": "addgroup",
+        "outcome": "added",
+        "address": "a@example.com",
+        "count": 1
+      }
+    },
+    {
+      "name": "addgroup, listing them",
+      "before": [
+        [
+          "Dana",
+          "addgroup a@example.com"
+        ],
+        [
+          "Dana",
+          "addgroup b@example.com"
+        ]
+      ],
+      "as": "Dana",
+      "send": "addgroup",
+      "reply": [
+        "emailall: a@example.com, b@example.com"
+      ],
+      "parsed": {
+        "kind": "addgroup",
+        "outcome": "shown",
+        "addresses": [
+          "a@example.com",
+          "b@example.com"
+        ]
+      }
+    },
+    {
+      "name": "addgroup, already there",
+      "before": [
+        [
+          "Dana",
+          "addgroup a@example.com"
+        ]
+      ],
+      "as": "Dana",
+      "send": "addgroup a@example.com",
+      "reply": [
+        "addgroup: a@example.com is already in the group"
+      ],
+      "parsed": {
+        "kind": "addgroup",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "cleargroup",
+      "before": [
+        [
+          "Dana",
+          "addgroup a@example.com"
+        ],
+        [
+          "Dana",
+          "addgroup b@example.com"
+        ]
+      ],
+      "as": "Dana",
+      "send": "cleargroup",
+      "reply": [
+        "cleargroup: removed 2 address(es)"
+      ],
+      "parsed": {
+        "kind": "cleargroup",
+        "removed": 2
+      }
+    },
+    {
+      "name": "wx, with alerts",
+      "as": "BobNode",
+      "send": "wx 79601",
+      "weather": {
+        "where": "79601",
+        "place": "Abilene, TX",
+        "station": "Abilene Regional Airport",
+        "obs": {
+          "textDescription": "Heavy Rain",
+          "timestamp": "2026-10-19T12:00:00+00:00",
+          "temperature": {
+            "value": 20
+          },
+          "windSpeed": {
+            "value": 40
+          },
+          "windDirection": {
+            "value": 200
+          },
+          "windGust": {
+            "value": 70
+          },
+          "precipitationLastHour": {
+            "value": 8
+          }
+        },
+        "pop": 90,
+        "alerts": [
+          {
+            "event": "Flash Flood Warning",
+            "severity": "Severe"
+          },
+          {
+            "event": "Wind Advisory",
+            "severity": "Moderate"
+          }
+        ]
+      },
+      "reply": [
+        "79601 ALERT: Flash Flood Warning; Wind Advisory | Heavy Rain, 0.31in/hr, 90% precip 6h | 68F S25mph G43"
+      ],
+      "parsed": {
+        "kind": "wx",
+        "outcome": "found",
+        "alert": true,
+        "lines": [
+          "79601 ALERT: Flash Flood Warning; Wind Advisory",
+          "Heavy Rain, 0.31in/hr, 90% precip 6h",
+          "68F S25mph G43"
+        ]
+      }
+    },
+    {
+      "name": "wx, calm and no observations",
+      "as": "BobNode",
+      "send": "wx Taylor, TX",
+      "weather": {
+        "where": "Taylor, TX",
+        "place": "Taylor County, TX",
+        "station": "Abilene Regional Airport",
+        "obs": null,
+        "pop": null,
+        "alerts": []
+      },
+      "reply": [
+        "Taylor, TX no current obs"
+      ],
+      "parsed": {
+        "kind": "wx",
+        "outcome": "found",
+        "alert": false,
+        "lines": [
+          "Taylor, TX no current obs"
+        ]
+      }
+    },
+    {
+      "name": "wx, unknown zipcode",
+      "as": "BobNode",
+      "send": "wx 00000",
+      "weather_error": "unknown zipcode 00000",
+      "reply": [
+        "wx: unknown zipcode 00000"
+      ],
+      "parsed": {
+        "kind": "wx",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "verse",
+      "as": "BobNode",
+      "send": "verse John 3:16",
+      "reply": [
+        "(1/2) John 3:16 For God so loved the world that He gave His one and only Son, that everyone who believes in Him shall not perish but",
+        "(2/2) have eternal life."
+      ],
+      "parsed": {
+        "kind": "verse",
+        "outcome": "found",
+        "reference": "John 3:16",
+        "text": "For God so loved the world that He gave His one and only Son, that everyone who believes in Him shall not perish but have eternal life."
+      }
+    },
+    {
+      "name": "verse, a passage in parts",
+      "as": "BobNode",
+      "send": "verse Psalm 23:1-4",
+      "reply": [
+        "(1/3) Psalm 23:1-4 The LORD is my shepherd; I shall not want. 2 He makes me lie down in green pastures; He leads me beside quiet",
+        "(2/3) waters. 3 He restores my soul; He guides me in the paths of righteousness for the sake of His name. 4 Even though I walk",
+        "(3/3) through the valley of the shadow of death, I will fear no evil, for You are with me; Your rod and Your staff, they comfort me."
+      ],
+      "parsed": {
+        "kind": "verse",
+        "outcome": "found",
+        "reference": "Psalm 23:1-4",
+        "text": "The LORD is my shepherd; I shall not want. 2 He makes me lie down in green pastures; He leads me beside quiet waters. 3 He restores my soul; He guides me in the paths of righteousness for the sake of His name. 4 Even though I walk through the valley of the shadow of death, I will fear no evil, for You are with me; Your rod and Your staff, they comfort me."
+      }
+    },
+    {
+      "name": "verse, no such book",
+      "as": "BobNode",
+      "send": "verse Hezekiah 1:1",
+      "reply": [
+        "verse: unknown book 'Hezekiah'"
+      ],
+      "parsed": {
+        "kind": "verse",
+        "outcome": "refused"
       }
     },
     {

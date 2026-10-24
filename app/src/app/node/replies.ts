@@ -127,7 +127,45 @@ export interface CheckIn {
 export type Status =
   { kind: 'status'; outcome: 'found'; entries: CheckIn[] } | { kind: 'status'; outcome: 'none' };
 
-export type Reply = WhoAmI | Join | Inbox | Msg | ClearInbox | SetPass | Ok | Status;
+/** qm, emailall or email. */
+export type Email =
+  | { kind: 'email'; command: string; outcome: 'sent' | 'refused' }
+  | { kind: 'email'; command: string; outcome: 'not sent'; why: string };
+
+export type SetQm =
+  | { kind: 'setqm'; outcome: 'shown' | 'set'; addresses: string[] }
+  | { kind: 'setqm'; outcome: 'refused' };
+
+export type AddGroup =
+  | { kind: 'addgroup'; outcome: 'shown'; addresses: string[] }
+  | { kind: 'addgroup'; outcome: 'added'; address: string; count: number }
+  | { kind: 'addgroup'; outcome: 'refused' };
+
+export type ClearGroup = { kind: 'cleargroup'; removed: number };
+
+export type Wx =
+  | { kind: 'wx'; outcome: 'found'; alert: boolean; lines: string[] }
+  | { kind: 'wx'; outcome: 'refused' };
+
+export type Verse =
+  | { kind: 'verse'; outcome: 'found'; reference: string; text: string }
+  | { kind: 'verse'; outcome: 'refused' };
+
+export type Reply =
+  | WhoAmI
+  | Join
+  | Inbox
+  | Msg
+  | ClearInbox
+  | SetPass
+  | Ok
+  | Status
+  | Email
+  | SetQm
+  | AddGroup
+  | ClearGroup
+  | Wx
+  | Verse;
 
 const AGO = String.raw`just now|\d+[dhm] ago`;
 const ENTRY = new RegExp(String.raw`^(.+?) (${AGO}): ([\s\S]*)$`);
@@ -239,6 +277,75 @@ export function parseStatus(text: string): Status | null {
   return null;
 }
 
+/** qm, emailall or email's answer. */
+export function parseEmail(command: string, text: string): Email | null {
+  if (text === `${command}: sent`) {
+    return { kind: 'email', command, outcome: 'sent' };
+  }
+  const notSent = new RegExp(String.raw`^${command}: not sent, (.+)$`).exec(text);
+  if (notSent) {
+    return { kind: 'email', command, outcome: 'not sent', why: notSent[1] };
+  }
+  return text.startsWith(`${command}: `) || text.startsWith('usage: ')
+    ? { kind: 'email', command, outcome: 'refused' }
+    : null;
+}
+
+/** The addresses as setqm and addgroup list them ("a, b"), or none. */
+function addresses(list: string, none: string): string[] {
+  return list === none ? [] : list.split(', ');
+}
+
+export function parseSetQm(text: string): SetQm | null {
+  const set = /^qm now sends to (\S+)$/.exec(text);
+  if (set) {
+    return { kind: 'setqm', outcome: 'set', addresses: [set[1]] };
+  }
+  const shown = /^qm: (.+)$/.exec(text);
+  if (shown) {
+    return { kind: 'setqm', outcome: 'shown', addresses: addresses(shown[1], 'no address set') };
+  }
+  return text.startsWith('setqm: ') ? { kind: 'setqm', outcome: 'refused' } : null;
+}
+
+export function parseAddGroup(text: string): AddGroup | null {
+  const added = /^addgroup: (\S+) added \((\d+) in the group\)$/.exec(text);
+  if (added) {
+    return { kind: 'addgroup', outcome: 'added', address: added[1], count: Number(added[2]) };
+  }
+  const shown = /^emailall: (.+)$/.exec(text);
+  if (shown) {
+    return { kind: 'addgroup', outcome: 'shown', addresses: addresses(shown[1], 'no addresses') };
+  }
+  return text.startsWith('addgroup: ') ? { kind: 'addgroup', outcome: 'refused' } : null;
+}
+
+export function parseClearGroup(text: string): ClearGroup | null {
+  const removed = /^cleargroup: removed (\d+) address\(es\)$/.exec(text);
+  return removed ? { kind: 'cleargroup', removed: Number(removed[1]) } : null;
+}
+
+/** The weather, in the sections the bot sends ("where alerts | rain | temperature and wind"). */
+export function parseWx(text: string): Wx | null {
+  if (text.startsWith('wx: ') || text.startsWith('usage: wx')) {
+    return { kind: 'wx', outcome: 'refused' };
+  }
+  const lines = text.split(' | ');
+  return { kind: 'wx', outcome: 'found', alert: / ALERT: /.test(lines[0]), lines };
+}
+
+const PASSAGE = /^((?:[1-3] )?[A-Za-z]+(?: [A-Za-z]+)*? \d+(?::\d+(?:-\d+)?)?) ([\s\S]+)$/;
+
+export function parseVerse(text: string): Verse | null {
+  if (text.startsWith('verse: ')) {
+    return { kind: 'verse', outcome: 'refused' };
+  }
+  const passage = PASSAGE.exec(text);
+  return passage
+    ? { kind: 'verse', outcome: 'found', reference: passage[1], text: passage[2] }
+    : null;
+}
+
 /** What the app reads from the node's reply to a command, or null when it can't. */
 export function parseReply(command: string, messages: string[]): Reply | null {
   const text = reassemble(messages).text;
@@ -259,6 +366,20 @@ export function parseReply(command: string, messages: string[]): Reply | null {
       return parseOk(text);
     case 'status':
       return parseStatus(text);
+    case 'qm':
+    case 'emailall':
+    case 'email':
+      return parseEmail(command.split(' ')[0], text);
+    case 'setqm':
+      return parseSetQm(text);
+    case 'addgroup':
+      return parseAddGroup(text);
+    case 'cleargroup':
+      return parseClearGroup(text);
+    case 'wx':
+      return parseWx(text);
+    case 'verse':
+      return parseVerse(text);
     default:
       return null;
   }

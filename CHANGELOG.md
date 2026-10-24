@@ -35,6 +35,10 @@ may change how the bot is configured).
   help, need medical, sheltering in place, evacuating, no power) or in your
   own words, confirming each before it's sent, and look up someone's last
   check-in or your own.
+- **The phone app's Email and Weather and verse screens:** email your
+  preset contact, your group or any address (confirmed first), see and
+  change your addresses; get the weather and alerts for a zipcode or county,
+  and a Bible verse or the verse of the day.
 
 ### Fixed
 
