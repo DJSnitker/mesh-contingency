@@ -28,7 +28,8 @@ const SAID: Record<Status, string> = {
 
 /**
  * One chat: a direct message thread with a contact (route dm/:key, the full
- * key) or a channel (channel/:name). Its messages, and a box to send more.
+ * key, or the 12-character prefix a kept chat has) or a channel
+ * (channel/:name). Its messages, and a box to send more.
  */
 @Component({
   selector: 'mc-chat',
@@ -131,6 +132,9 @@ const SAID: Record<Status, string> = {
     @if (channelName() && !channel()) {
       <p class="muted">The radio has no channel {{ channelName() }} now.</p>
     }
+    @if (radio.state() === 'connected' && looked() && !channelName() && !fullKey()) {
+      <p class="muted">The radio has no contact {{ title() }} now.</p>
+    }
     @if (radio.state() !== 'connected') {
       <p class="muted">Connect your radio on the <a routerLink="/node">Node</a> screen to send.</p>
     }
@@ -154,13 +158,14 @@ export class ChatScreen {
   private readonly history = inject(ChatHistory);
   protected readonly said = SAID;
 
-  /** The contact's full key, for a direct chat (from the route). */
+  /** The contact's key, for a direct chat (from the route): full, or a prefix. */
   readonly key = input<string>();
   /** The channel's name, for a channel (from the route). */
   readonly name = input<string>();
 
   protected readonly text = signal('');
   protected readonly contact = signal<RadioContact | null>(null);
+  protected readonly looked = signal(false);
   private readonly compose = viewChild<ElementRef<HTMLElement>>('compose');
 
   protected readonly channelName = computed(() => this.name() ?? null);
@@ -170,6 +175,11 @@ export class ChatScreen {
   protected readonly chatKey = computed(() => {
     const name = this.name();
     return name ? channelKey(name) : dmKey(this.key() ?? '');
+  });
+  /** The contact's full key, which sending needs: the route's, or the radio's. */
+  protected readonly fullKey = computed(() => {
+    const key = this.contact()?.publicKey ?? this.key() ?? '';
+    return key.length === 64 ? key : null;
   });
   protected readonly title = computed(
     () => this.name() ?? this.contact()?.name ?? this.key()?.slice(0, 12) ?? '',
@@ -185,7 +195,7 @@ export class ChatScreen {
       !!this.text().trim() &&
       this.left() >= 0 &&
       // A direct message needs the full key; a channel, its slot.
-      (this.name() ? !!this.channel() : (this.key()?.length ?? 0) === 64),
+      (this.name() ? !!this.channel() : !!this.fullKey()),
   );
 
   constructor() {
@@ -219,8 +229,8 @@ export class ChatScreen {
     const channel = this.channel();
     if (this.name() && channel) {
       await this.history.sendToChannel(channel, text);
-    } else if (this.key()) {
-      await this.history.sendDirect(this.key()!, text);
+    } else if (this.fullKey()) {
+      await this.history.sendDirect(this.fullKey()!, text);
     }
   }
 
@@ -237,12 +247,15 @@ export class ChatScreen {
           await this.history.loadChannels();
         }
       } else {
+        const key = this.key();
         this.contact.set(
-          (await this.radio.contacts()).find((c) => c.publicKey === this.key()) ?? null,
+          (key && (await this.radio.contacts()).find((c) => c.publicKey.startsWith(key))) || null,
         );
       }
     } catch {
       // The title stays the key, and sending waits for the channel.
+    } finally {
+      this.looked.set(true);
     }
   }
 }

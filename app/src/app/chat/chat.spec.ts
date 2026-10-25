@@ -62,6 +62,24 @@ describe('Chat', () => {
     await shows(fixture, () => expect(texts(page, '.lines .meta')[1]).toContain('Not delivered'));
   });
 
+  it('sends from a kept chat opened by its key prefix', async () => {
+    const { page, type, button, fixture } = await open(`/chat/dm/${ERIN.slice(0, 12)}`);
+    await shows(fixture, () => expect(page.querySelector('h1')?.textContent).toBe('Erin'));
+    type('chat-text', 'still there?');
+    button('Send').click();
+    await shows(fixture, () => expect(texts(page, '.lines .meta')[0]).toContain('Delivered'));
+    expect(ble.sent.map(([prefix, text]) => [prefix, text])).toEqual([
+      [ERIN.slice(0, 12), 'still there?'],
+    ]);
+  });
+
+  it("can't send to a contact the radio no longer has", async () => {
+    const { page, type, button, fixture } = await open(`/chat/dm/${'ab'.repeat(6)}`);
+    await shows(fixture, () => expect(page.textContent).toContain('no contact abababababab'));
+    type('chat-text', 'hello?');
+    expect(button('Send').disabled).toBe(true);
+  });
+
   it('keeps what others send, unread until opened, but never the node', async () => {
     const { page, fixture } = await open();
     await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
