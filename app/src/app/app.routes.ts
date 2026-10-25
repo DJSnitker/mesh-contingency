@@ -6,6 +6,7 @@ import { ChatScreen } from './chat/chat-screen';
 import { ContactList } from './chat/contact-list';
 import { CheckinsScreen } from './checkins/checkins-screen';
 import { EmailScreen } from './email/email-screen';
+import { LicensesScreen } from './licenses/licenses-screen';
 import { MailboxScreen } from './mailbox/mailbox-screen';
 import { NodeScreen } from './node/node-screen';
 import { RadioScreen } from './radio-tab/radio-screen';
@@ -26,6 +27,7 @@ export const routes: Routes = [
   { path: 'email', component: EmailScreen, title: 'Email' },
   { path: 'weather', component: WeatherScreen, title: 'Weather' },
   { path: 'bible', component: BibleScreen, title: 'Bible' },
+  { path: 'radio/licenses', component: LicensesScreen, title: 'Open-source licenses' },
   { path: '**', redirectTo: 'node' },
 ];
 

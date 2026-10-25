@@ -61,6 +61,9 @@ may change how the bot is configured).
   connection, the channels first, and shared with the Node and Radio
   screens; until they are, the chats wait behind a spinner rather than show
   people by their keys.
+- **The phone app's Open-source licenses page**, linked from the Radio
+  tab: every package in the app and the Android libraries, each with its
+  license and copyright notice.
 - **Spinners in the phone app** wherever it waits: connecting to the radio
   (in the header too), a command to the node being sent or answered,
   reading the radio's channels, contacts or settings, changing a setting,

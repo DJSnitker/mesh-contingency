@@ -484,6 +484,12 @@ export function clockWords(offset: number): string {
         <p class="busy loading" role="status"><span class="spinner small"></span> {{ doing() }}</p>
       }
     }
+
+    <ul class="more">
+      <li>
+        <a routerLink="/radio/licenses"><mc-icon name="list" /> Open-source licenses</a>
+      </li>
+    </ul>
   `,
 })
 export class RadioScreen {

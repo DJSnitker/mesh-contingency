@@ -28,6 +28,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/@capacitor/android",
+                "output": "licenses/capacitor-android"
+              },
+              {
+                "glob": "LICENSE.txt",
+                "input": "node_modules/rxjs",
+                "output": "licenses/apache-2.0"
               }
             ],
             "styles": [
