@@ -59,7 +59,8 @@ may change how the bot is configured).
   and Contacts, every contact (with a Find box once there are many), to
   start a chat with. The radio's channels and contacts are read once per
   connection, the channels first, and shared with the Node and Radio
-  screens.
+  screens; until they are, the chats wait behind a spinner rather than show
+  people by their keys.
 - **Spinners in the phone app** wherever it waits: connecting to the radio
   (in the header too), a command to the node being sent or answered,
   reading the radio's channels, contacts or settings, changing a setting,

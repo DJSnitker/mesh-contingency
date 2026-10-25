@@ -59,6 +59,27 @@ describe('Chat', () => {
     expect(ble.commands().filter((c) => c === 4)).toHaveLength(1); // GetContacts
   });
 
+  it('holds back kept chats until the contacts name them', async () => {
+    localStorage.setItem(
+      HISTORY,
+      JSON.stringify({
+        [`dm:${ERIN.slice(0, 12)}`]: {
+          lines: [{ id: 1, mine: false, text: 'we are ok', at: 1 }],
+          unread: 0,
+        },
+      }),
+    );
+    ble.contactsMs = 300;
+    const { page, fixture } = await open('/chat');
+    await shows(fixture, () =>
+      expect(page.querySelector('[role="status"]')?.textContent).toContain('Reading the contacts'),
+    );
+    // Never shown by key.
+    expect(page.querySelector('.rows')).toBeNull();
+    await shows(fixture, () => expect(texts(page, '.rows .name')).toEqual(['Erin']));
+    expect(page.querySelector('[role="status"]')).toBeNull();
+  });
+
   it('starts a chat from a contact, which then shows under Chat', async () => {
     const { page, type, button, fixture } = await open('/chat');
     await shows(fixture, () => expect(page.textContent).toContain('No chats yet'));

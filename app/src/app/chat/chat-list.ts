@@ -43,7 +43,8 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
       margin: 0;
     }
     .loading {
-      font-size: 0.9rem;
+      justify-content: center;
+      padding: 32px 0;
     }
   `,
   template: `
@@ -57,15 +58,17 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
     }
 
     <section class="panel">
+      <!-- Held back until the radio says, so names don't change under the user. -->
       @if (loading()) {
         <p class="loading" role="status">
-          <span class="spinner small"></span>
+          <span class="spinner"></span>
           {{
-            kind() === 'ch' ? 'Reading the channels from your radio…' : "Reading contacts' names…"
+            kind() === 'ch'
+              ? 'Reading the channels from your radio…'
+              : 'Reading the contacts from your radio…'
           }}
         </p>
-      }
-      @if (rows().length) {
+      } @else if (rows().length) {
         <ul class="rows">
           @for (row of rows(); track row.key) {
             <li>
@@ -85,9 +88,7 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
           }
         </ul>
       } @else if (kind() === 'ch') {
-        @if (!loading()) {
-          <p class="muted">No channels on the radio.</p>
-        }
+        <p class="muted">No channels on the radio.</p>
       } @else {
         <p class="muted">
           No chats yet. Start one from <a routerLink="/chat/contacts">Contacts</a>.
@@ -95,7 +96,7 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
       }
     </section>
 
-    @if (kept()) {
+    @if (kept() && !loading()) {
       <section class="panel">
         <div class="actions">
           <button class="btn btn-ghost btn-sm danger" type="button" (click)="clearAll()">
@@ -150,7 +151,7 @@ export class ChatList {
     return rows.sort((a, b) => (b.last?.at ?? 0) - (a.last?.at ?? 0));
   });
 
-  /** Waiting on the radio: for the channels, or for the names of people shown by key. */
+  /** Waiting on the radio: for the channels, or for the names of people it would show by key. */
   protected readonly loading = computed(() =>
     this.kind() === 'ch'
       ? this.history.loadingChannels()
