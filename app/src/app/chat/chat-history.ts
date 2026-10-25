@@ -1,7 +1,7 @@
-import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 
 import { NodeLink } from '../node/node-link';
-import { ChannelMessage, DirectMessage, Radio, RadioChannel } from '../radio/radio';
+import { ChannelMessage, DirectMessage, Radio, RadioChannel, RadioContact } from '../radio/radio';
 
 /** Where the chats are kept on the phone. */
 export const HISTORY = 'mc.chat';
@@ -67,6 +67,13 @@ export class ChatHistory {
   );
   /** The radio's channels, as last read. */
   readonly channels = signal<RadioChannel[]>([]);
+  /** The radio's contacts, as last read: null until they are. */
+  readonly contacts = signal<RadioContact[] | null>(null);
+  /** The contacts are being read, which takes a while with many of them. */
+  readonly loading = signal(false);
+  private reading: Promise<void> | null = null;
+  /** Read since the radio last connected. */
+  private fresh = false;
   /** The chat on the screen: its messages arrive read. */
   readonly open = signal<string | null>(null);
   readonly unread = computed(() =>
@@ -82,6 +89,47 @@ export class ChatHistory {
       direct.unsubscribe();
       channel.unsubscribe();
     });
+    // Read again on the next connection: it may be another radio.
+    effect(() => {
+      if (this.radio.state() !== 'connected') {
+        this.fresh = false;
+      }
+    });
+  }
+
+  /**
+   * Read the radio's contacts and channels, unless they were read since it
+   * connected (or `again`). One read at a time: a second call waits for it.
+   */
+  refresh(again = false): Promise<void> {
+    if (this.reading) {
+      return this.reading;
+    }
+    if (this.radio.state() !== 'connected' || (this.fresh && !again)) {
+      return Promise.resolve();
+    }
+    this.loading.set(true);
+    this.reading = (async () => {
+      try {
+        this.contacts.set(await this.radio.contacts());
+        await this.loadChannels();
+        this.fresh = true;
+      } finally {
+        this.loading.set(false);
+        this.reading = null;
+      }
+    })();
+    return this.reading;
+  }
+
+  /** The contact with this key, or key prefix, as last read. */
+  contact(key: string): RadioContact | undefined {
+    return key ? this.contacts()?.find((c) => c.publicKey.startsWith(key)) : undefined;
+  }
+
+  /** The time of a chat's newest message, or 0. */
+  lastAt(key: string): number {
+    return this.chats()[key]?.lines.at(-1)?.at ?? 0;
   }
 
   /** Read the radio's channels again. */

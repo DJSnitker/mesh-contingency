@@ -14,7 +14,7 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { Icon } from '../icon';
-import { Radio, RadioContact } from '../radio/radio';
+import { Radio } from '../radio/radio';
 import { channelKey, channelLimit, ChatHistory, dmKey, MAX_TEXT, Status } from './chat-history';
 
 /** What each status says under the user's message. */
@@ -164,10 +164,10 @@ export class ChatScreen {
   readonly name = input<string>();
 
   protected readonly text = signal('');
-  protected readonly contact = signal<RadioContact | null>(null);
   protected readonly looked = signal(false);
   private readonly compose = viewChild<ElementRef<HTMLElement>>('compose');
 
+  protected readonly contact = computed(() => this.history.contact(this.key() ?? '') ?? null);
   protected readonly channelName = computed(() => this.name() ?? null);
   protected readonly channel = computed(
     () => this.history.channels().find((c) => c.name === this.name()) ?? null,
@@ -247,10 +247,7 @@ export class ChatScreen {
           await this.history.loadChannels();
         }
       } else {
-        const key = this.key();
-        this.contact.set(
-          (key && (await this.radio.contacts()).find((c) => c.publicKey.startsWith(key))) || null,
-        );
+        await this.history.refresh();
       }
     } catch {
       // The title stays the key, and sending waits for the channel.

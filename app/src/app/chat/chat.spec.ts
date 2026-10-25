@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { FakeBle, NODE_KEY } from '../radio/fake-ble';
 import { openScreen } from '../screens.testing';
 import { ChatHistory, HISTORY } from './chat-history';
+import { when } from './chat-list';
+import { heard } from './contact-list';
 
 const ERIN = 'e0'.repeat(32);
 
@@ -26,8 +28,8 @@ describe('Chat', () => {
     });
   }
 
-  it("lists the radio's channels and companions, the node apart", async () => {
-    const { page, fixture } = await open();
+  it("lists the radio's channels and companions under Contacts, the node apart", async () => {
+    const { page, fixture } = await open('/chat/contacts');
     await shows(fixture, () => expect(texts(page, '.channels .name')).toHaveLength(3));
     expect(texts(page, '.channels .name')).toEqual([
       'Public',
@@ -37,6 +39,76 @@ describe('Chat', () => {
     // Not the repeater, and not the node.
     expect(texts(page, '.direct .name')).toEqual(['Erin']);
     expect(page.querySelector('.direct')?.textContent).toContain('Ridge Node is the node');
+  });
+
+  it('shows that the contacts are being read until they are, and reads them once', async () => {
+    ble.contactsMs = 300;
+    const { page, fixture } = await open('/chat/contacts');
+    await shows(fixture, () =>
+      expect(page.querySelector('[role="status"]')?.textContent).toContain('Reading the contacts'),
+    );
+    expect(page.querySelector('.direct')).toBeNull();
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+    expect(page.querySelector('[role="status"]')).toBeNull();
+
+    // Chat, and back: read once while the radio stays connected.
+    (page.querySelector('a[href="#/chat"]') as HTMLAnchorElement).click();
+    await shows(fixture, () => expect(page.textContent).toContain('No chats yet'));
+    (page.querySelector('a[href="#/chat/contacts"]') as HTMLAnchorElement).click();
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+    expect(ble.commands().filter((c) => c === 4)).toHaveLength(1); // GetContacts
+  });
+
+  it('starts a chat from a contact, which then shows under Chat', async () => {
+    const { page, type, button, fixture } = await open('/chat');
+    await shows(fixture, () => expect(page.textContent).toContain('No chats yet'));
+    (page.querySelector('a[href="#/chat/contacts"]') as HTMLAnchorElement).click();
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+    (page.querySelector('.direct a') as HTMLAnchorElement).click();
+    await shows(fixture, () => expect(page.querySelector('h1')?.textContent).toBe('Erin'));
+    type('chat-text', 'checking in');
+    button('Send').click();
+    await shows(fixture, () => expect(texts(page, '.lines .meta')[0]).toContain('Delivered'));
+
+    (page.querySelector('a[aria-label="All chats"]') as HTMLAnchorElement).click();
+    await shows(fixture, () => expect(texts(page, '.rows .name')).toEqual(['Erin']));
+    expect(texts(page, '.rows .sub')).toEqual(['You: checking in']);
+  });
+
+  it('finds contacts and channels by name, once there are many', async () => {
+    ble.contacts.push(
+      ...['Ann', 'Bo', 'Cy', 'Di', 'Ed', 'Flo', 'Gus'].map((name, i) => ({
+        name,
+        publicKey: (i + 0x20).toString(16).repeat(32),
+        type: 1,
+      })),
+    );
+    const { page, type, fixture } = await open('/chat/contacts');
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toHaveLength(8));
+    type('find', 'contingency');
+    await shows(fixture, () =>
+      expect(texts(page, '.channels .name')).toEqual(['#contingency-wx', '#contingency-comm']),
+    );
+    expect(page.querySelector('.direct')?.textContent).toContain('None by that name.');
+    type('find', 'ER');
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+  });
+
+  it('says when a contact was heard and how far it is', () => {
+    const now = 1_790_000_000_000;
+    const contact = { publicKey: '', name: 'Erin', type: 1, lastAdvert: 0 };
+    expect(heard({ ...contact, hops: null }, now)).toBe('no path yet');
+    expect(heard({ ...contact, hops: 0, lastAdvert: now / 1000 - 300 }, now)).toBe(
+      'Heard 5 min ago · direct',
+    );
+    expect(heard({ ...contact, hops: 1, lastAdvert: now / 1000 - 7200 }, now)).toBe(
+      'Heard 2 h ago · 1 hop',
+    );
+    expect(heard({ ...contact, hops: 3, lastAdvert: now / 1000 - 3 * 86400 }, now)).toBe(
+      'Heard 3 days ago · 3 hops',
+    );
+    expect(when(now, now)).toBe('h:mm a');
+    expect(when(now - 86_400_000, now)).toBe('MMM d');
   });
 
   it('sends a direct message, marked delivered or not', async () => {
@@ -82,14 +154,18 @@ describe('Chat', () => {
 
   it('keeps what others send, unread until opened, but never the node', async () => {
     const { page, fixture } = await open();
-    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+    await shows(fixture, () => expect(page.textContent).toContain('No chats yet'));
     ble.deliver(ERIN, 'we are ok');
     ble.deliver(NODE_KEY, 'inbox: new message from Erin; send inbox to read');
     ble.hear(1, 'Ridge Node', 'Flash Flood Warning: Taylor');
-    await shows(fixture, () => expect(texts(page, '.unread')).toEqual(['1', '1']));
-    expect(texts(page, '.last')).toContain('we are ok');
-    expect(texts(page, '.last')).toContain('Ridge Node: Flash Flood Warning: Taylor');
+    await shows(fixture, () => expect(texts(page, '.rows .unread')).toEqual(['1', '1']));
+    expect(texts(page, '.rows .name')).toEqual(['#contingency-wx', 'Erin']);
+    expect(texts(page, '.rows .sub')).toEqual([
+      'Ridge Node: Flash Flood Warning: Taylor',
+      'we are ok',
+    ]);
     expect(page.querySelector('.tabs .badge')?.textContent?.trim()).toBe('2');
+    expect(page.querySelector('mc-chat-tabs .badge')?.textContent?.trim()).toBe('2');
 
     const history = TestBed.inject(ChatHistory);
     expect(Object.keys(history.chats()).sort()).toEqual([
@@ -103,7 +179,7 @@ describe('Chat', () => {
       },
     );
 
-    (page.querySelector('a.chat[href*="dm"]') as HTMLAnchorElement).click();
+    (page.querySelector('.rows a[href*="dm"]') as HTMLAnchorElement).click();
     await shows(fixture, () => expect(page.querySelector('h1')?.textContent).toBe('Erin'));
     expect(texts(page, '.lines .text')).toEqual(['we are ok']);
     expect(history.chats()[`dm:${ERIN.slice(0, 12)}`].unread).toBe(0);
@@ -139,8 +215,8 @@ describe('Chat', () => {
       }),
     );
     const list = await open('/chat', false);
-    expect(texts(list.page, '.channels .name')).toEqual(['#contingency-wx']);
-    expect(texts(list.page, '.direct .name')).toEqual([ERIN.slice(0, 12)]);
+    // Newest first; Erin by her key, the radio not being there to name her.
+    expect(texts(list.page, '.rows .name')).toEqual(['#contingency-wx', ERIN.slice(0, 12)]);
     TestBed.resetTestingModule();
 
     const { page, fixture } = await open(`/chat/dm/${ERIN}`, false);

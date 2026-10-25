@@ -41,6 +41,7 @@ debug manifest (`android/app/src/debug/`) adds it for live reload.
 ```sh
 npm ci                 # once, and after package-lock.json changes
 npm start              # in a browser at http://127.0.0.1:4200 (no Bluetooth there)
+npm run demo           # the same, on the tests' fake radio with made-up contacts and chats
 npm test               # unit tests (Vitest)
 npm run format:check   # formatting (Prettier); npm run format fixes it
 npm run build          # the web build, into dist/
@@ -68,7 +69,11 @@ points the app at the dev server, which is gone once it stops.
 The emulator's Bluetooth is pretend, with no MeshCore radio near it: it
 asks for the permission and scans, but finding a radio needs a real phone
 and radio. Everything else runs there. `npm start` (a browser at
-http://127.0.0.1:4200) is quicker still for screens alone.
+http://127.0.0.1:4200) is quicker still for screens alone, and `npm run
+demo` shows them with a radio connected: the fake one the tests use
+(`src/app/demo.fake.ts`, swapped in for `src/app/demo.ts` by angular.json's
+demo configuration), slow to list its contacts as a real one is. Size the
+browser window to try a phone's width or a tablet's.
 
 ## Building for Android
 

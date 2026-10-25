@@ -37,6 +37,9 @@ import { AreaWeather } from './area-weather';
     }
     .cards {
       display: grid;
+      /* Two across on a tablet. */
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      align-items: start;
       gap: 12px;
     }
     .card {

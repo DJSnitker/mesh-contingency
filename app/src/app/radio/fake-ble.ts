@@ -13,6 +13,8 @@ export interface FakeContact {
   type: number;
   /** Hops on its known path; -1 for none (flood). */
   hops?: number;
+  /** When its last advert was heard (seconds since 1970). */
+  lastAdvert?: number;
 }
 
 /** The radio a FakeBle plays, and how it behaves. */
@@ -84,6 +86,8 @@ export class FakeBle implements Ble {
   channelSent: [number, string][] = [];
   /** Direct messages the radio sent: [recipient key prefix, text, attempt]. */
   sent: [string, string, number][] = [];
+  /** How long the radio takes to list its contacts (ms). */
+  contactsMs = 0;
   /** The try (from 0) the recipient first acknowledges; null for never. */
   ackFrom: number | null = 0;
   /** What the node answers a direct message, as its messages. */
@@ -139,8 +143,9 @@ export class FakeBle implements Ble {
     );
     this.written.push(frame);
     if (this.radio.answers) {
+      const delay = frame[0] === 4 ? this.contactsMs : 0; // GetContacts
       for (const answer of this.answer(frame)) {
-        setTimeout(() => this.notify?.(new DataView(answer.buffer)), 0);
+        setTimeout(() => this.notify?.(new DataView(answer.buffer)), delay);
       }
     }
   }
@@ -305,7 +310,7 @@ function contact(c: FakeContact): Uint8Array {
   frame.set(fromHex(c.publicKey), 1);
   frame[33] = c.type;
   frame[35] = (c.hops ?? 0) & 0xff; // outPathLen
-  new DataView(frame.buffer).setUint32(132, 1_790_000_000, true); // lastAdvert
+  new DataView(frame.buffer).setUint32(132, c.lastAdvert ?? 1_790_000_000, true); // lastAdvert
   frame.set(new TextEncoder().encode(c.name), 100); // advName, 32 bytes
   return frame;
 }

@@ -54,8 +54,8 @@ describe('App', () => {
   });
 
   it('every route but the redirects is reachable from a tab or the Node screen', () => {
-    const reachable = new Set([...TABS.map((t) => t.path), '/email']);
-    // A chat opens from the Chat screen's list.
+    // Contacts is the Chat screen's second tab; a chat opens from either.
+    const reachable = new Set([...TABS.map((t) => t.path), '/email', '/chat/contacts']);
     const screens = routes
       .filter((r) => r.component && !r.path?.includes(':'))
       .map((r) => `/${r.path}`);

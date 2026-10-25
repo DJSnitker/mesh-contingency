@@ -124,3 +124,93 @@ details.accordion {
     margin-top: 12px;
   }
 }
+
+// A list of rows that open something (Chat's chats and contacts): a name,
+// a line under it, and something on the right (a time, a count).
+.rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li + li {
+    border-top: 1px solid var(--line);
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    align-items: center;
+    padding: 10px 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .name {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sub {
+    grid-column: 1;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .side {
+    grid-row: 1;
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .unread {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+    min-width: 1.6em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--orange);
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+  }
+}
+
+// Waiting on the radio: a turning ring, and what it's doing.
+.loading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.spinner {
+  flex: none;
+  width: 1.4em;
+  height: 1.4em;
+  border: 3px solid var(--ink-3);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}

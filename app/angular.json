@@ -74,6 +74,17 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "demo": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/app/demo.ts",
+                  "with": "src/app/demo.fake.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -86,6 +97,9 @@
             },
             "development": {
               "buildTarget": "app:build:development"
+            },
+            "demo": {
+              "buildTarget": "app:build:demo"
             }
           },
           "defaultConfiguration": "development"
