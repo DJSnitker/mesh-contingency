@@ -3,7 +3,7 @@ import { of } from 'rxjs';
 
 import { Api } from './api';
 import { Checkins } from './checkins';
-import { FakeApi } from '../testing/fakes';
+import { COMMANDS, FakeApi } from '../testing/fakes';
 
 describe('Checkins', () => {
   let api: FakeApi;
@@ -61,5 +61,26 @@ describe('Checkins', () => {
     expect(element.querySelector('.reply')?.textContent).toContain('clearstatus: done');
     expect(element.textContent).toContain('Nobody has checked in');
     expect(buttons(element)).toEqual([]); // nothing left to clear
+  });
+
+  it("looks up someone's check-in", async () => {
+    api.answer = (command, text) =>
+      of({ command, messages: [`${text}: ok, at the shelter (15m ago)`], asks: false, ok: true });
+    const fixture = await render();
+    const element: HTMLElement = fixture.nativeElement;
+    const look = element.querySelector<HTMLElement>('[aria-labelledby=look-title]')!;
+    const box = look.querySelector<HTMLInputElement>('input[name=who]')!;
+    box.value = ' alice ';
+    box.dispatchEvent(new Event('input'));
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+    expect(api.ran).toEqual([['status', 'alice']]);
+    expect(look.querySelector('.reply')?.textContent).toContain('alice: ok, at the shelter');
+  });
+
+  it('offers the lookup only if the console may run status', async () => {
+    api.commands = () => of(COMMANDS.filter((c) => c.name !== 'status'));
+    const element: HTMLElement = (await render()).nativeElement;
+    expect(element.querySelector('[aria-labelledby=look-title]')).toBeNull();
   });
 });

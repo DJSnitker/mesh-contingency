@@ -45,8 +45,8 @@ EXAMPLE_CONFIG = REPO / "config.example.toml"
 KEY = "demo"
 MIN, HOUR, DAY = 60, 3600, 86400
 # The pages, as their paths and the screenshot names.
-PAGES = {"": "dashboard", "weather": "weather", "users": "users", "checkins": "checkins", "inbox": "inbox",
-         "history": "history", "send": "send", "radio": "radio"}
+PAGES = {"": "dashboard", "mailbox": "mailbox", "checkins": "checkins", "chat": "chat", "chat/channel/0": "channel",
+         "weather": "weather", "bible": "bible", "radio": "radio", "users": "users", "history": "history"}
 WIDE, PHONE = (1280, 900), (390, 844)
 CHROMES = ("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
 
@@ -197,9 +197,10 @@ def demo_context(folder, now=None):
 
 
 def screenshots(url, folder, chrome):
-    """Save each page, wide, and the dashboard phone-sized, as PNGs in folder."""
+    """Save each page, wide, and the dashboard and a channel phone-sized, as PNGs in folder."""
     folder.mkdir(parents=True, exist_ok=True)
-    shots = [(path, name, WIDE) for path, name in PAGES.items()] + [("", "dashboard-phone", PHONE)]
+    shots = [(path, name, WIDE) for path, name in PAGES.items()] + [("", "dashboard-phone", PHONE),
+                                                                       ("chat/channel/0", "channel-phone", PHONE)]
     for path, name, (width, height) in shots:
         with tempfile.TemporaryDirectory() as profile:  # a new profile: it logs in with the key
             subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={profile}",

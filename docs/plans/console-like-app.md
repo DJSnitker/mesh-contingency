@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: planned · Requested 2026-10-25
+Status: in progress: PR 1 (#87) merged; PR 2, the layout, open · Requested 2026-10-25
 
 ## Goal
 
@@ -29,8 +29,9 @@ settings).
     sees the reply; a Contacts tab to start one.
   - **Weather:** favorite counties first, the rest under Show more, and the
     weather anywhere (`wx`).
-  - **Bible and Check-ins:** look up a verse or the verse of the day; check
-    in as the console and look up anyone's check-in.
+  - **Bible and Check-ins:** look up a verse or the verse of the day; look
+    up anyone's check-in. (Not checking in as the console: `ok` records the
+    sender's own check-in, which the console, not a person, can't run.)
 - **Still this computer only** (`127.0.0.1`, the key in the link): nothing
   here changes who can reach the console.
 
@@ -42,7 +43,7 @@ The rail, in order (the app's names where they're the same thing):
 |---|---|---|
 | **Dashboard** | the node at a glance, health, live log | the same, in the app's panels |
 | **Mailbox** | Inbox (who has messages waiting); Send's *Leave a message* | both, on one page: the waiting messages per user, and *Leave a message* below |
-| **Check-ins** | the roll call | the roll call, plus *Check in* (as the console, with the app's quick choices) and *Look up a check-in* (`status`) |
+| **Check-ins** | the roll call | the roll call, plus *Look up a check-in* (`status`) |
 | **Chat** | Radio's Channels tab (read only); Send's channel posting | three tabs as in the app: **Chat** (direct messages, newest first, unread counts), **Channels** (every channel as a thread, with a box to post), **Contacts** (start a chat, with Find) |
 | **Weather** | Area Weather: a card per county, weather alerts | the cards, with favorites (kept in the browser) shown first and the rest under Show more; *Weather anywhere* (`wx`); the alerts panel as now |
 | **Bible** | (none) | the verse of the day and *Look up a verse* (`verse`), as in the app |
@@ -99,7 +100,7 @@ commands for the two hashtag channels over the radio.
 2. **Layout:** the rail regrouped (Mailbox, Chat, Bible added; Send gone),
    the app's panels, folding sections and spinners on every page, the phone
    width bottom bar with More; Mailbox (Inbox and *Leave a message*);
-   Check-ins' *Check in* and *Look up*; the Bible page. Chat starts as the
+   Check-ins' *Look up*; the Bible page. Chat starts as the
    Channels tab, read only, moved from Radio.
 3. **Weather:** favorites, Show more, *Weather anywhere*.
 4. **Chat, channels:** posting on any channel (the new API), threads with

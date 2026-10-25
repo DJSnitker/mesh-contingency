@@ -12,7 +12,7 @@ import { ago, when } from './time';
 export const WEATHER_REFRESH_MS = 60_000;
 
 /**
- * The Area Weather page: the weather now in each county [alerts] watches, a
+ * The Weather page: the weather now in each county [alerts] watches, a
  * card each, whether or not there's an alert: the bot asks the NWS every 15 min and keeps the
  * last report, so a card says how old it is and, if the last try failed,
  * why.

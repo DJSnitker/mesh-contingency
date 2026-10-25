@@ -36,7 +36,7 @@ describe('AreaWeather', () => {
 
   it('shows a card for each county, in order', async () => {
     const element = await render();
-    expect(text(element.querySelector('h1'))).toBe('Area Weather');
+    expect(text(element.querySelector('h1'))).toBe('Weather');
     expect(text(element.querySelector('.title p'))).toContain('every 15 min');
     expect(cards(element).map((card) => text(card.querySelector('h2')))).toEqual([
       'Taylor, TX',

@@ -67,7 +67,7 @@ describe('Dashboard', () => {
     expect(bad.join('|')).toContain('failing: disk full');
   });
 
-  it('names the alerts out, with their counties, and links to Area Weather', async () => {
+  it('names the alerts out, with their counties, and links to Weather', async () => {
     const alerts = {
       active: [
         { event: 'Wind Advisory', counties: ['Taylor, TX', 'Jones, TX'] },

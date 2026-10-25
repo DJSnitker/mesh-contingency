@@ -1,6 +1,6 @@
 <header class="title">
   <div>
-    <h1>Area Weather</h1>
+    <h1>Weather</h1>
     @if (weather(); as w) {
       <p class="muted">
         From the NWS, every {{ w.every_minutes }} min, for the counties in
@@ -111,7 +111,7 @@
     </div>
   }
 } @else if (!problem()) {
-  <p class="muted">Reading the weather…</p>
+  <p class="loading" role="status"><span class="spinner"></span> Reading the weather…</p>
 }
 
 @if (has('testalert') || has('alertmap')) {

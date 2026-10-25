@@ -1,15 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { catchError, EMPTY, interval, of, startWith, switchMap, tap } from 'rxjs';
+import { RouterLink } from '@angular/router';
 
-import { Api, Channel, ChannelMessages, CommandInfo, Contact, Contacts } from './api';
+import { Api, Channel, CommandInfo, Contact, Contacts } from './api';
+import { kindText } from './chat';
 import { Icon } from './icon';
 import { RadioSettings } from './radio-settings';
 import { Reply, Runner } from './runner';
-import { ago, when } from './time';
-
-/** How often an open channel's messages are read again (ms). */
-export const CHANNEL_REFRESH_MS = 10_000;
+import { ago } from './time';
 
 type Tab = 'settings' | 'contacts' | 'channels';
 
@@ -18,16 +15,14 @@ type Tab = 'settings' | 'contacts' | 'channels';
  * (nearby, or flooded across the mesh), a backup of the bot's data now, and
  * the radio's contacts: remove one (it asks first, as over the radio) or
  * reset the path to it. Each offered only if /api/commands has it. And the
- * radio's channel slots, to look at: what each is and what the bot posts there.
- * The radio's settings (radio-settings.ts), contacts and channels share a
- * panel, one tab each. A channel opens to its
- * messages since the bot started (kept in its memory only), read again every
- * CHANNEL_REFRESH_MS while open.
+ * radio's channel slots, to look at: what each is and what the bot posts there;
+ * each opens its messages in Chat. The radio's settings (radio-settings.ts),
+ * contacts and channels share a panel, one tab each.
  */
 @Component({
   selector: 'mc-radio',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RadioSettings, Reply],
+  imports: [Icon, RadioSettings, Reply, RouterLink],
   providers: [Runner],
   styleUrl: './radio.scss',
   templateUrl: './radio.html',
@@ -52,16 +47,7 @@ export class Radio {
     { id: 'channels', label: 'Channels', icon: 'send' },
   ] as const;
   protected readonly tab = signal<Tab>('settings');
-  /** The channel slot whose messages are open, or null for the list. */
-  protected readonly openSlot = signal<number | null>(null);
-  protected readonly openChannel = computed(
-    () => (this.channels() ?? []).find((c) => c.slot === this.openSlot()) ?? null,
-  );
-  /** The open channel's slot while its tab is showing: only then are its messages read. */
-  private readonly watching = computed(() => (this.tab() === 'channels' ? this.openSlot() : null));
-  protected readonly messages = signal<ChannelMessages | null>(null);
-  protected readonly messagesProblem = signal<string | null>(null);
-  protected readonly when = when;
+  protected readonly kindText = kindText;
   protected readonly filter = signal('');
   /** When the contacts were read, for "heard 5m ago". */
   protected readonly now = signal(Date.now() / 1000);
@@ -90,30 +76,6 @@ export class Radio {
     });
     this.loadContacts();
     this.loadChannels();
-    toObservable(this.watching)
-      .pipe(
-        switchMap((slot) =>
-          slot === null
-            ? of(null)
-            : interval(CHANNEL_REFRESH_MS).pipe(
-                startWith(0),
-                switchMap(() =>
-                  this.api.channelMessages(slot).pipe(
-                    tap(() => this.messagesProblem.set(null)),
-                    catchError(() => {
-                      this.messagesProblem.set("can't read the channel's messages");
-                      return EMPTY;
-                    }),
-                  ),
-                ),
-              ),
-        ),
-        takeUntilDestroyed(),
-      )
-      .subscribe((messages) => {
-        this.now.set(Date.now() / 1000);
-        this.messages.set(messages);
-      });
   }
 
   loadChannels(): void {
@@ -124,27 +86,6 @@ export class Radio {
       },
       error: () => this.channelsProblem.set("can't read the radio's channels"),
     });
-  }
-
-  protected open(slot: number): void {
-    this.messages.set(null);
-    this.openSlot.set(slot);
-  }
-
-  /** Back to the list, with its counts read again. */
-  protected closeChannel(): void {
-    this.openSlot.set(null);
-    this.loadChannels();
-  }
-
-  /** How a message came: "direct", "2 hops", and its signal. */
-  protected route(hops: number | null, snr: number | null): string {
-    const parts =
-      hops === null ? [] : [hops === 0 ? 'direct' : `${hops} hop${hops === 1 ? '' : 's'}`];
-    if (snr !== null) {
-      parts.push(`SNR ${snr} dB`);
-    }
-    return parts.join(' · ');
   }
 
   /** How many contacts, or channels in use, for a tab's label; null until read. */
@@ -170,16 +111,6 @@ export class Radio {
     const tabs = (event.target as HTMLElement).parentElement;
     tabs?.querySelector<HTMLElement>(`#${next}-tab`)?.focus();
     event.preventDefault();
-  }
-
-  /** What a kind of channel means for who can read it. */
-  protected kindText(kind: Channel['kind']): string {
-    return {
-      public: 'the usual Public channel: everyone',
-      hashtag: 'hashtag: anyone who adds the same name',
-      private: 'private: only radios given its key',
-      empty: 'empty',
-    }[kind];
   }
 
   loadContacts(): void {

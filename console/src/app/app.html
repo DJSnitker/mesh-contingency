@@ -9,7 +9,7 @@
         <a
           [routerLink]="page.path"
           routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
+          [routerLinkActiveOptions]="{ exact: page.path === '/' }"
           ariaCurrentWhenActive="page"
         >
           <mc-icon [name]="page.icon" /> {{ page.label }}
@@ -35,3 +35,22 @@
     <router-outlet />
   }
 </main>
+
+<!-- At phone width, the app's tab bar in place of the rail. -->
+<nav class="tabs" aria-label="Tabs">
+  @for (page of tabs; track page.path) {
+    <a
+      [routerLink]="page.path"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: page.path === '/' }"
+      ariaCurrentWhenActive="page"
+    >
+      <mc-icon [name]="page.icon" />
+      <span>{{ page.label }}</span>
+    </a>
+  }
+  <a routerLink="/more" [class.active]="inMore()" [attr.aria-current]="inMore() ? 'page' : null">
+    <mc-icon name="list" />
+    <span>More</span>
+  </a>
+</nav>
