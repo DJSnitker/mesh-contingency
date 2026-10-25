@@ -10,10 +10,20 @@ import { Exchange, FIRST_REPLY_MS } from './node-link';
     p {
       margin: 0;
     }
+    .spinner {
+      margin-right: 6px;
+    }
   `,
   template: `
     @let ex = exchange();
-    <p class="step" [class.problem]="ex.step === 'not delivered' || ex.step === 'failed'">
+    <p
+      class="step"
+      [class.problem]="ex.step === 'not delivered' || ex.step === 'failed'"
+      [attr.role]="ex.step === 'sending' || ex.step === 'waiting' ? 'status' : null"
+    >
+      @if (ex.step === 'sending' || ex.step === 'waiting') {
+        <span class="spinner small"></span>
+      }
       @switch (ex.step) {
         @case ('sending') {
           Sending {{ ex.label }}{{ ex.attempt > 1 ? ' (try ' + ex.attempt + ')' : '' }}…

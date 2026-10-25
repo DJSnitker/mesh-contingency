@@ -1,5 +1,9 @@
 // A phone's layout: a header, the screen, and the tabs at the bottom, inside
-// the safe area (clear of the notch, the status bar and the gesture bar).
+// the safe area (clear of the notch, the status bar and the gesture bar). On
+// a tablet the screen is a column down the middle, the width of a phone's
+// lines doubled at most, so lines stay readable and buttons stay near.
+$column: 720px;
+
 :host {
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -10,7 +14,8 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) max(16px, calc((100% - #{$column}) / 2 + 16px))
+    10px;
   border-bottom: 1px solid var(--line);
   background: var(--ink-2);
 }
@@ -35,6 +40,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 
+  .spinner {
+    margin-right: 4px;
+  }
+
   &.connected {
     border-color: rgb(74 222 128 / 40%);
     color: var(--green);
@@ -43,6 +52,8 @@
 
 main {
   display: grid;
+  grid-template-columns: minmax(0, $column);
+  justify-content: center;
   align-content: start;
   gap: 16px;
   padding: 16px;
@@ -51,8 +62,8 @@ main {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  padding-bottom: env(safe-area-inset-bottom);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding: 0 max(0px, calc((100% - #{$column}) / 2)) env(safe-area-inset-bottom);
   border-top: 1px solid var(--line);
   background: var(--ink-2);
 

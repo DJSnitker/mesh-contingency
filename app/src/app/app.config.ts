@@ -2,6 +2,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/
 import { provideRouter, withComponentInputBinding, withHashLocation } from '@angular/router';
 
 import { routes } from './app.routes';
+import { DEMO } from './demo';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -9,5 +10,6 @@ export const appConfig: ApplicationConfig = {
     // The app is opened from its own files on the phone, where only the
     // hash part of an address is the app's to change.
     provideRouter(routes, withHashLocation(), withComponentInputBinding()),
+    ...DEMO,
   ],
 };

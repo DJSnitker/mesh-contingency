@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { BibleScreen } from './bible/bible-screen';
 import { ChatList } from './chat/chat-list';
 import { ChatScreen } from './chat/chat-screen';
+import { ContactList } from './chat/contact-list';
 import { CheckinsScreen } from './checkins/checkins-screen';
 import { EmailScreen } from './email/email-screen';
 import { MailboxScreen } from './mailbox/mailbox-screen';
@@ -16,7 +17,9 @@ export const routes: Routes = [
   { path: 'node', component: NodeScreen, title: 'Node' },
   { path: 'mailbox', component: MailboxScreen, title: 'Mailbox' },
   { path: 'checkins', component: CheckinsScreen, title: 'Check-ins' },
-  { path: 'chat', component: ChatList, title: 'Chat' },
+  { path: 'chat', component: ChatList, title: 'Chat', data: { kind: 'dm' } },
+  { path: 'chat/channels', component: ChatList, title: 'Channels', data: { kind: 'ch' } },
+  { path: 'chat/contacts', component: ContactList, title: 'Contacts' },
   { path: 'chat/dm/:key', component: ChatScreen, title: 'Chat' },
   { path: 'chat/channel/:name', component: ChatScreen, title: 'Chat' },
   { path: 'radio', component: RadioScreen, title: 'Radio' },

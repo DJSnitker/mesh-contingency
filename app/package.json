@@ -10,6 +10,7 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "android": "ng build && cap sync android",
+    "demo": "ng serve --configuration demo",
     "emulator:setup": "scripts/android.sh setup",
     "emulator": "scripts/android.sh emulator",
     "android:run": "scripts/android.sh run",

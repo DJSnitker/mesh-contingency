@@ -54,8 +54,13 @@ describe('App', () => {
   });
 
   it('every route but the redirects is reachable from a tab or the Node screen', () => {
-    const reachable = new Set([...TABS.map((t) => t.path), '/email']);
-    // A chat opens from the Chat screen's list.
+    // Channels and Contacts are the Chat screen's other tabs; a chat opens from them.
+    const reachable = new Set([
+      ...TABS.map((t) => t.path),
+      '/email',
+      '/chat/channels',
+      '/chat/contacts',
+    ]);
     const screens = routes
       .filter((r) => r.component && !r.path?.includes(':'))
       .map((r) => `/${r.path}`);
@@ -97,6 +102,19 @@ describe('App', () => {
     await page.press('Reconnect', 'Battery');
     await page.press('Forget it', 'Find my radio');
     expect(ble.connects).toHaveLength(2);
+  });
+
+  it('turns a spinner while it connects, in the header and on Node', async () => {
+    ble.connectMs = 200;
+    const page = await open('/node');
+    await page.press('Find my radio', 'Connecting to');
+    expect(page.querySelector('.radio-state .spinner')).not.toBeNull();
+    expect(page.querySelector('.radio .spinner')).not.toBeNull();
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('.radio')?.textContent).toContain('Battery');
+    });
+    expect(page.querySelector('.radio-state .spinner')).toBeNull();
   });
 
   it("says why it couldn't connect", async () => {

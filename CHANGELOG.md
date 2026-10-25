@@ -54,7 +54,17 @@ may change how the bot is configured).
   (delivered or not shown for each) and its channels, to read and post (a
   post held to what fits after the radio's name); unread counts, on the tab
   too; the history kept on the phone until cleared. The node's messages
-  aren't kept: its commands stay on the Node screen.
+  aren't kept: its commands stay on the Node screen. In three tabs: Chat,
+  your chats with people, newest first; Channels, the radio's channels;
+  and Contacts, every contact (with a Find box once there are many), to
+  start a chat with. The radio's channels and contacts are read once per
+  connection, the channels first, and shared with the Node and Radio
+  screens; until they are, the chats wait behind a spinner rather than show
+  people by their keys.
+- **Spinners in the phone app** wherever it waits: connecting to the radio
+  (in the header too), a command to the node being sent or answered,
+  reading the radio's channels, contacts or settings, changing a setting,
+  a Weather card loading, a chat message being sent.
 - **The phone app's Radio tab:** your own radio over Bluetooth (never the
   node's): its name, frequency, TX power, position, clock, battery and
   firmware; adverts nearby or across the mesh; rename it, set its power,
@@ -80,6 +90,10 @@ may change how the bot is configured).
   Mailbox, Check-ins, Chat, Weather, Bible, Node and Radio; the passphrase
   box on Mailbox folds away until opened. The Weather and verse screen
   became the two tabs.
+- **The phone app on a tablet:** the screens are a column down the middle
+  (720 px at most), the tab bar too, and the Weather cards go two across.
+  On a narrow phone, the Radio tab's settings no longer run off the right
+  edge.
 - **The phone app's debug builds share one signing key** (in the repo), so
   each new build installs over the last and keeps the app's data.
 - `comm` is `alert` on its own channel, sharing its code.

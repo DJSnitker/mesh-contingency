@@ -1,7 +1,7 @@
-import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 
 import { NodeLink } from '../node/node-link';
-import { ChannelMessage, DirectMessage, Radio, RadioChannel } from '../radio/radio';
+import { ChannelMessage, DirectMessage, Radio, RadioChannel, RadioContact } from '../radio/radio';
 
 /** Where the chats are kept on the phone. */
 export const HISTORY = 'mc.chat';
@@ -67,11 +67,20 @@ export class ChatHistory {
   );
   /** The radio's channels, as last read. */
   readonly channels = signal<RadioChannel[]>([]);
+  /** The radio's contacts, as last read: null until they are. */
+  readonly contacts = signal<RadioContact[] | null>(null);
+  /** The channels are being read. */
+  readonly loadingChannels = signal(false);
+  /** The contacts are being read, which takes a while with many of them. */
+  readonly loadingContacts = signal(false);
+  private reading: Promise<void> | null = null;
+  /** Read since the radio last connected. */
+  private fresh = false;
   /** The chat on the screen: its messages arrive read. */
   readonly open = signal<string | null>(null);
-  readonly unread = computed(() =>
-    Object.values(this.chats()).reduce((total, chat) => total + chat.unread, 0),
-  );
+  readonly unread = computed(() => this.unreadIn(''));
+  readonly unreadDirect = computed(() => this.unreadIn('dm:'));
+  readonly unreadChannels = computed(() => this.unreadIn('ch:'));
 
   constructor() {
     const direct = this.radio.messages.subscribe((message) => this.heardDirect(message));
@@ -82,6 +91,56 @@ export class ChatHistory {
       direct.unsubscribe();
       channel.unsubscribe();
     });
+    // Read again on the next connection: it may be another radio.
+    effect(() => {
+      if (this.radio.state() !== 'connected') {
+        this.fresh = false;
+      }
+    });
+  }
+
+  /**
+   * Read the radio's channels, then its contacts (the slow part), unless
+   * they were read since it connected (or `again`). One read at a time: a
+   * second call waits for it.
+   */
+  refresh(again = false): Promise<void> {
+    if (this.reading) {
+      return this.reading;
+    }
+    if (this.radio.state() !== 'connected' || (this.fresh && !again)) {
+      return Promise.resolve();
+    }
+    this.loadingChannels.set(true);
+    this.loadingContacts.set(true);
+    this.reading = (async () => {
+      try {
+        try {
+          await this.loadChannels();
+        } finally {
+          this.loadingChannels.set(false);
+        }
+        this.contacts.set(await this.radio.contacts());
+        this.fresh = true;
+      } finally {
+        this.loadingChannels.set(false);
+        this.loadingContacts.set(false);
+        this.reading = null;
+      }
+    })();
+    return this.reading;
+  }
+
+  /** The contact with this key, or key prefix, as last read. */
+  contact(key: string): RadioContact | undefined {
+    return key ? this.contacts()?.find((c) => c.publicKey.startsWith(key)) : undefined;
+  }
+
+  /** Unread messages in the chats whose keys start so. */
+  private unreadIn(prefix: string): number {
+    return Object.entries(this.chats())
+      .filter(([key]) => key.startsWith(prefix))
+      .reduce((total, [, chat]) => total + chat.unread, 0);
   }
 
   /** Read the radio's channels again. */

@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { ChatHistory } from '../chat/chat-history';
 import { Icon } from '../icon';
 import { NodeLink } from '../node/node-link';
 import presetFile from '../radio/presets.json';
@@ -90,6 +91,15 @@ export function clockWords(offset: number): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, Icon, RouterLink],
   styles: `
+    .busy {
+      position: sticky;
+      bottom: 0;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--ink-2);
+      box-shadow: 0 -4px 16px rgb(0 0 0 / 40%);
+    }
     .panel {
       display: grid;
       gap: 12px;
@@ -116,7 +126,7 @@ export function clockWords(offset: number): string {
     }
     .row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
     select {
@@ -156,7 +166,11 @@ export function clockWords(offset: number): string {
         @if (radio.problem(); as problem) {
           <p class="said">{{ problem }}</p>
         }
-        @if (radio.hasRemembered()) {
+        @if (radio.state() === 'connecting') {
+          <p class="loading" role="status">
+            <span class="spinner"></span> Connecting to {{ radio.name() ?? 'your radio' }}…
+          </p>
+        } @else if (radio.hasRemembered()) {
           <div class="actions">
             <button
               class="btn btn-sm"
@@ -226,7 +240,7 @@ export function clockWords(offset: number): string {
           <button
             class="btn btn-ghost btn-sm"
             type="button"
-            [disabled]="busy()"
+            [disabled]="busy() || history.loadingContacts()"
             (click)="refresh()"
           >
             Refresh
@@ -419,7 +433,11 @@ export function clockWords(offset: number): string {
 
       <section class="panel contacts">
         <h2>Contacts</h2>
-        @if (contacts().length) {
+        @if (history.loadingContacts()) {
+          <p class="loading" role="status">
+            <span class="spinner"></span> Reading the contacts from your radio…
+          </p>
+        } @else if (contacts().length) {
           <ul>
             @for (c of contacts(); track c.publicKey) {
               <li>
@@ -461,6 +479,10 @@ export function clockWords(offset: number): string {
           </p>
         }
       </section>
+
+      @if (busy()) {
+        <p class="busy loading" role="status"><span class="spinner small"></span> {{ doing() }}</p>
+      }
     }
   `,
 })
@@ -470,9 +492,14 @@ export class RadioScreen {
   protected readonly presets = PRESETS;
   protected readonly CUSTOM = CUSTOM;
 
+  protected readonly history = inject(ChatHistory);
+
   protected readonly busy = signal(false);
+  /** What it's doing with the radio while busy. */
+  protected readonly doing = signal('');
   protected readonly said = signal<string | null>(null);
-  protected readonly contacts = signal<RadioContact[]>([]);
+  /** The radio's contacts, every type (as read for Chat too). */
+  protected readonly contacts = computed(() => this.history.contacts() ?? []);
 
   protected readonly newName = signal('');
   protected readonly power = signal('');
@@ -535,7 +562,7 @@ export class RadioScreen {
     // On connecting: read everything, and start the fields from it.
     effect(() => {
       if (this.radio.state() === 'connected') {
-        void this.refresh();
+        void this.refresh(false);
       }
     });
   }
@@ -570,46 +597,55 @@ export class RadioScreen {
     this.asking.set(false);
   }
 
-  protected async refresh(): Promise<void> {
-    await this.run(null, async () => {
+  /** Read its settings, then its contacts (again, or only if not read since it connected). */
+  protected async refresh(again = true): Promise<void> {
+    await this.run(null, 'Reading your radio…', async () => {
       await this.radio.refresh();
-      this.contacts.set(await this.radio.contacts());
       this.fill();
     });
+    this.history.refresh(again).catch(() => undefined);
   }
 
   protected async setClock(): Promise<void> {
-    await this.run('The clock is set from the phone.', () => this.radio.setClock());
+    await this.run('The clock is set from the phone.', 'Setting the clock…', () =>
+      this.radio.setClock(),
+    );
   }
 
   protected async advert(kind: 'flood' | 'zero-hop'): Promise<void> {
     await this.run(
       kind === 'flood' ? 'Advert sent across the mesh.' : 'Advert sent to radios nearby.',
+      'Sending the advert…',
       () => this.radio.advert(kind),
     );
   }
 
   protected async rename(): Promise<void> {
     const name = this.newName().trim();
-    await this.run(`Renamed ${name}. Others see it after the next advert.`, () =>
+    await this.run(`Renamed ${name}. Others see it after the next advert.`, 'Renaming…', () =>
       this.radio.rename(name),
     );
   }
 
   protected async setPower(): Promise<void> {
     const dBm = Number(this.power());
-    await this.run(`TX power set to ${dBm} dBm.`, () => this.radio.setPower(dBm));
+    await this.run(`TX power set to ${dBm} dBm.`, 'Setting the power…', () =>
+      this.radio.setPower(dBm),
+    );
   }
 
   protected async setPosition(): Promise<void> {
     const [lat, lon] = [Number(this.lat()), Number(this.lon())];
-    await this.run(`Position set to ${lat}, ${lon}.`, () => this.radio.setPosition(lat, lon));
+    await this.run(`Position set to ${lat}, ${lon}.`, 'Setting the position…', () =>
+      this.radio.setPosition(lat, lon),
+    );
   }
 
   protected async share(): Promise<void> {
     const share = !this.radio.sharesPosition();
     await this.run(
       share ? 'Adverts now share its position.' : 'Adverts no longer share its position.',
+      'Changing its adverts…',
       () => this.radio.sharePosition(share),
     );
   }
@@ -617,15 +653,16 @@ export class RadioScreen {
   protected async setFrequency(f: Frequency): Promise<void> {
     this.asking.set(false);
     // The radio restarts: the screen then says so, and offers to connect again.
-    await this.run(null, () => this.radio.setFrequency(f));
+    await this.run(null, 'Setting the frequency and restarting…', () => this.radio.setFrequency(f));
   }
 
   protected async resetPath(c: RadioContact): Promise<void> {
     await this.run(
       `The path to ${c.name} is reset: the next message finds a new one.`,
+      'Resetting the path…',
       async () => {
         await this.radio.resetPath(c.publicKey);
-        this.contacts.set(await this.radio.contacts());
+        await this.history.refresh(true);
       },
     );
   }
@@ -638,14 +675,19 @@ export class RadioScreen {
     ) {
       return;
     }
-    await this.run(`Removed ${c.name}.`, async () => {
+    await this.run(`Removed ${c.name}.`, `Removing ${c.name}…`, async () => {
       await this.radio.removeContact(c.publicKey);
-      this.contacts.set(await this.radio.contacts());
+      await this.history.refresh(true);
     });
   }
 
-  /** Do something with the radio, saying how it went. */
-  private async run(done: string | null, action: () => Promise<void>): Promise<void> {
+  /** Do something with the radio, saying what while it does, and how it went. */
+  private async run(
+    done: string | null,
+    doing: string,
+    action: () => Promise<void>,
+  ): Promise<void> {
+    this.doing.set(doing);
     this.busy.set(true);
     this.said.set(null);
     try {
