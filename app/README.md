@@ -105,7 +105,9 @@ The debug APK installs on any Android 7 (API 24) or newer phone:
 - **Without a cable:** copy the APK to the phone and open it; Android asks
   to allow installing apps from that source the first time.
 
-It's a debug build, signed with a key made on the computer that built it,
-for trying it out; a phone that has one build won't take another signed
-with a different key until the old one is uninstalled. Signed releases
-come with the app's first release.
+It's a debug build, for trying it out. Debug builds are all signed with
+the same key, `android/app/debug.keystore` in the repo, so a newer one (from
+CI or any computer) installs over the last and the app keeps its data. That
+key is public, so it's only for test builds; releases get their own,
+private key. A build from before the shared key (2026-10-25) has to be
+uninstalled once first.

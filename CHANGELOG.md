@@ -80,6 +80,8 @@ may change how the bot is configured).
   Mailbox, Check-ins, Chat, Weather, Bible, Node and Radio; the passphrase
   box on Mailbox folds away until opened. The Weather and verse screen
   became the two tabs.
+- **The phone app's debug builds share one signing key** (in the repo), so
+  each new build installs over the last and keeps the app's data.
 - `comm` is `alert` on its own channel, sharing its code.
 - The web console stores its state under aiohttp `AppKey`s, which silences
   aiohttp's warnings.
