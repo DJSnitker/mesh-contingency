@@ -7,6 +7,12 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-25
+
+The phone app (`app/`) for users, over their own radio's Bluetooth: an
+Android debug APK is attached to the release. And `area`, a public command
+for the counties the node watches.
+
 ### Added
 - **`area [county, ST]`**, a public command: alone, the counties `[alerts]`
   watches; with one, that county's latest report (alerts, conditions, wind,
@@ -111,6 +117,30 @@ may change how the bot is configured).
 - `comm` is `alert` on its own channel, sharing its code.
 - The web console stores its state under aiohttp `AppKey`s, which silences
   aiohttp's warnings.
+
+### Upgrading from 0.8.2
+
+```sh
+git pull
+.venv/bin/python -m pip install -e ".[console]"   # or -e . without the console
+cd console && npm ci && npm run build && cd ..     # if you use the console
+```
+
+The install registers the new `area` command. It's off until listed under
+`[commands]` in `config.toml`, and needs `[alerts] counties`:
+
+```toml
+area = { permission = "public" }
+```
+
+Then restart the bot. The phone app needs nothing else from the node: it
+sends the same commands a user's radio does.
+
+**The phone app:** install `mesh-contingency-0.9.0-debug.apk` from the
+release on an Android 7 or newer phone (see `app/README.md`, "Installing it
+on a phone"). It's a debug build, signed with the key in the repo, so it
+installs over any build since 2026-10-25 and keeps the app's data. A build
+from before then has to be uninstalled once first.
 
 ## [0.8.2] - 2026-10-23
 
@@ -628,6 +658,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.9.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.9.0
 [0.8.2]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.2
 [0.8.1]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.1
 [0.8.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.0
