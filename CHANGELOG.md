@@ -85,6 +85,12 @@ may change how the bot is configured).
   any other failure there already did.
 - **Stopping disconnects the radio** even when it doesn't answer the request
   to stop fetching messages.
+- **A computer restart is told as one, even when shutting down took the
+  radio first:** the radio's USB can go a moment before the bot is stopped,
+  and the next start told admins `Node problem: the radio was disconnected
+  for 5h 35m (reconnect_failed), and it restarted`. Now it's `Node
+  restarted: the computer started 9m ago; the radio was lost 5h 25m before
+  (reconnect_failed)`.
 - **`[contacts] auto_add`** that isn't a list of types (e.g. `"chat"`) now
   stops the bot with a clear message instead of a confusing one or a crash.
 
