@@ -344,6 +344,18 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
                       self.out.getvalue())
         self.assertFalse(self.task.done())  # it runs on
 
+    async def test_area_is_on_with_counties_to_report(self):
+        self.enterContext(mock.patch("mesh_contingency.bot.AlertWatcher.run", mock.AsyncMock()))
+        self.enterContext(mock.patch("mesh_contingency.bot.AreaWeather.run", mock.AsyncMock()))
+        await self.start(CONFIG + '\n[alerts]\ncounties = ["Taylor, TX"]\n')
+        out = self.out.getvalue()
+        self.assertIn("Area weather: 1 county every 15 min.", out)
+        self.assertNotIn("area has no counties", out)
+
+    async def test_area_says_why_it_is_off_without_counties(self):
+        await self.start()
+        self.assertIn("Warning: area has no counties to report on: it needs [alerts] counties.", self.out.getvalue())
+
     async def test_startup(self):
         await self.start()
         # No channel messages

@@ -364,7 +364,6 @@ async def _main(output):
             tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
 
     convert_settings()
-    warn_unconfigured()
     directory.on_change.append(on_users_reloaded)
     # Watch the users file; SIGHUP (kill -HUP <pid>) reloads it straight away.
     wake = asyncio.Event()
@@ -443,6 +442,8 @@ async def _main(output):
         state.area_weather = AreaWeather(state.alert_watcher, state)
         print(f"Area weather: {state.area_weather.describe()}.")
         area_weather = asyncio.create_task(state.area_weather.run())
+    # After the alert watcher: area is off without one.
+    warn_unconfigured()
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
