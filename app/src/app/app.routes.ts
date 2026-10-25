@@ -24,14 +24,14 @@ export const routes: Routes = [
   { path: 'chat/dm/:key', component: ChatScreen, title: 'Chat' },
   { path: 'chat/channel/:name', component: ChatScreen, title: 'Chat' },
   { path: 'radio', component: RadioScreen, title: 'Radio' },
-  { path: 'email', component: EmailScreen, title: 'Email' },
+  { path: 'mailbox/email', component: EmailScreen, title: 'Email' },
   { path: 'weather', component: WeatherScreen, title: 'Weather' },
   { path: 'bible', component: BibleScreen, title: 'Bible' },
   { path: 'radio/licenses', component: LicensesScreen, title: 'Open-source licenses' },
   { path: '**', redirectTo: 'node' },
 ];
 
-/** The tab bar, in order. Email is reached from Node. */
+/** The tab bar, in order. Email is reached from Mailbox, the licenses from Radio. */
 export const TABS = [
   { path: '/mailbox', label: 'Mailbox', icon: 'inbox' },
   { path: '/checkins', label: 'Check-ins', icon: 'check' },

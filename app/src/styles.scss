@@ -224,3 +224,11 @@ details.accordion {
   height: 1em;
   border-width: 2px;
 }
+
+// Each screen (the routed component, beside the router outlet in <main>)
+// spaces its panels as <main> does.
+main > :not(router-outlet) {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}

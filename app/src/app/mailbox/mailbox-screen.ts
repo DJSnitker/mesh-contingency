@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
+import { RouterLink } from '@angular/router';
+
 import { Icon } from '../icon';
 import { NeedsNode } from '../node/needs-node';
 import { MAX_COMMAND, NodeLink } from '../node/node-link';
@@ -42,7 +44,7 @@ export function passphraseProblem(passphrase: string, again: string): string | n
 @Component({
   selector: 'mc-mailbox',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, NeedsNode, StepLine],
+  imports: [Icon, NeedsNode, RouterLink, StepLine],
   styles: `
     .panel {
       display: grid;
@@ -277,6 +279,12 @@ export function passphraseProblem(passphrase: string, again: string): string | n
         }
       </div>
     </details>
+
+    <ul class="more">
+      <li>
+        <a routerLink="/mailbox/email"><mc-icon name="mail" /> Email</a>
+      </li>
+    </ul>
   `,
 })
 export class MailboxScreen {

@@ -10,7 +10,7 @@ describe('EmailScreen', () => {
     localStorage.clear();
   });
 
-  const open = (ready = true) => openScreen('/email', ble, ready);
+  const open = (ready = true) => openScreen('/mailbox/email', ble, ready);
   const sent = () => ble.sent.map(([, text]) => text);
 
   it('asks for the radio and the node first', async () => {

@@ -133,7 +133,8 @@ follows.
   opened).
 
 The tabs, in order: Mailbox, Check-ins, Chat, Weather, Bible, Node, Radio;
-Email opens from the Node screen.
+Email opens from the foot of Mailbox (`/mailbox/email`), and the licenses
+from the foot of Radio.
 - **Check-ins:** `ok [status]` with quick choices ("ok", "need help", ...),
   each confirmed before it's sent,
   and `status [name]` (alone, your own). The roll call (`checkins`) is for

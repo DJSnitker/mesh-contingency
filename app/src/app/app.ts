@@ -1,5 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  ElementRef,
+  inject,
+  viewChild,
+} from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { TABS } from './app.routes';
 import { ChatHistory } from './chat/chat-history';
@@ -33,8 +41,18 @@ export class App {
     }
   });
 
+  /** The screen's scrolling area (the page itself doesn't scroll). */
+  private readonly main = viewChild<ElementRef<HTMLElement>>('main');
+
   constructor() {
     // Back to the radio from last time, if there was one.
     void this.radio.reconnect();
+    // Each screen opens at its top, even from a link at the foot of another.
+    const navigated = inject(Router).events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        this.main()?.nativeElement.scrollTo?.({ top: 0 });
+      }
+    });
+    inject(DestroyRef).onDestroy(() => navigated.unsubscribe());
   }
 }

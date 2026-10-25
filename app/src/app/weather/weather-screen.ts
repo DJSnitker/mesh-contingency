@@ -37,8 +37,8 @@ import { AreaWeather } from './area-weather';
     }
     .cards {
       display: grid;
-      /* Two across on a tablet. */
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      /* Two across on a tablet; a card alone fills the row. */
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       align-items: start;
       gap: 12px;
     }
@@ -126,7 +126,7 @@ import { AreaWeather } from './area-weather';
         }
       </div>
       @if (others().length) {
-        <details class="panel accordion more">
+        <details class="panel accordion others">
           <summary>
             <h2>Show more ({{ others().length }})</h2>
           </summary>
