@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing and the phone app done, 0.8.2 released; field testing paused · Written 2026-10-21 · Updated 2026-10-24 (phone app planned)
+Status: every item but field testing and the phone app done, 0.8.2 released; the phone app's PRs 1–9 merged; field testing paused · Written 2026-10-21 · Updated 2026-10-25 (phone app progress)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -31,14 +31,14 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 | 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
-| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md), PR 2 of 10 |
+| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); next PR 10, docs and a release |
 
-Recommended order: everything but field testing is done and released (0.8.2). Next, the phone app (16), PR by PR; its Bluetooth checks, like field testing (9), wait for the radios.
+Recommended order: everything but field testing and the phone app is done and released (0.8.2). The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
-Where things stood on 2026-10-23:
+Where things stood on 2026-10-25:
 
 - **Merged and released:** everything but field testing. Since 0.7.0: #53
   (the demo console), #54 (this backlog), #55 (item 11), #56 (item 13), #57
@@ -49,8 +49,12 @@ Where things stood on 2026-10-23:
   **0.8.1** (#61, tag `v0.8.1`); the wiki's Commands page covers it. Then
   #62 (`setemail` and the console's Edit emails), released as **0.8.2** (this
   PR, tag `v0.8.2`); the wiki's Commands page and Admin Guide cover it.
+- **Merged, not released yet** (`CHANGELOG.md`, Unreleased): #64 (code
+  review fixes), the phone app (#65–#77, item 16) and the changes from its
+  first phone test (#78–#81), including the bot's new public `area` command
+  (#78) and its startup warning fix (#79).
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
-  `radio` as admin in its `config.toml`; `#contingency-wx` is channel slot 1
+  `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
   in `console.url`, new at each start (`mesh-contingency-console` opens it).
   After a pull that changes `console/`: `npm ci && npm run build` there, then
@@ -79,8 +83,12 @@ Steps, in order:
 5. Use the web console day to day, and note anything that would make it
    better; access from other devices is out of scope until it has real
    logins and HTTPS (see [web-console.md](web-console.md)).
-6. The phone app (item 16, `com.meshcontingency`): the skeleton (PR 2 of
-   [mobile-app.md](mobile-app.md)) is in `app/`; next is PR 3, Bluetooth.
+6. The phone app (item 16, `com.meshcontingency`): every screen is built
+   and runs on the user's phone with their own radio (see "First phone
+   test" in [mobile-app.md](mobile-app.md)). Next: a session with a second
+   radio and user (its checklist is there), then PR 10, the wiki's user
+   guide and a signed release APK, which needs a decision on where the
+   release signing key is kept.
 
 Paused: item 9, field testing, until more radios arrive.
 
