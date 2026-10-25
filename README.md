@@ -969,9 +969,12 @@ Mailbox, Chat, Weather and More (the rest).
   forecast periods, and any alert out for it. The bot asks the NWS every 15
   min and keeps the last report, so a card says how old it is, and why if
   it couldn't be updated (no internet, say). Without counties in `[alerts]`
-  there's nothing to show. Below the cards: **Post alert test** (`testalert`;
-  the page asks first, since it goes out on the air) and **Look up counties
-  again** (`alertmap`).
+  there's nothing to show. Star a county (☆) to show it first: once any are
+  starred, the rest wait under **Show more**. The stars are kept in this
+  browser. Below the cards: **Weather anywhere**, any zipcode or county as
+  `wx` answers it; then **Post alert test** (`testalert`; the page asks
+  first, since it goes out on the air) and **Look up counties again**
+  (`alertmap`).
 - **Bible:** the verse of the day, and **Look up a verse** (`verse`).
 - **Radio:** **Advert**, **Flood advert** and **Back up now**; the radio's
   [settings](#radio-settings), with a form for each change, and the

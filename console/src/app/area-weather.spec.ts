@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 
 import { Api } from './api';
-import { AreaWeather } from './area-weather';
+import { AreaWeather, FAVORITES, wxLines } from './area-weather';
 import { COMMANDS, FakeApi, WEATHER } from '../testing/fakes';
 
 /** Text with its runs of spaces made one. */
@@ -20,6 +20,7 @@ describe('AreaWeather', () => {
   let api: FakeApi;
 
   beforeEach(() => {
+    localStorage.clear();
     api = new FakeApi();
     TestBed.configureTestingModule({ providers: [{ provide: Api, useValue: api }] });
   });
@@ -103,6 +104,83 @@ describe('AreaWeather', () => {
     api.weather = () => throwError(() => new HttpErrorResponse({ status: 0 }));
     const element = await render();
     expect(text(element.querySelector('[role=alert]'))).toBe("can't reach the bot");
+  });
+
+  it('puts the starred counties first, the rest under Show more, kept in the browser', async () => {
+    const fixture = TestBed.createComponent(AreaWeather);
+    await fixture.whenStable();
+    const element: HTMLElement = fixture.nativeElement;
+    const names = (where: string) =>
+      [...element.querySelectorAll(`${where} .area h2`)].map((h) => text(h));
+    expect(element.textContent).toContain('Star a county to see it first');
+    expect(element.querySelector('details.others')).toBeNull();
+
+    element.querySelector<HTMLButtonElement>('[aria-label="Star Callahan, TX"]')!.click();
+    await fixture.whenStable();
+    element.querySelector<HTMLButtonElement>('[aria-label="Star Taylor, TX"]')!.click();
+    await fixture.whenStable();
+    expect(names('.favorites')).toEqual(['Callahan, TX', 'Taylor, TX']); // in the order starred
+    const more = element.querySelector<HTMLDetailsElement>('details.others')!;
+    expect(more.open).toBe(false);
+    expect(text(more.querySelector('summary'))).toBe('Show more (1)');
+    expect(names('details.others')).toEqual(['Jones, TX']);
+    expect(JSON.parse(localStorage.getItem(FAVORITES)!)).toEqual(['Callahan, TX', 'Taylor, TX']);
+    expect(
+      element.querySelector('[aria-label="Unstar Taylor, TX"]')?.getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Kept for next time; a county no longer watched is left out.
+    localStorage.setItem(FAVORITES, JSON.stringify(['Jones, TX', 'Nolan, TX']));
+    const again: HTMLElement = await render();
+    expect([...again.querySelectorAll('.favorites .area h2')].map((h) => text(h))).toEqual([
+      'Jones, TX',
+    ]);
+  });
+
+  it('looks up the weather anywhere, and says when it fails', async () => {
+    api.answer = (command, where) =>
+      of(
+        where === '33101'
+          ? {
+              command,
+              messages: [
+                '33101 ALERT: Rip Current Statement | Mostly Cloudy, 20% precip 6h | 82F E14mph G18',
+              ],
+              asks: false,
+              ok: true,
+            }
+          : { command, messages: ['wx: no such zipcode 99999'], asks: false, ok: false },
+      );
+    const fixture = TestBed.createComponent(AreaWeather);
+    await fixture.whenStable();
+    const element: HTMLElement = fixture.nativeElement;
+    const box = element.querySelector<HTMLInputElement>('input[name=where]')!;
+    box.value = ' 33101 ';
+    box.dispatchEvent(new Event('input'));
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+    expect(api.ran.at(-1)).toEqual(['wx', '33101']);
+    const lines = [...element.querySelectorAll('.report li')];
+    expect(lines.map((li) => text(li))).toEqual([
+      '33101 ALERT: Rip Current Statement',
+      'Mostly Cloudy, 20% precip 6h',
+      '82F E14mph G18',
+    ]);
+    expect(lines[0].classList.contains('alert')).toBe(true);
+
+    box.value = '99999';
+    box.dispatchEvent(new Event('input'));
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+    expect(element.querySelector('.report')).toBeNull();
+    expect(text(element.querySelector('.lookup .problem'))).toBe('wx: no such zipcode 99999');
+  });
+
+  it('reads wx parts that came in numbered messages', () => {
+    expect(wxLines(['(1/2) Taylor, TX ALERT: Wind', '(2/2) Advisory | 81F S11mph'])).toEqual([
+      'Taylor, TX ALERT: Wind Advisory',
+      '81F S11mph',
+    ]);
   });
 
   describe('the alert buttons', () => {

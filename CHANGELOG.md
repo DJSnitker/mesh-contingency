@@ -17,7 +17,9 @@ may change how the bot is configured).
   chat thread, with a box to post on `#contingency-wx` and
   `#contingency-comm`; the Send page is gone (`/inbox` and `/send` lead to
   Mailbox and Chat). New: **Bible** (the verse of the day, and looking one
-  up) and **Look up a check-in** on Check-ins. Every page shows a spinner
+  up), **Look up a check-in** on Check-ins, and on Weather, starred
+  counties first (kept in the browser) with the rest under Show more, and
+  **Weather anywhere** (`wx`). Every page shows a spinner
   while it reads. The phone app and the console share their rows, folding
   sections and spinners.
 

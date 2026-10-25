@@ -16,7 +16,14 @@
   padding: 16px 18px;
 
   header {
-    display: grid;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+
+    > div {
+      display: grid;
+    }
   }
 
   h2 {
@@ -125,4 +132,77 @@
   padding: 12px 14px;
   border: 1px solid rgb(255 95 31 / 45%);
   border-radius: 10px;
+}
+
+// A county's star: its favorites come first, in this browser.
+.star {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    color: var(--orange);
+  }
+}
+
+.others {
+  summary h2 {
+    font-size: 1.1rem;
+  }
+}
+
+.lookup {
+  display: grid;
+  gap: 12px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.look {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  input {
+    flex: 1 1 240px;
+    max-width: 360px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--text);
+    font: inherit;
+
+    &::placeholder {
+      color: var(--muted);
+    }
+  }
+}
+
+// wx's answer, a part a line; an alert first, in orange.
+.report {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 6px 10px;
+    border-left: 3px solid var(--sky);
+    background: var(--ink-3);
+  }
+
+  li.alert {
+    border-left-color: var(--orange);
+    color: var(--orange);
+    font-weight: 600;
+  }
 }

@@ -27,92 +27,75 @@
       <code>config.toml</code>, and restart the bot.
     </p>
   } @else {
-    <div class="cards">
-      @for (area of w.areas; track area.county) {
-        <article class="panel area" [class.attention]="area.alerts.length">
-          <header>
-            <h2>{{ area.county }}</h2>
-            @if (area.place) {
-              <span class="muted">near {{ area.place }}</span>
+    @if (starred().length) {
+      <div class="cards favorites">
+        @for (area of starred(); track area.county) {
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: area, now: w.now }" />
+        }
+      </div>
+      @if (others().length) {
+        <details class="panel accordion others">
+          <summary>
+            <h2>Show more ({{ others().length }})</h2>
+          </summary>
+          <div class="accordion-body cards">
+            @for (area of others(); track area.county) {
+              <ng-container *ngTemplateOutlet="card; context: { $implicit: area, now: w.now }" />
             }
-          </header>
-
-          @for (alert of area.alerts; track $index) {
-            <p class="alert">
-              <mc-icon name="alert" />
-              <span
-                >{{ alert.event ?? 'Alert' }}
-                @if (alert.ends) {
-                  <span class="muted">until {{ when(alert.ends) }}</span>
-                }
-              </span>
-            </p>
-          }
-
-          @if (area.updated) {
-            @if (area.temp_f != null) {
-              <div class="now">
-                <strong>{{ round(area.temp_f) }}°</strong>
-                <span>{{ area.text ?? '' }}</span>
-              </div>
-              <p class="details">
-                @if (wind(area); as wind) {
-                  <span>Wind {{ wind }}</span>
-                }
-                @if (area.humidity != null) {
-                  <span>Humidity {{ round(area.humidity) }}%</span>
-                }
-                @if (area.feels_f != null) {
-                  <span>Feels like {{ round(area.feels_f) }}°</span>
-                }
-              </p>
-            } @else {
-              <p class="muted">No station near it is reporting.</p>
-            }
-
-            @if (area.periods?.length) {
-              <ul class="periods">
-                @for (period of area.periods; track period.name) {
-                  <li>
-                    <span class="name">{{ period.name }}</span>
-                    <span>{{ period.temp }}°{{ period.unit }} {{ period.text }}</span>
-                    <span class="pop">{{ period.pop ? period.pop + '%' : '' }}</span>
-                  </li>
-                }
-              </ul>
-            }
-
-            <p class="foot muted">
-              @if (area.station) {
-                {{ area.station }}
-                @if (area.observed) {
-                  · {{ ago(area.observed, w.now) }}
-                }
-              } @else {
-                Updated {{ ago(area.updated, w.now) }}
-              }
-            </p>
-          }
-
-          @if (area.problem) {
-            <p class="stale">
-              <mc-icon name="clock" />
-              @if (area.updated) {
-                Not updated since {{ ago(area.updated, w.now) }}: {{ area.problem }}
-              } @else {
-                No report yet: {{ area.problem }}
-              }
-            </p>
-          } @else if (!area.updated) {
-            <p class="muted">Asking the NWS…</p>
-          }
-        </article>
+          </div>
+        </details>
       }
-    </div>
+    } @else {
+      <p class="muted">Star a county to see it first; the rest then wait under Show more.</p>
+      <div class="cards all">
+        @for (area of w.areas; track area.county) {
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: area, now: w.now }" />
+        }
+      </div>
+    }
   }
 } @else if (!problem()) {
   <p class="loading" role="status"><span class="spinner"></span> Reading the weather…</p>
 }
+
+<section class="panel lookup" aria-labelledby="lookup-title">
+  <h2 id="lookup-title"><mc-icon name="cloud" /> Weather anywhere</h2>
+  <p class="muted">
+    Any US zipcode, or a county and state (Taylor, TX), as <code>wx</code> answers it.
+  </p>
+  <div class="look">
+    <input
+      name="where"
+      placeholder="79601 or Taylor, TX"
+      autocomplete="off"
+      aria-label="A zipcode, or a county and state"
+      [value]="where()"
+      (input)="where.set(value($event))"
+      (keydown.enter)="lookUp()"
+    />
+    <button
+      class="btn btn-ghost"
+      type="button"
+      [disabled]="!where().trim() || looking()"
+      (click)="lookUp()"
+    >
+      @if (looking()) {
+        <span class="spinner small"></span>
+      }
+      Look it up
+    </button>
+  </div>
+  @if (wx(); as report) {
+    <ul class="report">
+      @for (line of report.lines; track $index) {
+        <li [class.alert]="$first && report.alert">{{ line }}</li>
+      }
+    </ul>
+  }
+  @if (wxSaid(); as said) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ said }}</p>
+  }
+</section>
 
 @if (has('testalert') || has('alertmap')) {
   <section class="panel alert-setup" aria-labelledby="alert-setup-title">
@@ -163,3 +146,95 @@
     }
   </section>
 }
+
+<ng-template #card let-area let-now="now">
+  <article class="panel area" [class.attention]="area.alerts.length">
+    <header>
+      <div>
+        <h2>{{ area.county }}</h2>
+        @if (area.place) {
+          <span class="muted">near {{ area.place }}</span>
+        }
+      </div>
+      <button
+        class="star"
+        type="button"
+        [attr.aria-pressed]="isFavorite(area.county)"
+        [attr.aria-label]="(isFavorite(area.county) ? 'Unstar ' : 'Star ') + area.county"
+        (click)="toggleFavorite(area.county)"
+      >
+        {{ isFavorite(area.county) ? '★' : '☆' }}
+      </button>
+    </header>
+
+    @for (alert of area.alerts; track $index) {
+      <p class="alert">
+        <mc-icon name="alert" />
+        <span
+          >{{ alert.event ?? 'Alert' }}
+          @if (alert.ends) {
+            <span class="muted">until {{ when(alert.ends) }}</span>
+          }
+        </span>
+      </p>
+    }
+
+    @if (area.updated) {
+      @if (area.temp_f != null) {
+        <div class="now">
+          <strong>{{ round(area.temp_f) }}°</strong>
+          <span>{{ area.text ?? '' }}</span>
+        </div>
+        <p class="details">
+          @if (wind(area); as wind) {
+            <span>Wind {{ wind }}</span>
+          }
+          @if (area.humidity != null) {
+            <span>Humidity {{ round(area.humidity) }}%</span>
+          }
+          @if (area.feels_f != null) {
+            <span>Feels like {{ round(area.feels_f) }}°</span>
+          }
+        </p>
+      } @else {
+        <p class="muted">No station near it is reporting.</p>
+      }
+
+      @if (area.periods?.length) {
+        <ul class="periods">
+          @for (period of area.periods; track period.name) {
+            <li>
+              <span class="name">{{ period.name }}</span>
+              <span>{{ period.temp }}°{{ period.unit }} {{ period.text }}</span>
+              <span class="pop">{{ period.pop ? period.pop + '%' : '' }}</span>
+            </li>
+          }
+        </ul>
+      }
+
+      <p class="foot muted">
+        @if (area.station) {
+          {{ area.station }}
+          @if (area.observed) {
+            · {{ ago(area.observed, now) }}
+          }
+        } @else {
+          Updated {{ ago(area.updated, now) }}
+        }
+      </p>
+    }
+
+    @if (area.problem) {
+      <p class="stale">
+        <mc-icon name="clock" />
+        @if (area.updated) {
+          Not updated since {{ ago(area.updated, now) }}: {{ area.problem }}
+        } @else {
+          No report yet: {{ area.problem }}
+        }
+      </p>
+    } @else if (!area.updated) {
+      <p class="muted">Asking the NWS…</p>
+    }
+  </article>
+</ng-template>
