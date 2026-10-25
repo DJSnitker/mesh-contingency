@@ -32,8 +32,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 | 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
 | 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; next PR 10, the user guide and a signed release APK |
+| 17 | The web console laid out and working like the phone app | feature | large | planned: [console-like-app.md](console-like-app.md) |
 
-Recommended order: everything but field testing and the phone app is done and released (0.9.0, with the phone app as it stands). The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
+Recommended order: everything but field testing, the phone app and the console redesign (17) is done and released (0.9.0, with the phone app as it stands). Item 17, the console like the app, is next, PR by PR. The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -90,6 +91,9 @@ Steps, in order:
    radio and user (its checklist is there), then PR 10, the wiki's user
    guide and a signed release APK, which needs a decision on where the
    release signing key is kept.
+7. The web console like the phone app (item 17,
+   [console-like-app.md](console-like-app.md)): PR 2, the layout, once the
+   plan is merged.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -636,6 +640,13 @@ always there.
   the panel in Vitest; then on the node, and with the network unplugged.
 
 ---
+
+## 17. The web console laid out and working like the phone app (planned)
+
+Asked 2026-10-25, after the phone app's first test: the console regrouped
+and styled like the app (its side menu kept), with Chat (channels and direct
+messages from the node), Weather favorites and lookup, Bible and Check-ins.
+The plan and its PRs are in [console-like-app.md](console-like-app.md).
 
 ## Housekeeping to do along the way
 
