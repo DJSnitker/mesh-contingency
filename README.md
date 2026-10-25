@@ -247,6 +247,25 @@ the channel; nobody is sent a direct message. For anyone to look up a
 zipcode's or county's alerts themselves, there is `wx <zipcode>` or
 `wx Taylor, TX`.
 
+**The weather now in the watched counties, `area`.** With `area = {
+permission = "public" }` under `[commands]`, anyone can ask for the counties
+`[alerts]` watches, and the latest report for one of them, in one message:
+
+```
+area
+→ area: Taylor, TX; Jones, TX
+area Taylor, TX
+→ Taylor, TX ALERT: Wind Advisory | 66F, Cloudy | SSE10mph G17 | 26m ago | Today: 81F Mostly Cloudy 4%
+```
+
+The county can be just its name (`area taylor`) when no other watched county
+shares it. The reports are the ones the bot keeps for the web console's
+dashboard (each county's nearest station and its forecast, every 15
+minutes), so `area` answers at once and never waits on the NWS; with the
+internet down it still sends the last report, with its age. They run
+whenever `area` or the console is on. The phone app's Weather tab is built
+on `area`.
+
 ### Weekly alert test
 
 So people know the alert channel works, the bot can post a test message to it
@@ -978,11 +997,11 @@ itself: see [`console/README.md`](console/README.md).
 
 ### Phone app
 
-*In progress:* a phone app for users, in `app/`, that talks Bluetooth to
+A phone app for users, in `app/`, that talks Bluetooth to
 the user's own MeshCore radio and reaches the node by ordinary direct
-messages, so the bot needs nothing new and its permissions, limits and
-sealing all apply. Android first; the plan is in
-[`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it connects
+messages, so its permissions, limits and sealing all apply; the bot needs
+only `area` turned on, for the Weather tab's county cards. Android first; the
+plan is in [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). It connects
 to the radio (its name, battery and firmware), finds the node, joins, and
 has the mailbox, check-ins, chat, the area's weather, the Bible, email,
 and the radio's own settings. Each release since 0.9.0 attaches its Android
@@ -1050,7 +1069,9 @@ mesh_contingency/
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
-  area_weather.py     the weather now in each watched county, for the console's Area Weather page
+  area_weather.py     the weather now in each watched county, for area and the console's dashboard
+  channel_log.py      the radio's channel messages since the bot started, for the console
+  radio_presets.py    MeshCore's regional radio presets, for the console's radio settings
   web/                the web console: [console] settings, server.py (key, cookie and
                       host checks; serving the app), api.py (the JSON API), launch.py
                       (mesh-contingency-console), static/ (the build)
@@ -1065,6 +1086,10 @@ mesh_contingency/
     mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          an admin's message to the alert channel
     alertmap.py       looking up the watched counties' NWS codes again
+    area.py           the weather now in a watched county, from area_weather.py
+    backup.py         a backup of the bot's data now
+    contact.py        removing one of the radio's contacts, or resetting the path to it
+    radio.py          the radio's settings (changed from the console only)
     testalert.py      posting the alert test now
     comm.py           an admin's message to the communications channel
     join.py           join, approve and deny
@@ -1087,7 +1112,8 @@ scripts/
 docs/
   branding/           the logo: lockups (light and dark), mark, app icons, favicon
   plans/              design plans and what was decided
-tests/                unit tests (python -m unittest)
+tests/                unit tests (python -m unittest); fixtures/app_replies.json, the
+                      replies the phone app reads, which both sides' tests check
 ```
 
 ## Writing a command
