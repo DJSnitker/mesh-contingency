@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: in progress: PR 1 (#87) merged; PR 2, the layout, open · Requested 2026-10-25
+Status: in progress: PRs 1 and 2 (#87, #88) merged; PR 3, Weather, open · Requested 2026-10-25
 
 ## Goal
 
