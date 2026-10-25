@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (first phone test; changes from it) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress: PRs 1–9 merged, and the changes from the first phone test (#78–#81); next, PR 10 (docs and a release) after a session with a second radio · Requested 2026-10-24 · Updated 2026-10-25 (phone test, Chat tabs, spinners, tablet, licenses)
 
 ## Goal
 
@@ -152,7 +152,13 @@ Email opens from the Node screen.
   kept on the phone until the next, and `verse <reference>`.
 - **Chat:** direct messages with any of the radio's contacts, and the
   radio's channels (Public, `#contingency-wx`, `#contingency-comm`, any
-  other), to read and post, like the official MeshCore app. Delivered or not
+  other), to read and post, like the official MeshCore app. Three tabs:
+  **Chat** (chats with people, newest first), **Channels** and **Contacts**
+  (every companion, with a Find box once there are many, to start a chat).
+  The radio's channels and contacts are read once per connection, the
+  channels first, and shared with the Node and Radio screens; until the
+  contacts are in, kept chats wait behind a spinner rather than show people
+  by their keys. Delivered or not
   is shown for each direct message; a channel post's length is held to what
   fits. The history is kept on the phone (app storage, clearable), since the
   radio only holds messages until they're fetched. The node isn't one of the
@@ -169,10 +175,17 @@ Email opens from the Node screen.
   The presets are a copy of the bot's (`app/src/app/radio/presets.json`,
   kept the same as `radio_presets.py` by `tests/test_app.py`). Like the bot,
   the app restarts the radio after a frequency change so it's surely in use,
-  then offers to connect again.
+  then offers to connect again. At its foot, a link to **Open-source
+  licenses** (`/radio/licenses`): the packages in the app, from the
+  production build's `3rdpartylicenses.txt`, and the Android libraries.
+
+Every screen turns a spinner while it waits: connecting (the header too), a
+command to the node, the radio's channels, contacts or settings, a Weather
+card, a chat message being sent.
 
 Styled like the web console: the same tokens and fonts (bundled, so nothing
-is fetched from the internet), cards that fit a phone.
+is fetched from the internet), cards that fit a phone. On a tablet the
+screens are a column down the middle (720 px at most), the tab bar too.
 
 ### Privacy
 
@@ -193,7 +206,9 @@ is fetched from the internet), cards that fit a phone.
 The console's stylesheet is listed in the app's build styles rather than
 copied. Its icons are a copy (`src/app/icon.ts`) that a repo test keeps the
 same: compiling the console's file from the app brings in a second Angular
-from `console/node_modules`, which breaks at run time. CI gets an **App** job (unit tests and the web
+from `console/node_modules`, which breaks at run time. `npm run demo` serves
+the app in a browser on the tests' fake radio, with made-up contacts and
+chats, to see the screens at any size. CI gets an **App** job (unit tests and the web
 build) and an **Android build** job (`./gradlew assembleDebug`, keeping the
 APK as an artifact). The Python package doesn't ship the app.
 
@@ -204,25 +219,57 @@ so 21 goes beside it (sdkman is already here).
 
 ## PRs
 
-1. **This plan** and its roadmap item.
+1. **This plan** and its roadmap item. *Done: #65.*
 2. **The app's skeleton:** `app/` with Angular and Capacitor, an Android build
    that installs and opens, the shared styles, the CI jobs, and the README's
-   "Phone app" section (building, installing the APK).
+   "Phone app" section (building, installing the APK). *Done: #66.*
 3. **Bluetooth:** `CapacitorBleConnection`, the write queue, permissions and
-   the Connect screen; tests against a fake plugin.
+   the Connect screen; tests against a fake plugin. *Done: #69.*
 4. **Commands over the mesh:** send one, wait, put numbered replies back
    together, notices; the shared reply fixtures and both sides' tests; the
-   Node screen (pick the node, `whoami`, Join).
-5. **Mailbox.**
-6. **Check-ins.**
-7. **Email, weather and verse.**
+   Node screen (pick the node, `whoami`, Join). *Done: #72 (first merged
+   into #69's branch as #70).*
+5. **Mailbox.** *Done: #73.*
+6. **Check-ins.** *Done: #74.*
+7. **Email, weather and verse.** *Done: #75.*
 8. **Chat:** direct messages and channels, and their history on the phone.
-9. **Radio:** the radio's settings and contacts.
+   *Done: #76.*
+9. **Radio:** the radio's settings and contacts. *Done: #77.*
 10. **Docs and a release:** the wiki's user guide, the changelog, a version
    number for the app, and a signed release APK.
 
+Then the first phone test (below) brought #78–#81.
+
 iOS after that: a cloud macOS build (GitHub Actions' macOS runners), with
 TestFlight once there's an Apple developer account.
+
+## First phone test (2026-10-25)
+
+On the user's Pixel 9 Pro, with the CI debug APK, then builds installed over
+USB; later also on a Lenovo tablet (TB336FU, landscape). The app connected
+to the user's radio once the official MeshCore app had let go of it (a radio
+takes one Bluetooth connection at a time). What it brought:
+
+- **#78:** the logo as the launcher icon; the tabs as they are now; the
+  passphrase box folded away; the Weather tab's county cards, from a new
+  public bot command `area` (the live node has `area = { permission =
+  "public" }`); the Bible tab; one shared debug signing key in the repo,
+  so each build installs over the last and keeps the app's data.
+- **#79:** the bot no longer warns at startup that `area` has no counties
+  (it checked before the alert watcher had read them).
+- **#80:** Send stayed disabled in a chat opened from a kept chat's key
+  prefix, before the contacts had loaded; fixed. Then Chat's three tabs, the
+  contacts read once per connection, the spinners, the tablet layout, the
+  Radio tab no longer running off a narrow phone's edge, and `npm run demo`.
+- **#81:** the Open-source licenses page, linked from Radio.
+
+Reading the contacts took only a few seconds on the real radio.
+
+Still to check with a second radio and another user: a direct message
+delivered both ways, a channel post heard, every screen's command to the
+node answered over the mesh, and the Radio tab's changes on a real radio,
+most of all **Share it in adverts** (a hand-written `SetOtherParams` frame)
+and reading the radio's location policy.
 
 ## Testing
 
@@ -230,9 +277,14 @@ Unit tests run anywhere (vitest, a fake radio connection like the console's
 `FakeApi`). The real test needs an Android phone and a second companion radio
 with Bluetooth, which is what field testing (roadmap item 9) is waiting for:
 until those radios arrive, each PR is checked on the emulator against the
-fake connection, and the Bluetooth parts wait for the hardware.
+fake connection, and the Bluetooth parts wait for the hardware. Since
+2026-10-25 the app also runs on the user's phone with their own radio
+(see [First phone test](#first-phone-test-2026-10-25)), which covers
+connecting and the radio's own requests, but not a second user.
 
 ## Open questions
 
 - Distribution: sideloaded APKs to start; Google Play (a one-time developer
   fee) when it's worth it.
+- The release signing key (PR 10): where it's kept and who holds it. The
+  debug key is in the repo on purpose; a release key must not be.
