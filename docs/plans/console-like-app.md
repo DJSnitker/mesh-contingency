@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: planned · Requested 2026-10-25
+Status: in progress: PR 1 (#87) merged; PR 2, the layout, open · Requested 2026-10-25
 
 ## Goal
 
@@ -29,8 +29,9 @@ settings).
     sees the reply; a Contacts tab to start one.
   - **Weather:** favorite counties first, the rest under Show more, and the
     weather anywhere (`wx`).
-  - **Bible and Check-ins:** look up a verse or the verse of the day; check
-    in as the console and look up anyone's check-in.
+  - **Bible and Check-ins:** look up a verse or the verse of the day; look
+    up anyone's check-in. (Not checking in as the console: `ok` records the
+    sender's own check-in, which the console, not a person, can't run.)
 - **Still this computer only** (`127.0.0.1`, the key in the link): nothing
   here changes who can reach the console.
 
@@ -42,11 +43,11 @@ The rail, in order (the app's names where they're the same thing):
 |---|---|---|
 | **Dashboard** | the node at a glance, health, live log | the same, in the app's panels |
 | **Mailbox** | Inbox (who has messages waiting); Send's *Leave a message* | both, on one page: the waiting messages per user, and *Leave a message* below |
-| **Check-ins** | the roll call | the roll call, plus *Check in* (as the console, with the app's quick choices) and *Look up a check-in* (`status`) |
-| **Chat** | Radio's Channels tab (read only); Send's channel posting | three tabs as in the app: **Chat** (direct messages, newest first, unread counts), **Channels** (every channel as a thread, with a box to post), **Contacts** (start a chat, with Find) |
+| **Check-ins** | the roll call | the roll call, plus *Look up a check-in* (`status`) |
+| **Chat** | Radio's Contacts and Channels tabs; Send's channel posting | three tabs as in the app: **Chat** (direct messages, newest first, unread counts), **Channels** (every channel as a thread, with a box to post, and what each is and what the bot posts there), **Contacts** (Radio's contacts tab moved here: each one's type, user or admin, path and when heard, with a filter, **Reset path** and **Remove**, and **Message** to start a chat) |
 | **Weather** | Area Weather: a card per county, weather alerts | the cards, with favorites (kept in the browser) shown first and the rest under Show more; *Weather anywhere* (`wx`); the alerts panel as now |
 | **Bible** | (none) | the verse of the day and *Look up a verse* (`verse`), as in the app |
-| **Radio** | Advertise, Backup, the radio's settings, contacts and channels | the same; its Channels tab lists the slots, and each opens its thread in Chat |
+| **Radio** | Advertise, Backup, the radio's settings, contacts and channels | the radio itself only: Advertise, Backup and its settings. Its contacts and channels move up to Chat (decided 2026-10-25: an admin managing a contact is usually about to message it, or just heard from it). Unlike the phone app, which keeps contacts on Radio too |
 | **Users** | users and join requests | the same, in the app's panels |
 | **History** | what admins have done | the same |
 
@@ -99,13 +100,16 @@ commands for the two hashtag channels over the radio.
 2. **Layout:** the rail regrouped (Mailbox, Chat, Bible added; Send gone),
    the app's panels, folding sections and spinners on every page, the phone
    width bottom bar with More; Mailbox (Inbox and *Leave a message*);
-   Check-ins' *Check in* and *Look up*; the Bible page. Chat starts as the
+   Check-ins' *Look up*; the Bible page. Chat starts as the
    Channels tab, read only, moved from Radio.
 3. **Weather:** favorites, Show more, *Weather anywhere*.
 4. **Chat, channels:** posting on any channel (the new API), threads with
-   unread counts, the Channels tab's box to post.
+   unread counts, the Channels tab's box to post; Radio's Channels tab
+   removed, since Chat's list then shows all it did.
 5. **Chat, direct messages:** the bot's conversation log, sending, replies
-   routed to the console; the Chat and Contacts tabs.
+   routed to the console; the Chat tab, and the Contacts tab built from
+   Radio's (its details, filter, Reset path and Remove) with Message added;
+   Radio's Contacts tab removed.
 6. **Docs:** the README's "Web console", the wiki's Admin Guide ("Use the
    web console"), the demo's screenshots, the changelog.
 

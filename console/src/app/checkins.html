@@ -61,5 +61,39 @@
     </section>
   }
 } @else if (!problem()) {
-  <p class="muted">Reading the check-ins…</p>
+  <p class="loading" role="status"><span class="spinner"></span> Reading the check-ins…</p>
+}
+
+@if (canLook()) {
+  <section class="panel" aria-labelledby="look-title">
+    <h2 id="look-title"><mc-icon name="users" /> Look up a check-in</h2>
+    <p class="muted">Someone's last check-in, by their radio's name or the start of their key.</p>
+    <div class="row look">
+      <label class="field">
+        <span class="sr-only">Name or key</span>
+        <input
+          name="who"
+          placeholder="Name or key"
+          autocomplete="off"
+          [value]="who()"
+          (input)="who.set(value($event))"
+          (keydown.enter)="lookUp()"
+        />
+      </label>
+      <button
+        class="btn btn-ghost"
+        type="button"
+        [disabled]="!who().trim() || looking.busy()"
+        (click)="lookUp()"
+      >
+        Look up
+      </button>
+    </div>
+    <mc-reply
+      [ran]="looking.last()"
+      [busy]="looking.busy()"
+      (confirmed)="looking.confirm()"
+      (dismissed)="looking.dismiss()"
+    />
+  </section>
 }

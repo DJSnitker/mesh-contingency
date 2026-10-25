@@ -938,14 +938,33 @@ on:
    each start makes a new key, and the page then says to open the console
    again.
 
-Its pages, in the order of the menu (the Dashboard first, then A–Z):
+Its pages, in the order of the menu, grouped as the phone app's tabs are:
+the Dashboard, then what people do (Mailbox to Bible), then what only
+admins look after (Radio, Users, History). In a window as narrow as a
+phone, the menu becomes the app's tab bar along the bottom: Dashboard,
+Mailbox, Chat, Weather and More (the rest).
 
 - **Dashboard:** users, join requests, check-ins and messages waiting, the
   weather alerts out now for the counties in `[alerts]` (each with its
-  counties, in orange; it links to Area Weather), the node watch, the last
+  counties, in orange; it links to Weather), the node watch, the last
   backup, `health`, and a live log of what the bot prints (as in the
   journal, with private commands' text left out).
-- **Area Weather:** a card for each county in `[alerts] counties`, alert or
+- **Mailbox:** who has messages waiting, from whom, read or not, sealed or
+  not, never what they say (that stays for the recipient, over the radio);
+  and **Leave a message** in a user's inbox (`msg`, from `console`).
+- **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
+  **Clear check-ins**; and **Look up a check-in** (`status`).
+- **Chat:** the radio's channel slots in use, the last heard on first: each
+  one's name, whether it's the usual Public channel, a hashtag channel or a
+  private one, and what the bot posts there (`alert`, `comm`, the automatic
+  alerts, the weekly test), but never its key. Each opens as a chat: what
+  the radio heard on it since the bot started, with who sent it, the hops
+  and the signal, and what this node posted there, on the right. The bot
+  keeps the last 200 of each channel while the console is on, in memory
+  only: a restart forgets them, and none are written to disk. It takes no
+  commands from channels. `#contingency-wx` and `#contingency-comm` have a
+  box to post (`alert`, `comm`), with a count against the one-message limit.
+- **Weather:** a card for each county in `[alerts] counties`, alert or
   not: the latest reading from the nearest NWS station, the next three
   forecast periods, and any alert out for it. The bot asks the NWS every 15
   min and keeps the last report, so a card says how old it is, and why if
@@ -953,36 +972,24 @@ Its pages, in the order of the menu (the Dashboard first, then A–Z):
   there's nothing to show. Below the cards: **Post alert test** (`testalert`;
   the page asks first, since it goes out on the air) and **Look up counties
   again** (`alertmap`).
-- **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
-  **Clear check-ins**.
-- **History:** what admins have done, newest first, with a filter.
-- **Inbox:** who has messages waiting, from whom, read or not, sealed or not.
-  Never what they say: that stays for the recipient, over the radio.
+- **Bible:** the verse of the day, and **Look up a verse** (`verse`).
 - **Radio:** **Advert**, **Flood advert** and **Back up now**; the radio's
   [settings](#radio-settings), with a form for each change, and the
   frequency set apart, on one tab; its contacts (with a filter): each one's type, whether it's a user or an
   admin, its path and when it was last heard, with **Reset path** and
   **Remove** ([`contact`](#contacts)), on another; on the third, the radio's
-  channel slots in use: each one's name, whether it's the usual Public
-  channel, a hashtag channel or a private one, and what the bot posts there
-  (`alert`, `comm`, the automatic alerts, the weekly test), but never its
-  key. A channel opens to what the radio heard on it since the bot started,
-  newest first, with who sent it, the hops and the signal, and what this
-  node posted there. The bot keeps the last 200 of each channel while the
-  console is on, in memory only: a restart forgets them, and none are
-  written to disk. It takes no commands from channels.
-- **Send:** post to `#contingency-wx` or `#contingency-comm` (with a count
-  against the one-message limit), or leave a message in a user's inbox.
+  channel slots, each linking to its messages in Chat.
 - **Users:** every user and admin with their settings, last seen, check-in
   and messages, with **Whois**, **Edit emails** (`setemail`: the qm
   address and the emailall group), **Reset passphrase** and **Remove**; the
   join requests waiting, with **Approve** and **Deny**; and **Reload users
   file** (`reload`), after editing it.
+- **History:** what admins have done, newest first, with a filter.
 
 Everything it does runs the same commands as over the radio, as an admin
 called `console`: the same checks, rate limits and confirmations (`remove`
 asks first, and the page shows a **Confirm** button), and `history` records
-them `by console`. A message left from the Send page is `from console`.
+them `by console`. A message left from Mailbox is `from console`.
 Commands turned off in `config.toml` aren't offered. It doesn't edit
 `config.toml`, and it can't read sealed messages.
 

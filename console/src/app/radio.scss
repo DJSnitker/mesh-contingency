@@ -133,57 +133,6 @@ section {
   gap: 6px;
 }
 
-.channel-title {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 1.1rem;
-}
-
-// A channel's messages, newest first: who and when, then what they said.
-.messages {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    display: grid;
-    gap: 4px;
-    padding: 10px 0;
-    border-top: 1px solid var(--line);
-  }
-
-  .from {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-
-    time {
-      margin-left: auto;
-      font-size: 0.85rem;
-      white-space: nowrap;
-    }
-  }
-
-  .text {
-    margin: 0;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-  }
-
-  .route {
-    font-size: 0.8rem;
-  }
-
-  // This node's own posts, marked down the side.
-  .own {
-    padding-left: 12px;
-    border-left: 2px solid var(--orange);
-  }
-}
-
 @media (max-width: 640px) {
   .contact-list li {
     grid-template-columns: 1fr;

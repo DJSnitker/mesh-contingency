@@ -1,0 +1,87 @@
+<header class="title">
+  <div class="head">
+    <a class="btn btn-ghost btn-sm" routerLink="/chat" aria-label="All channels">‹</a>
+    <div>
+      <h1>{{ channel()?.name || 'Slot ' + slot() }}</h1>
+      @if (channel(); as c) {
+        <p class="muted">{{ kindText(c.kind) }} · slot {{ c.slot }}</p>
+      }
+    </div>
+  </div>
+  @if (problem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+  }
+</header>
+
+<section class="panel thread" aria-label="Messages">
+  @if (messagesProblem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ messagesProblem() }}</p>
+  }
+  @if (read()) {
+    @if (lines(); as list) {
+      @if (list.length) {
+        <ul class="lines">
+          @for (line of list; track $index) {
+            <li [class.mine]="line.own">
+              @if (!line.own) {
+                <span class="from">{{ line.sender ?? '?' }}</span>
+              }
+              <span class="text">{{ line.text }}</span>
+              <span class="meta">
+                <time [title]="when(line.time)">{{ ago(line.time, now()) }}</time>
+                @if (line.own) {
+                  · this node
+                } @else if (route(line.hops, line.snr); as r) {
+                  · {{ r }}
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted">Nothing heard on this channel since the bot started.</p>
+      }
+      <p class="muted note">
+        The last {{ keep() }} kept, in the bot's memory only; read again every 10 s.
+      </p>
+    } @else {
+      <p class="muted">The bot isn't keeping channel messages.</p>
+    }
+  } @else if (!messagesProblem()) {
+    <p class="loading" role="status"><span class="spinner"></span> Reading the messages…</p>
+  }
+</section>
+
+@if (command(); as c) {
+  <section class="panel" aria-labelledby="post-title">
+    <h2 id="post-title"><mc-icon name="send" /> Post with {{ c.name }}</h2>
+    <p class="muted">Everyone on the channel sees it, under the node's name, at once.</p>
+    <label class="field">
+      <span class="sr-only">Message to post</span>
+      <textarea
+        rows="3"
+        placeholder="What to post"
+        [value]="post()"
+        (input)="post.set(value($event))"
+        (keydown.control.enter)="send()"
+      ></textarea>
+    </label>
+    <div class="row">
+      <span class="count" [class.over]="tooLong(post().trim())">
+        {{ post().trim().length }}{{ limit() === null ? '' : ' / ' + limit() }} characters
+      </span>
+      <button class="btn" type="button" [disabled]="!canPost()" (click)="send()">
+        <mc-icon name="send" /> Post to {{ c.channel }}
+      </button>
+    </div>
+    @if (tooLong(post().trim())) {
+      <p class="hint">A channel post is one message: shorten it, or post it in parts.</p>
+    }
+    <mc-reply
+      [ran]="posting.last()"
+      [busy]="posting.busy()"
+      (confirmed)="posting.confirm()"
+      (dismissed)="posting.dismiss()"
+    />
+  </section>
+}

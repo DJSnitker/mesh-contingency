@@ -230,7 +230,9 @@ export const COMMANDS: CommandInfo[] = [
   offer('radio', 'radio [name|power|position|clock|reboot|freq ...]'),
   offer('reload', 'reload'),
   offer('setemail', 'setemail <name or key> qm [address] group [address ...]'),
+  { ...offer('status', 'status <name or key>'), permission: 'public' },
   offer('testalert', 'testalert'),
+  { ...offer('verse', 'verse [book chapter:verse[-verse]]'), permission: 'public' },
   { ...offer('msg', 'msg <name> <message>'), permission: 'user' },
   offer('whois', 'whois <name or key>'),
 ];

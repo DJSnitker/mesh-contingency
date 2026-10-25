@@ -6,6 +6,7 @@
   @media (max-width: 800px) {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
+    align-content: start;
   }
 }
 
@@ -25,8 +26,10 @@
     list-style: none;
   }
 
-  // The Dashboard, set apart from the other pages by a line.
-  li:first-child {
+  // The Dashboard, set apart from the other pages by a line; and the admins'
+  // pages (Radio, Users, History) after another.
+  li:first-child,
+  li:nth-child(6) {
     margin-bottom: 8px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--line);
@@ -57,36 +60,17 @@
     }
   }
 
-  // Narrow screens: a bar along the top.
+  // At phone width: only the brand, along the top; the pages are in the
+  // tab bar at the bottom.
   @media (max-width: 800px) {
     position: static;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
     height: auto;
     padding: 12px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
 
-    // The pages don't fit a phone in one row: they wrap, whole.
     ul {
-      display: flex;
-      flex-wrap: wrap;
-      margin: 8px 0 0;
-    }
-
-    ul a {
-      padding: 7px 10px;
-      white-space: nowrap;
-    }
-
-    // In a row the line stands up, after the Dashboard.
-    li:first-child {
-      margin: 0 6px 0 0;
-      padding: 0 6px 0 0;
-      border-right: 1px solid var(--line);
-      border-bottom: 0;
+      display: none;
     }
   }
 }
@@ -118,8 +102,49 @@ main {
   max-width: 1100px;
   padding: 28px 32px 48px;
 
+  @media (max-width: 800px) {
+    // Clear of the tab bar.
+    padding-bottom: 96px;
+  }
+
   @media (max-width: 560px) {
-    padding: 20px 16px 40px;
+    padding: 20px 16px 96px;
+  }
+}
+
+// The phone app's tab bar, at phone width only.
+.tabs {
+  display: none;
+
+  @media (max-width: 800px) {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line);
+    background: var(--ink-2);
+  }
+
+  a {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-decoration: none;
+
+    mc-icon {
+      font-size: 1.3rem;
+    }
+
+    &.active {
+      color: var(--orange);
+    }
   }
 }
 

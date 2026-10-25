@@ -1,3 +1,5 @@
+// Forms that send something (Mailbox, a channel, Check-ins, Bible): a box,
+// its count and its button, and the reply under them.
 :host {
   display: grid;
   gap: 20px;
@@ -60,6 +62,7 @@ section {
   }
 }
 
+input,
 textarea,
 select {
   width: 100%;
@@ -75,6 +78,7 @@ select {
   }
 }
 
+input,
 select {
   max-width: 360px;
 }
@@ -89,6 +93,15 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.row.look {
+  justify-content: flex-start;
+
+  .field {
+    flex: 1 1 240px;
+    max-width: 360px;
+  }
 }
 
 .count {

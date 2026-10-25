@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { afterEach, onTestFinished, vi } from 'vitest';
 
 import { Api } from './api';
-import { CHANNEL_REFRESH_MS, Radio } from './radio';
-import { CHANNELS, COMMANDS, CONTACTS, FakeApi, PUBLIC_MESSAGES } from '../testing/fakes';
+import { Radio } from './radio';
+import { CHANNELS, COMMANDS, CONTACTS, FakeApi } from '../testing/fakes';
 
 describe('Radio', () => {
   let api: FakeApi;
@@ -16,7 +17,9 @@ describe('Radio', () => {
 
   beforeEach(() => {
     api = new FakeApi();
-    TestBed.configureTestingModule({ providers: [{ provide: Api, useValue: api }] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: Api, useValue: api }],
+    });
   });
 
   /** The page, on a tab (Settings, the first, opens by itself). */
@@ -191,7 +194,7 @@ describe('Radio', () => {
       '3 of 5 slots in use',
     );
     const rows = [...section.querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll('code, strong, .badge, .about span, button')].map((e) =>
+      [...li.querySelectorAll('code, strong, .badge, .about span, a')].map((e) =>
         e.textContent!.trim(),
       ),
     );
@@ -208,6 +211,10 @@ describe('Radio', () => {
       ['2', 'Family', 'private: only radios given its key', 'Messages'],
     ]);
     expect(CHANNELS.length).toBe(5);
+    // Each opens its messages in Chat.
+    expect(section.querySelector('a[aria-label="Messages on Public"]')?.getAttribute('href')).toBe(
+      '/chat/channel/0',
+    );
   });
 
   it("says when it can't read the channels", async () => {
@@ -250,102 +257,5 @@ describe('Radio', () => {
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     await fixture.whenStable();
     expect(tabs(element)[0]).toBe('Settings *'); // round to the first
-  });
-
-  async function openMessages(fixture: Awaited<ReturnType<typeof render>>, label: string) {
-    await open(fixture, 'channels');
-    button(fixture.nativeElement.querySelector('.channels'), label).click();
-    await fixture.whenStable();
-  }
-
-  it("opens a channel's messages, and goes back to the list", async () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1_200_000);
-    let lists = 0;
-    api.channels = () => {
-      lists++;
-      return of(CHANNELS);
-    };
-    const asked: number[] = [];
-    api.channelMessages = (slot) => {
-      asked.push(slot);
-      return of({ ...PUBLIC_MESSAGES, slot });
-    };
-    const fixture = await render();
-    const element: HTMLElement = fixture.nativeElement;
-    await openMessages(fixture, 'Messages (2)');
-    expect(asked).toEqual([0]);
-    expect(element.querySelector('.channel-title')?.textContent).toContain('Public');
-    const messages = [...element.querySelectorAll('.messages li')].map((li) => ({
-      from: li.querySelector('strong')?.textContent?.trim(),
-      own: li.classList.contains('own'),
-      text: li.querySelector('.text')?.textContent,
-      route: li.querySelector('.route')?.textContent?.trim() ?? null,
-      ago: li.querySelector('time')?.textContent?.trim(),
-    }));
-    expect(messages).toEqual([
-      { from: 'test-node', own: true, text: 'net at 7', route: null, ago: '5m ago' },
-      {
-        from: 'Alice',
-        own: false,
-        text: 'anyone on?',
-        route: '2 hops · SNR 6.5 dB',
-        ago: '10m ago',
-      },
-    ]);
-    expect(element.querySelector('.messages .badge')?.textContent).toBe('this node');
-    button(element, '← All channels').click();
-    await fixture.whenStable();
-    expect(element.querySelector('.messages')).toBeNull();
-    expect(element.querySelectorAll('.channel-list li').length).toBe(3);
-    expect(lists).toBe(2); // the counts read again
-  });
-
-  it('reads an open channel again, and stops on leaving its tab', async () => {
-    const asked: number[] = [];
-    api.channelMessages = (slot) => {
-      asked.push(slot);
-      return of({ ...PUBLIC_MESSAGES, slot });
-    };
-    const fixture = await render();
-    const element: HTMLElement = fixture.nativeElement;
-    await open(fixture, 'channels');
-    vi.useFakeTimers(); // whenStable() would wait for them, so detectChanges() from here
-    const click = (target: HTMLElement) => {
-      target.click();
-      fixture.detectChanges();
-    };
-    click(button(element.querySelector('.channels')!, 'Messages (2)'));
-    expect(asked.length).toBe(1);
-    await vi.advanceTimersByTimeAsync(CHANNEL_REFRESH_MS);
-    expect(asked.length).toBe(2);
-    click(element.querySelector<HTMLElement>('#contacts-tab')!);
-    await vi.advanceTimersByTimeAsync(3 * CHANNEL_REFRESH_MS);
-    expect(asked.length).toBe(2);
-    click(element.querySelector<HTMLElement>('#channels-tab')!); // still open, and read again at once
-    expect(asked.length).toBe(3);
-    expect(element.querySelector('.messages')).not.toBeNull();
-  });
-
-  it('says when nothing was heard, when none are kept, and when it fails', async () => {
-    api.channelMessages = (slot) => of({ slot, keep: 200, messages: [] });
-    let fixture = await render();
-    await openMessages(fixture, 'Messages (2)');
-    expect(fixture.nativeElement.querySelector('.messages li')?.textContent).toContain(
-      'Nothing heard on this channel',
-    );
-
-    api.channelMessages = (slot) => of({ slot, keep: null, messages: null });
-    fixture = await render();
-    await openMessages(fixture, 'Messages (2)');
-    expect(fixture.nativeElement.querySelector('.channels')?.textContent).toContain(
-      "The bot isn't keeping channel messages.",
-    );
-
-    api.channelMessages = () => throwError(() => new Error('down'));
-    fixture = await render();
-    await openMessages(fixture, 'Messages (2)');
-    expect(fixture.nativeElement.querySelector('.channels .problem')?.textContent).toContain(
-      "can't read the channel's messages",
-    );
   });
 });

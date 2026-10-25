@@ -1,0 +1,52 @@
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.thread {
+  display: grid;
+  gap: 12px;
+
+  p {
+    margin: 0;
+  }
+}
+
+// The messages as the phone app's chat: bubbles, the node's own on the right.
+.lines {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    gap: 2px;
+    max-width: 75%;
+    justify-self: start;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--ink-3);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  li.mine {
+    justify-self: end;
+    background: rgb(255 95 31 / 16%);
+  }
+}
+
+.from {
+  color: var(--sky);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.meta,
+.note {
+  color: var(--muted);
+  font-size: 0.75rem;
+}

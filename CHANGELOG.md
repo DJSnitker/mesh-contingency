@@ -7,6 +7,20 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Changed
+- **The web console is laid out like the phone app** (roadmap item 17,
+  `docs/plans/console-like-app.md`): its menu is the Dashboard; Mailbox,
+  Check-ins, Chat, Weather and Bible; then Radio, Users and History. In a
+  window as narrow as a phone, the menu is the app's tab bar along the
+  bottom, with More for the rest. **Mailbox** is the Inbox page and
+  *Leave a message*; **Chat** lists the radio's channels, each opening as a
+  chat thread, with a box to post on `#contingency-wx` and
+  `#contingency-comm`; the Send page is gone (`/inbox` and `/send` lead to
+  Mailbox and Chat). New: **Bible** (the verse of the day, and looking one
+  up) and **Look up a check-in** on Check-ins. Every page shows a spinner
+  while it reads. The phone app and the console share their rows, folding
+  sections and spinners.
+
 ## [0.9.0] - 2026-10-25
 
 The phone app (`app/`) for users, over their own radio's Bluetooth: an
