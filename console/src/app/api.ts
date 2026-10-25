@@ -111,6 +111,8 @@ export interface Channel {
   messages: number | null;
   /** When the newest of them came, or null. */
   last: number | null;
+  /** Others' messages heard on it since the bot started (for unread), or null if none are kept. */
+  heard: number | null;
 }
 
 /** A message on a channel, as GET /api/channels/{slot}/messages lists them. */
@@ -133,6 +135,8 @@ export interface ChannelMessages {
   /** How many are kept per channel. */
   keep: number | null;
   messages: ChannelMessage[] | null;
+  /** As Channel's heard. */
+  heard: number | null;
 }
 
 /** One of MeshCore's regional presets: frequency MHz, bandwidth kHz, SF and CR. */
@@ -298,6 +302,13 @@ export class Api {
 
   channelMessages(slot: number): Observable<ChannelMessages> {
     return this.get<ChannelMessages>(`/api/channels/${slot}/messages`);
+  }
+
+  /** Post to a channel slot as this node; answers with the channel's name. */
+  postToChannel(slot: number, text: string): Observable<{ channel: string }> {
+    return this.http
+      .post<{ channel: string }>(`/api/channels/${slot}/messages`, { text })
+      .pipe(this.watch());
   }
 
   radio(): Observable<RadioSettings | null> {

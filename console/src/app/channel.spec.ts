@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -5,12 +6,14 @@ import { afterEach, vi } from 'vitest';
 
 import { Api } from './api';
 import { CHANNEL_REFRESH_MS, ChannelThread } from './channel';
+import { Unread } from './unread';
 import { FakeApi, PUBLIC_MESSAGES } from '../testing/fakes';
 
 describe('ChannelThread', () => {
   let api: FakeApi;
 
   afterEach(() => {
+    localStorage.clear();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -57,8 +60,7 @@ describe('ChannelThread', () => {
     expect(element.querySelector('a[aria-label="All channels"]')?.getAttribute('href')).toBe(
       '/chat',
     );
-    // Nothing posts to Public, so there's no box.
-    expect(element.querySelector('textarea')).toBeNull();
+    expect(element.querySelector('#post-title')?.textContent).toContain('Post to Public');
   });
 
   it('reads the messages again every 10 s', async () => {
@@ -79,21 +81,49 @@ describe('ChannelThread', () => {
     expect(asked.length).toBe(2);
   });
 
-  it('posts with the command for its channel, then empties the box', async () => {
-    const fixture = await render(1); // #contingency-wx: alert posts there
+  it('posts to any channel as this node, then empties the box and reads it again', async () => {
+    let reads = 0;
+    api.channelMessages = (slot) => {
+      reads++;
+      return of({ ...PUBLIC_MESSAGES, slot });
+    };
+    const fixture = await render(2); // Family: no command posts there
     const element: HTMLElement = fixture.nativeElement;
-    expect(element.querySelector('#post-title')?.textContent).toContain('Post with alert');
+    expect(element.querySelector('#post-title')?.textContent).toContain('Post to Family');
     const box = element.querySelector('textarea')!;
-    expect(button(element, 'Post to #contingency-wx').disabled).toBe(true);
-    box.value = '  net at 19:00 on 146.52  ';
+    expect(button(element, 'Post').disabled).toBe(true);
+    box.value = '  supper at 6  ';
     box.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    expect(element.querySelector('.count')?.textContent).toContain('22 / 119');
-    button(element, 'Post to #contingency-wx').click();
+    expect(element.querySelector('.count')?.textContent).toContain('11 / 119');
+    button(element, 'Post').click();
     await fixture.whenStable();
-    expect(api.ran).toEqual([['alert', 'net at 19:00 on 146.52']]);
-    expect(element.querySelector('.reply')?.textContent).toContain('alert: done');
+    expect(api.posted).toEqual([[2, 'supper at 6']]);
+    expect(api.ran).toEqual([]); // not a command
+    expect(element.querySelector('[role=status]')?.textContent).toContain('Posted to Family.');
     expect(box.value).toBe('');
+    expect(reads).toBe(2);
+  });
+
+  it('keeps the text and says why when the bot refuses', async () => {
+    api.postToChannel = () =>
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 502,
+            error: { error: 'radio rejected channel message 1 of 1: busy' },
+          }),
+      );
+    const fixture = await render(0);
+    const element: HTMLElement = fixture.nativeElement;
+    const box = element.querySelector('textarea')!;
+    box.value = 'hello';
+    box.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    button(element, 'Post').click();
+    await fixture.whenStable();
+    expect(element.querySelector('.problem')?.textContent).toContain('radio rejected');
+    expect(box.value).toBe('hello');
   });
 
   it("won't post more than one channel message holds", async () => {
@@ -105,17 +135,24 @@ describe('ChannelThread', () => {
     await fixture.whenStable();
     expect(element.querySelector('.count.over')).not.toBeNull();
     expect(element.textContent).toContain('shorten it');
-    expect(button(element, 'Post to').disabled).toBe(true);
+    expect(button(element, 'Post').disabled).toBe(true);
+  });
+
+  it('marks the channel read as its messages are read', async () => {
+    TestBed.inject(Unread).refresh(); // Public: 1 heard, none seen
+    expect(TestBed.inject(Unread).unread(0)).toBe(1);
+    await render(0);
+    expect(TestBed.inject(Unread).unread(0)).toBe(0);
   });
 
   it('says when nothing was heard, when none are kept, and when it fails', async () => {
-    api.channelMessages = (slot) => of({ slot, keep: 200, messages: [] });
+    api.channelMessages = (slot) => of({ slot, keep: 200, messages: [], heard: 0 });
     let element: HTMLElement = (await render(0)).nativeElement;
     expect(element.querySelector('.thread')?.textContent).toContain(
       'Nothing heard on this channel',
     );
 
-    api.channelMessages = (slot) => of({ slot, keep: null, messages: null });
+    api.channelMessages = (slot) => of({ slot, keep: null, messages: null, heard: null });
     element = (await render(0)).nativeElement;
     expect(element.querySelector('.thread')?.textContent).toContain(
       "The bot isn't keeping channel messages.",

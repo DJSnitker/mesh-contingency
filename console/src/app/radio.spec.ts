@@ -5,7 +5,7 @@ import { afterEach, onTestFinished, vi } from 'vitest';
 
 import { Api } from './api';
 import { Radio } from './radio';
-import { CHANNELS, COMMANDS, CONTACTS, FakeApi } from '../testing/fakes';
+import { COMMANDS, CONTACTS, FakeApi } from '../testing/fakes';
 
 describe('Radio', () => {
   let api: FakeApi;
@@ -184,62 +184,15 @@ describe('Radio', () => {
     expect(reads).toBe(1);
   });
 
-  it('lists the channels in use, and what the bot posts to them', async () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1_200_000);
-    const fixture = await render();
-    const element: HTMLElement = fixture.nativeElement;
-    await open(fixture, 'channels');
-    const section = element.querySelector('.channels')!;
-    expect(section.querySelector('.contacts-head .muted')?.textContent?.trim()).toBe(
-      '3 of 5 slots in use',
-    );
-    const rows = [...section.querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll('code, strong, .badge, .about span, a')].map((e) =>
-        e.textContent!.trim(),
-      ),
-    );
-    expect(rows).toEqual([
-      ['0', 'Public', 'the usual Public channel: everyone', 'last 5m ago', 'Messages (2)'],
-      [
-        '1',
-        '#contingency-wx',
-        'alert',
-        'automatic alerts',
-        'hashtag: anyone who adds the same name',
-        'Messages',
-      ],
-      ['2', 'Family', 'private: only radios given its key', 'Messages'],
-    ]);
-    expect(CHANNELS.length).toBe(5);
-    // Each opens its messages in Chat.
-    expect(section.querySelector('a[aria-label="Messages on Public"]')?.getAttribute('href')).toBe(
-      '/chat/channel/0',
-    );
-  });
-
-  it("says when it can't read the channels", async () => {
-    api.channels = () => throwError(() => new Error('down'));
-    const fixture = await render();
-    await open(fixture, 'channels');
-    expect(fixture.nativeElement.querySelector('.channels .problem')?.textContent).toContain(
-      "can't read the radio's channels",
-    );
-  });
-
-  it('shows settings, contacts or channels, a tab each, with their counts', async () => {
+  it('shows settings or contacts, a tab each, with the count; the channels are in Chat', async () => {
     const fixture = await render('settings');
     const element: HTMLElement = fixture.nativeElement;
-    expect(tabs(element)).toEqual(['Settings *', 'Contacts 2', 'Channels 3']);
+    expect(tabs(element)).toEqual(['Settings *', 'Contacts 2']);
     expect(element.querySelector('[role=tabpanel] mc-radio-settings')).not.toBeNull();
     await open(fixture, 'contacts');
-    expect(tabs(element)).toEqual(['Settings', 'Contacts 2 *', 'Channels 3']);
+    expect(tabs(element)).toEqual(['Settings', 'Contacts 2 *']);
     expect(element.querySelector('[role=tabpanel]')?.id).toBe('contacts-panel');
-    await open(fixture, 'channels');
-    expect(tabs(element)).toEqual(['Settings', 'Contacts 2', 'Channels 3 *']);
-    expect(element.querySelector('.contacts')).toBeNull();
-    expect(element.querySelector('[role=tabpanel]')?.getAttribute('aria-labelledby')).toBe(
-      'channels-tab',
-    );
+    expect(element.querySelector('#channels-tab')).toBeNull();
   });
 
   it('moves between the tabs with the arrow keys', async () => {
@@ -250,12 +203,12 @@ describe('Radio', () => {
     const contacts = element.querySelector<HTMLElement>('#contacts-tab')!;
     contacts.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     await fixture.whenStable();
-    expect(tabs(element)[2]).toBe('Channels 3 *');
-    expect(document.activeElement?.id).toBe('channels-tab');
-    element
-      .querySelector<HTMLElement>('#channels-tab')!
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-    await fixture.whenStable();
     expect(tabs(element)[0]).toBe('Settings *'); // round to the first
+    expect(document.activeElement?.id).toBe('settings-tab');
+    element
+      .querySelector<HTMLElement>('#settings-tab')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    await fixture.whenStable();
+    expect(tabs(element)[1]).toBe('Contacts 2 *'); // and back round to the last
   });
 });

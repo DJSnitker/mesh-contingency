@@ -1,16 +1,18 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 
 import { Api } from './api';
 import { App } from './app';
 import { routes } from './app.routes';
-import { FakeApi } from '../testing/fakes';
+import { CHANNELS, FakeApi } from '../testing/fakes';
 
 describe('App', () => {
   let api: FakeApi;
 
   beforeEach(() => {
     api = new FakeApi();
+    api.channels = () => of(CHANNELS.map((c) => ({ ...c, heard: 0 }))); // nothing unread, unless a test says
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), { provide: Api, useValue: api }],
     });
@@ -81,5 +83,18 @@ describe('App', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('[role=alert]')?.textContent).toContain('console.url');
     expect(element.querySelector('router-outlet')).toBeNull();
+  });
+
+  it('counts the unread channel messages beside Chat', async () => {
+    localStorage.clear();
+    api.channels = () => of(CHANNELS);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const chat = [...element.querySelectorAll('.rail a')].find((a) =>
+      a.textContent?.includes('Chat'),
+    )!;
+    expect(chat.querySelector('.unread')?.textContent).toBe('1'); // Public's one
+    fixture.destroy();
   });
 });

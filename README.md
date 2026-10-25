@@ -962,8 +962,11 @@ Mailbox, Chat, Weather and More (the rest).
   and the signal, and what this node posted there, on the right. The bot
   keeps the last 200 of each channel while the console is on, in memory
   only: a restart forgets them, and none are written to disk. It takes no
-  commands from channels. `#contingency-wx` and `#contingency-comm` have a
-  box to post (`alert`, `comm`), with a count against the one-message limit.
+  commands from channels. Each channel has a box to post to it as this node,
+  with a count against the one-message limit; a post is recorded in
+  `history` (`posted to Family: ...`, by console). Each channel, and Chat in
+  the menu, counts the messages heard since you last opened it, in this
+  browser; a restart of the bot starts the counts again.
 - **Weather:** a card for each county in `[alerts] counties`, alert or
   not: the latest reading from the nearest NWS station, the next three
   forecast periods, and any alert out for it. The bot asks the NWS every 15
@@ -980,8 +983,7 @@ Mailbox, Chat, Weather and More (the rest).
   [settings](#radio-settings), with a form for each change, and the
   frequency set apart, on one tab; its contacts (with a filter): each one's type, whether it's a user or an
   admin, its path and when it was last heard, with **Reset path** and
-  **Remove** ([`contact`](#contacts)), on another; on the third, the radio's
-  channel slots, each linking to its messages in Chat.
+  **Remove** ([`contact`](#contacts)), on another. Its channels are in Chat.
 - **Users:** every user and admin with their settings, last seen, check-in
   and messages, with **Whois**, **Edit emails** (`setemail`: the qm
   address and the emailall group), **Reset passphrase** and **Remove**; the

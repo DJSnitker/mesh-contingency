@@ -13,6 +13,9 @@
           ariaCurrentWhenActive="page"
         >
           <mc-icon [name]="page.icon" /> {{ page.label }}
+          @if (page.path === '/chat' && unread()) {
+            <span class="unread" [attr.aria-label]="unread() + ' unread'">{{ unread() }}</span>
+          }
         </a>
       </li>
     }
@@ -47,6 +50,9 @@
     >
       <mc-icon [name]="page.icon" />
       <span>{{ page.label }}</span>
+      @if (page.path === '/chat' && unread()) {
+        <span class="unread" [attr.aria-label]="unread() + ' unread'">{{ unread() }}</span>
+      }
     </a>
   }
   <a routerLink="/more" [class.active]="inMore()" [attr.aria-current]="inMore() ? 'page' : null">

@@ -15,6 +15,10 @@ commands that don't act on the sender's own records (Command.own), since the
 console has none, and user commands that only leave something for someone
 else (Command.sends: msg, from "console").
 
+Posting: POST /api/channels/{slot}/messages posts to any of the radio's
+channels as this node, as alert and comm do to theirs: one message, held to
+what fits after the node's name, recorded in history by console.
+
 Watching: /api/log sends the lines the bot prints, as server-sent events.
 """
 
@@ -25,7 +29,7 @@ import time
 from aiohttp import web
 from meshcore import EventType
 
-from ..alerts import PUBLIC_SECRET, hashtag_secret, is_empty, message_limit, read_channels
+from ..alerts import PUBLIC_SECRET, hashtag_secret, is_empty, message_limit, post, read_channels
 from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
 from ..area_weather import EVERY_MINUTES
 from ..commands.health import RADIO_SECONDS, activity_items, people_items, radio_items
@@ -233,9 +237,11 @@ async def channels(request):
     """The radio's channel slots: each one's name, kind (channel_kind), what
     the bot posts to it (uses: the alert and comm commands, testalert, the
     automatic alerts and the weekly test), and how many of its messages are
-    kept since the bot started (messages; null if none are) and when the
-    newest came (last). Never a channel's key: with it anyone could read and
-    post on a private channel."""
+    kept since the bot started (messages; null if none are), when the
+    newest came (last) and how many others' messages were heard on it since
+    the bot started (heard, for unread counts; null if none are kept). Never
+    a channel's key: with it anyone could read and post on a private
+    channel."""
     ctx = _ctx(request)
     if ctx.radio is None:
         return web.json_response([])
@@ -261,7 +267,7 @@ async def channels(request):
         kept, last = log.summary(slot) if log else (None, None)
         found.append({"slot": slot, "name": name, "kind": channel_kind(name, secret),
                       "uses": [] if is_empty(name, secret) else posting.get(secret, []),
-                      "messages": kept, "last": last})
+                      "messages": kept, "last": last, "heard": log.heard_count(slot) if log else None})
     return web.json_response(found)
 
 
@@ -270,14 +276,53 @@ async def channel_messages(request):
     """A channel slot's messages since the bot started, newest first: when
     each came, who sent it (null if it didn't say), the text, the hops it came
     over and the signal (null for this node's own posts), and own: whether
-    this node posted it. messages is null if they aren't kept."""
+    this node posted it. messages is null if they aren't kept; heard is as
+    /api/channels says."""
     log = _ctx(request).state.channel_log
     try:
         slot = int(request.match_info["slot"])
     except ValueError:
         return _error(404, "no such channel slot")
     return web.json_response({"slot": slot, "keep": log.keep if log else None,
-                              "messages": log.messages(slot) if log else None})
+                              "messages": log.messages(slot) if log else None,
+                              "heard": log.heard_count(slot) if log else None})
+
+
+@routes.post("/api/channels/{slot}/messages")
+async def post_to_channel(request):
+    """{"text": the message} -> {"channel": its name}: post it to the slot's
+    channel as this node. One channel message, at most what fits after the
+    node's name; recorded in history (by console) and kept with the
+    channel's messages."""
+    ctx = _ctx(request)
+    try:
+        slot = int(request.match_info["slot"])
+        asked = await request.json()
+    except ValueError:
+        return _error(400, "send JSON to a slot: {\"text\": ...}")
+    text = asked.get("text") if isinstance(asked, dict) else None
+    if not isinstance(text, str) or not text.strip():
+        return _error(400, "text must be a message")
+    text = text.strip()
+    if ctx.radio is None:
+        return _error(503, "no radio")
+    limit = message_limit(ctx.radio)
+    if len(text) > limit:
+        return _error(400, f"too long for one channel message ({len(text)} characters; at most {limit})")
+    try:
+        slots = await asyncio.wait_for(read_channels(ctx.radio), RADIO_SECONDS * 2)
+    except Exception as e:
+        return _error(502, f"can't read the radio's channels: {str(e) or type(e).__name__}")
+    if not 0 <= slot < len(slots) or is_empty(*slots[slot]):
+        return _error(404, f"no channel in slot {slot}")
+    name = slots[slot][0] or f"slot {slot}"
+    try:
+        await post(ctx.radio, slot, [text], ctx.state.channel_log)
+    except RuntimeError as e:
+        return _error(502, str(e))
+    print(f"[{CONSOLE.name}] posted to {name}: {text}", flush=True)
+    ctx.state.record(CONSOLE.name, f"posted to {name}: {text}")
+    return web.json_response({"channel": name})
 
 
 @routes.get("/api/radio")

@@ -16,7 +16,10 @@ may change how the bot is configured).
   *Leave a message*; **Chat** lists the radio's channels, each opening as a
   chat thread, with a box to post on `#contingency-wx` and
   `#contingency-comm`; the Send page is gone (`/inbox` and `/send` lead to
-  Mailbox and Chat). New: **Bible** (the verse of the day, and looking one
+  Mailbox and Chat). Then **Chat posts to any of the radio's channels** as
+  this node (`POST /api/channels/{slot}/messages`, recorded in `history`),
+  and counts each channel's unread messages, with the total beside Chat in
+  the menu; Radio's Channels tab is gone, as Chat shows all it did. New: **Bible** (the verse of the day, and looking one
   up), **Look up a check-in** on Check-ins, and on Weather, starred
   counties first (kept in the browser) with the rest under Show more, and
   **Weather anywhere** (`wx`). Every page shows a spinner
