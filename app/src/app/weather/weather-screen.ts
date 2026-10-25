@@ -230,6 +230,11 @@ import { AreaWeather } from './area-weather';
           >
             {{ area.cards()[county]?.lines ? 'Update' : 'Get the weather' }}
           </button>
+          @if (area.cards()[county]?.loading) {
+            <span class="loading" role="status">
+              <span class="spinner small"></span> Asking the node…
+            </span>
+          }
         </div>
       </section>
     </ng-template>

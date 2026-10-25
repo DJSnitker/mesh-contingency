@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
+import { ChatHistory } from '../chat/chat-history';
 import { Icon } from '../icon';
 import { COMPANION, Radio, RadioContact } from '../radio/radio';
 import { NodeLink } from './node-link';
@@ -86,7 +94,9 @@ import { StepLine } from './step-line';
           </div>
         }
         @case ('connecting') {
-          <p>Connecting to {{ radio.name() ?? 'your radio' }}…</p>
+          <p class="loading" role="status">
+            <span class="spinner"></span> Connecting to {{ radio.name() ?? 'your radio' }}…
+          </p>
         }
         @default {
           @if (radio.hasRemembered()) {
@@ -204,7 +214,11 @@ import { StepLine } from './step-line';
         <h2>The node</h2>
         @if (radio.state() === 'connected') {
           <p class="muted">Pick the node from your radio's contacts.</p>
-          @if (contacts(); as list) {
+          @if (history.loadingContacts()) {
+            <p class="loading" role="status">
+              <span class="spinner"></span> Reading your radio's contacts…
+            </p>
+          } @else if (contacts(); as list) {
             @if (list.length) {
               <ul class="contacts">
                 @for (contact of list; track contact.publicKey) {
@@ -227,7 +241,12 @@ import { StepLine } from './step-line';
             <button class="btn btn-ghost btn-sm" type="button" (click)="advert()">
               Send an advert
             </button>
-            <button class="btn btn-ghost btn-sm" type="button" (click)="loadContacts()">
+            <button
+              class="btn btn-ghost btn-sm"
+              type="button"
+              [disabled]="history.loadingContacts()"
+              (click)="loadContacts(true)"
+            >
               Refresh
             </button>
           </div>
@@ -264,7 +283,11 @@ import { StepLine } from './step-line';
 export class NodeScreen {
   protected readonly radio = inject(Radio);
   protected readonly link = inject(NodeLink);
-  protected readonly contacts = signal<RadioContact[] | null>(null);
+  protected readonly history = inject(ChatHistory);
+  /** The companions, to pick the node from (the radio's contacts as read for Chat too). */
+  protected readonly contacts = computed(
+    () => this.history.contacts()?.filter((c) => c.type === COMPANION) ?? null,
+  );
   protected readonly said = signal<string | null>(null);
 
   constructor() {
@@ -276,10 +299,10 @@ export class NodeScreen {
     });
   }
 
-  protected async loadContacts(): Promise<void> {
+  protected async loadContacts(again = false): Promise<void> {
+    this.said.set(null);
     try {
-      const all = await this.radio.contacts();
-      this.contacts.set(all.filter((c) => c.type === COMPANION));
+      await this.history.refresh(again);
     } catch {
       this.said.set("The radio didn't list its contacts. Try Refresh.");
     }

@@ -4,7 +4,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Icon } from '../icon';
 import { ChatHistory } from './chat-history';
 
-/** The Chat screen's heading, and its two tabs: the chats, and the contacts to start one with. */
+/** The Chat screen's heading, and its tabs: chats with people, the channels, and the contacts. */
 @Component({
   selector: 'mc-chat-tabs',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -19,7 +19,7 @@ import { ChatHistory } from './chat-history';
     }
     nav {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       padding: 4px;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -61,9 +61,17 @@ import { ChatHistory } from './chat-history';
         ariaCurrentWhenActive="page"
       >
         Chat
-        @if (history.unread()) {
-          <span class="badge" [attr.aria-label]="history.unread() + ' unread'">{{
-            history.unread()
+        @if (history.unreadDirect()) {
+          <span class="badge" [attr.aria-label]="history.unreadDirect() + ' unread'">{{
+            history.unreadDirect()
+          }}</span>
+        }
+      </a>
+      <a routerLink="/chat/channels" routerLinkActive="active" ariaCurrentWhenActive="page">
+        Channels
+        @if (history.unreadChannels()) {
+          <span class="badge" [attr.aria-label]="history.unreadChannels() + ' unread'">{{
+            history.unreadChannels()
           }}</span>
         }
       </a>

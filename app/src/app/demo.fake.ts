@@ -38,7 +38,8 @@ function demoBle(): FakeBle {
       lastAdvert: now - i * 2400,
     })),
   ];
-  // A real radio takes a while to list many contacts.
+  // A real radio takes a moment to connect, and a while to list many contacts.
+  ble.connectMs = 1500;
   ble.contactsMs = 2500;
   ble.node = (text) => fixtures.cases.find((c) => 'send' in c && c.send === text)?.reply ?? [];
   return ble;

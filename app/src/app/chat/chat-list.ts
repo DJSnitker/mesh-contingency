@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { Radio } from '../radio/radio';
-import { ChatHistory, Line } from './chat-history';
+import { channelKey, ChatHistory, Line } from './chat-history';
 import { ChatTabs } from './chat-tabs';
 
 /** A chat in the list: where it opens, and its newest message. */
@@ -21,8 +21,10 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
 }
 
 /**
- * The Chat tab: the chats kept on the phone, newest first, each with its
- * last message and how many are unread. New ones start from Contacts.
+ * The Chat tab (`kind` "dm"): the chats with people kept on the phone,
+ * newest first, each with its last message and how many are unread; new
+ * ones start from Contacts. The Channels tab (`kind` "ch"): the radio's
+ * channels, and any others with chats kept, in the same way.
  */
 @Component({
   selector: 'mc-chat-list',
@@ -43,11 +45,6 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
     .loading {
       font-size: 0.9rem;
     }
-    .loading .spinner {
-      width: 1em;
-      height: 1em;
-      border-width: 2px;
-    }
   `,
   template: `
     <mc-chat-tabs />
@@ -60,8 +57,13 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
     }
 
     <section class="panel">
-      @if (history.loading() && unnamed()) {
-        <p class="loading" role="status"><span class="spinner"></span> Reading contacts' names…</p>
+      @if (loading()) {
+        <p class="loading" role="status">
+          <span class="spinner small"></span>
+          {{
+            kind() === 'ch' ? 'Reading the channels from your radio…' : "Reading contacts' names…"
+          }}
+        </p>
       }
       @if (rows().length) {
         <ul class="rows">
@@ -82,15 +84,18 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
             </li>
           }
         </ul>
+      } @else if (kind() === 'ch') {
+        @if (!loading()) {
+          <p class="muted">No channels on the radio.</p>
+        }
       } @else {
         <p class="muted">
-          No chats yet. Start one from <a routerLink="/chat/contacts">Contacts</a>: a person, or a
-          channel.
+          No chats yet. Start one from <a routerLink="/chat/contacts">Contacts</a>.
         </p>
       }
     </section>
 
-    @if (rows().length) {
+    @if (kept()) {
       <section class="panel">
         <div class="actions">
           <button class="btn btn-ghost btn-sm danger" type="button" (click)="clearAll()">
@@ -107,30 +112,54 @@ export class ChatList {
   protected readonly history = inject(ChatHistory);
   protected readonly when = when;
 
-  protected readonly rows = computed<Row[]>(() =>
-    Object.entries(this.history.chats())
-      .map(([key, chat]) => {
-        const id = key.slice(3);
-        const channel = key.startsWith('ch:');
-        const contact = channel ? undefined : this.history.contact(id);
-        return {
-          key,
-          name: channel ? id : (contact?.name ?? id),
-          link: ['/chat', channel ? 'channel' : 'dm', contact?.publicKey ?? id],
-          last: chat.lines.at(-1) ?? null,
-          unread: chat.unread,
-        };
-      })
-      .sort((a, b) => (b.last?.at ?? 0) - (a.last?.at ?? 0)),
+  /** Which chats: with people ("dm"), or on channels ("ch"). From the route's data. */
+  readonly data = input<'dm' | 'ch' | undefined>(undefined, { alias: 'kind' });
+  protected readonly kind = computed(() => this.data() ?? 'dm');
+
+  protected readonly rows = computed<Row[]>(() => {
+    const chats = this.history.chats();
+    const row = (key: string, name: string, link: string[]): Row => ({
+      key,
+      name,
+      link,
+      last: chats[key]?.lines.at(-1) ?? null,
+      unread: chats[key]?.unread ?? 0,
+    });
+    const prefix = `${this.kind()}:`;
+    const rows: Row[] = [];
+    if (this.kind() === 'ch') {
+      // Every channel on the radio, chatted on or not.
+      for (const channel of this.history.channels()) {
+        rows.push(row(channelKey(channel.name), channel.name, ['/chat', 'channel', channel.name]));
+      }
+    }
+    const listed = new Set(rows.map((r) => r.key));
+    for (const key of Object.keys(chats)) {
+      if (!key.startsWith(prefix) || listed.has(key)) {
+        continue;
+      }
+      const id = key.slice(3);
+      if (this.kind() === 'ch') {
+        rows.push(row(key, id, ['/chat', 'channel', id]));
+      } else {
+        const contact = this.history.contact(id);
+        rows.push(row(key, contact?.name ?? id, ['/chat', 'dm', contact?.publicKey ?? id]));
+      }
+    }
+    // Chatted on, newest first; then the rest as the radio lists them.
+    return rows.sort((a, b) => (b.last?.at ?? 0) - (a.last?.at ?? 0));
+  });
+
+  /** Waiting on the radio: for the channels, or for the names of people shown by key. */
+  protected readonly loading = computed(() =>
+    this.kind() === 'ch'
+      ? this.history.loadingChannels()
+      : this.history.loadingContacts() && this.rows().some((row) => row.name === row.key.slice(3)),
   );
 
-  /** A direct chat still shown by its key, for want of the contacts. */
-  protected readonly unnamed = computed(() =>
-    this.rows().some((row) => row.key.startsWith('dm:') && row.name === row.key.slice(3)),
-  );
+  protected readonly kept = computed(() => Object.keys(this.history.chats()).length > 0);
 
   constructor() {
-    // The contacts' names, once the radio is connected.
     effect(() => {
       if (this.radio.state() === 'connected') {
         this.history.refresh().catch(() => undefined);

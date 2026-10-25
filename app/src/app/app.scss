@@ -40,6 +40,10 @@ $column: 720px;
   text-overflow: ellipsis;
   white-space: nowrap;
 
+  .spinner {
+    margin-right: 4px;
+  }
+
   &.connected {
     border-color: rgb(74 222 128 / 40%);
     color: var(--green);

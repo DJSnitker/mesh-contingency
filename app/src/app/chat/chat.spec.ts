@@ -28,16 +28,16 @@ describe('Chat', () => {
     });
   }
 
-  it("lists the radio's channels and companions under Contacts, the node apart", async () => {
-    const { page, fixture } = await open('/chat/contacts');
-    await shows(fixture, () => expect(texts(page, '.channels .name')).toHaveLength(3));
-    expect(texts(page, '.channels .name')).toEqual([
-      'Public',
-      '#contingency-wx',
-      '#contingency-comm',
-    ]);
+  it("lists the radio's channels under Channels, and its companions under Contacts", async () => {
+    const { page, fixture } = await open('/chat/channels');
+    await shows(fixture, () => expect(texts(page, '.rows .name')).toHaveLength(3));
+    expect(texts(page, '.rows .name')).toEqual(['Public', '#contingency-wx', '#contingency-comm']);
+    expect(texts(page, '.rows .sub')).toEqual(['No messages', 'No messages', 'No messages']);
+
+    (page.querySelector('a[href="#/chat/contacts"]') as HTMLAnchorElement).click();
     // Not the repeater, and not the node.
-    expect(texts(page, '.direct .name')).toEqual(['Erin']);
+    await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
+    expect(page.querySelector('.channels')).toBeNull();
     expect(page.querySelector('.direct')?.textContent).toContain('Ridge Node is the node');
   });
 
@@ -75,7 +75,7 @@ describe('Chat', () => {
     expect(texts(page, '.rows .sub')).toEqual(['You: checking in']);
   });
 
-  it('finds contacts and channels by name, once there are many', async () => {
+  it('finds contacts by name, once there are many', async () => {
     ble.contacts.push(
       ...['Ann', 'Bo', 'Cy', 'Di', 'Ed', 'Flo', 'Gus'].map((name, i) => ({
         name,
@@ -85,11 +85,10 @@ describe('Chat', () => {
     );
     const { page, type, fixture } = await open('/chat/contacts');
     await shows(fixture, () => expect(texts(page, '.direct .name')).toHaveLength(8));
-    type('find', 'contingency');
+    type('find', 'zz');
     await shows(fixture, () =>
-      expect(texts(page, '.channels .name')).toEqual(['#contingency-wx', '#contingency-comm']),
+      expect(page.querySelector('.direct')?.textContent).toContain('None by that name.'),
     );
-    expect(page.querySelector('.direct')?.textContent).toContain('None by that name.');
     type('find', 'ER');
     await shows(fixture, () => expect(texts(page, '.direct .name')).toEqual(['Erin']));
   });
@@ -158,14 +157,12 @@ describe('Chat', () => {
     ble.deliver(ERIN, 'we are ok');
     ble.deliver(NODE_KEY, 'inbox: new message from Erin; send inbox to read');
     ble.hear(1, 'Ridge Node', 'Flash Flood Warning: Taylor');
-    await shows(fixture, () => expect(texts(page, '.rows .unread')).toEqual(['1', '1']));
-    expect(texts(page, '.rows .name')).toEqual(['#contingency-wx', 'Erin']);
-    expect(texts(page, '.rows .sub')).toEqual([
-      'Ridge Node: Flash Flood Warning: Taylor',
-      'we are ok',
-    ]);
+    await shows(fixture, () => expect(texts(page, '.rows .unread')).toEqual(['1']));
+    expect(texts(page, '.rows .name')).toEqual(['Erin']);
+    expect(texts(page, '.rows .sub')).toEqual(['we are ok']);
+    // The tab bar counts both; the Chat and Channels tabs, theirs.
     expect(page.querySelector('.tabs .badge')?.textContent?.trim()).toBe('2');
-    expect(page.querySelector('mc-chat-tabs .badge')?.textContent?.trim()).toBe('2');
+    expect(texts(page, 'mc-chat-tabs .badge')).toEqual(['1', '1']);
 
     const history = TestBed.inject(ChatHistory);
     expect(Object.keys(history.chats()).sort()).toEqual([
@@ -215,8 +212,13 @@ describe('Chat', () => {
       }),
     );
     const list = await open('/chat', false);
-    // Newest first; Erin by her key, the radio not being there to name her.
-    expect(texts(list.page, '.rows .name')).toEqual(['#contingency-wx', ERIN.slice(0, 12)]);
+    // Erin by her key, the radio not being there to name her.
+    expect(texts(list.page, '.rows .name')).toEqual([ERIN.slice(0, 12)]);
+    (list.page.querySelector('a[href="#/chat/channels"]') as HTMLAnchorElement).click();
+    await shows(list.fixture, () =>
+      expect(texts(list.page, '.rows .name')).toEqual(['#contingency-wx']),
+    );
+    expect(texts(list.page, '.rows .unread')).toEqual(['1']);
     TestBed.resetTestingModule();
 
     const { page, fixture } = await open(`/chat/dm/${ERIN}`, false);

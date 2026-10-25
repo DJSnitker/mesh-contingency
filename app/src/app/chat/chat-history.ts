@@ -69,16 +69,18 @@ export class ChatHistory {
   readonly channels = signal<RadioChannel[]>([]);
   /** The radio's contacts, as last read: null until they are. */
   readonly contacts = signal<RadioContact[] | null>(null);
+  /** The channels are being read. */
+  readonly loadingChannels = signal(false);
   /** The contacts are being read, which takes a while with many of them. */
-  readonly loading = signal(false);
+  readonly loadingContacts = signal(false);
   private reading: Promise<void> | null = null;
   /** Read since the radio last connected. */
   private fresh = false;
   /** The chat on the screen: its messages arrive read. */
   readonly open = signal<string | null>(null);
-  readonly unread = computed(() =>
-    Object.values(this.chats()).reduce((total, chat) => total + chat.unread, 0),
-  );
+  readonly unread = computed(() => this.unreadIn(''));
+  readonly unreadDirect = computed(() => this.unreadIn('dm:'));
+  readonly unreadChannels = computed(() => this.unreadIn('ch:'));
 
   constructor() {
     const direct = this.radio.messages.subscribe((message) => this.heardDirect(message));
@@ -98,8 +100,9 @@ export class ChatHistory {
   }
 
   /**
-   * Read the radio's contacts and channels, unless they were read since it
-   * connected (or `again`). One read at a time: a second call waits for it.
+   * Read the radio's channels, then its contacts (the slow part), unless
+   * they were read since it connected (or `again`). One read at a time: a
+   * second call waits for it.
    */
   refresh(again = false): Promise<void> {
     if (this.reading) {
@@ -108,14 +111,20 @@ export class ChatHistory {
     if (this.radio.state() !== 'connected' || (this.fresh && !again)) {
       return Promise.resolve();
     }
-    this.loading.set(true);
+    this.loadingChannels.set(true);
+    this.loadingContacts.set(true);
     this.reading = (async () => {
       try {
+        try {
+          await this.loadChannels();
+        } finally {
+          this.loadingChannels.set(false);
+        }
         this.contacts.set(await this.radio.contacts());
-        await this.loadChannels();
         this.fresh = true;
       } finally {
-        this.loading.set(false);
+        this.loadingChannels.set(false);
+        this.loadingContacts.set(false);
         this.reading = null;
       }
     })();
@@ -127,9 +136,11 @@ export class ChatHistory {
     return key ? this.contacts()?.find((c) => c.publicKey.startsWith(key)) : undefined;
   }
 
-  /** The time of a chat's newest message, or 0. */
-  lastAt(key: string): number {
-    return this.chats()[key]?.lines.at(-1)?.at ?? 0;
+  /** Unread messages in the chats whose keys start so. */
+  private unreadIn(prefix: string): number {
+    return Object.entries(this.chats())
+      .filter(([key]) => key.startsWith(prefix))
+      .reduce((total, [, chat]) => total + chat.unread, 0);
   }
 
   /** Read the radio's channels again. */

@@ -119,7 +119,11 @@ const SAID: Record<Status, string> = {
             >
               {{ line.at | date: 'MMM d, h:mm a' }}
               @if (line.status) {
-                · {{ said[line.status] }}
+                ·
+                @if (line.status === 'sending') {
+                  <span class="spinner small"></span>
+                }
+                {{ said[line.status] }}
               }
             </span>
           </li>

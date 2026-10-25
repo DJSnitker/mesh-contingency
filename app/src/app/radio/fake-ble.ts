@@ -86,6 +86,8 @@ export class FakeBle implements Ble {
   channelSent: [number, string][] = [];
   /** Direct messages the radio sent: [recipient key prefix, text, attempt]. */
   sent: [string, string, number][] = [];
+  /** How long connecting takes (ms). */
+  connectMs = 0;
   /** How long the radio takes to list its contacts (ms). */
   contactsMs = 0;
   /** The try (from 0) the recipient first acknowledges; null for never. */
@@ -111,6 +113,7 @@ export class FakeBle implements Ble {
   }
 
   async connect(deviceId: string, onDisconnect?: (deviceId: string) => void): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, this.connectMs));
     if (this.failConnect) {
       throw new Error(this.failConnect);
     }

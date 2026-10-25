@@ -52,6 +52,8 @@ h1 {
 
   input,
   textarea {
+    // Narrower than a browser's default width, on a narrow phone.
+    min-width: 0;
     padding: 10px 12px;
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -194,7 +196,9 @@ details.accordion {
 }
 
 .spinner {
+  display: inline-block;
   flex: none;
+  vertical-align: -0.15em;
   width: 1.4em;
   height: 1.4em;
   border: 3px solid var(--ink-3);
@@ -213,4 +217,10 @@ details.accordion {
   .spinner {
     animation-duration: 3s;
   }
+}
+
+.spinner.small {
+  width: 1em;
+  height: 1em;
+  border-width: 2px;
 }

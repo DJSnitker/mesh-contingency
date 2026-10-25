@@ -80,6 +80,27 @@ describe('WeatherScreen', () => {
     );
   });
 
+  it('turns a spinner while it waits on the node', async () => {
+    const { page, fixture, shows, card } = await open();
+    await shows(() => expect(page.querySelectorAll('.all .card')).toHaveLength(19));
+    // The node never answers about Story, IA.
+    [...card('Story, IA').querySelectorAll('button')]
+      .find((b) => b.textContent?.includes('Get the weather'))!
+      .click();
+    await shows(() => expect(card('Story, IA').textContent).toContain('Asking the node'));
+    expect(card('Story, IA').querySelector('.spinner')).not.toBeNull();
+    await shows(() => expect(page.querySelector('mc-step-line .spinner')).not.toBeNull());
+    // No answer in time: no more spinners.
+    await vi.waitFor(
+      () => {
+        fixture.detectChanges();
+        expect(page.querySelector('mc-step-line')?.textContent).toContain('No answer');
+      },
+      { timeout: 4000 },
+    );
+    expect(page.querySelector('.spinner')).toBeNull();
+  });
+
   it('shows favorites first, loaded by themselves, and the rest under Show more', async () => {
     const { page, shows, star } = await open();
     await shows(() => expect(page.querySelectorAll('.all .card')).toHaveLength(19));

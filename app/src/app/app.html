@@ -1,9 +1,12 @@
 <header class="top">
   <img src="mesh-contingency-mark.svg" alt="" width="28" height="28" />
   <span class="name">Mesh Contingency</span>
-  <a class="radio-state" routerLink="/node" [class.connected]="radio.state() === 'connected'">{{
-    radioState()
-  }}</a>
+  <a class="radio-state" routerLink="/node" [class.connected]="radio.state() === 'connected'">
+    @if (radio.state() === 'connecting') {
+      <span class="spinner small"></span>
+    }
+    {{ radioState() }}
+  </a>
 </header>
 
 <main>

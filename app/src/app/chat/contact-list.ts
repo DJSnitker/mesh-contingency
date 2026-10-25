@@ -42,8 +42,8 @@ export function heard(contact: RadioContact, now = Date.now()): string {
 }
 
 /**
- * The Contacts tab: the radio's channels and its companion contacts, each
- * starting (or going back to) its chat. The node's contact is left out: its
+ * The Contacts tab: the radio's companion contacts, each starting (or going
+ * back to) its chat. The node's contact is left out: its
  * commands are on the Node screen.
  */
 @Component({
@@ -79,7 +79,7 @@ export function heard(contact: RadioContact, now = Date.now()): string {
       <p class="said">{{ said }}</p>
     }
 
-    @if (history.loading()) {
+    @if (history.loadingContacts()) {
       <section class="panel">
         <div class="loading" role="status">
           <span class="spinner"></span>
@@ -99,24 +99,6 @@ export function heard(contact: RadioContact, now = Date.now()): string {
           />
         </label>
       }
-
-      <section class="panel channels">
-        <h2>Channels</h2>
-        @if (channels().length) {
-          <ul class="rows">
-            @for (channel of channels(); track channel.index) {
-              <li>
-                <a [routerLink]="['/chat', 'channel', channel.name]">
-                  <span class="name">{{ channel.name }}</span>
-                  <span class="sub">Everyone on it hears what's posted</span>
-                </a>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="muted">{{ find() ? 'None by that name.' : 'No channels on the radio.' }}</p>
-        }
-      </section>
 
       <section class="panel direct">
         <h2>Contacts</h2>
@@ -177,9 +159,6 @@ export class ContactList {
     ),
   );
   protected readonly shown = computed(() => this.people().filter((c) => this.matches(c.name)));
-  protected readonly channels = computed(() =>
-    this.history.channels().filter((c) => this.matches(c.name)),
-  );
 
   constructor() {
     effect(() => {
