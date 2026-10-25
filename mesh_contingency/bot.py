@@ -32,6 +32,7 @@ from .api import (
 from .area_weather import AreaWeather
 from .backup import Backups, load_backup
 from .channel_log import KEEP, ChannelLog
+from .commands.area import AreaCommand
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -319,7 +320,9 @@ async def _main(output):
     def warn_unconfigured():
         for command in commands.values():
             if not command.enabled and command.permission != DISABLED:
-                print(f"Warning: no user has {command.name} addresses in {directory.name}.", flush=True)
+                # A command may say why it's off; the email commands are off with no addresses.
+                why = getattr(command, "unconfigured", None)
+                print(f"Warning: {why or f'no user has {command.name} addresses in {directory.name}'}.", flush=True)
 
     def convert_settings():
         """Move addresses saved under an old command name (quickim) to the
@@ -434,9 +437,11 @@ async def _main(output):
         state.channel_log = ChannelLog()
         print(f"Channel messages for the web console: the newest {KEEP} of each channel, in memory only.")
     area_weather = None
-    if web_console and state.alert_watcher:
+    # The reports the console's Area Weather page and the area command show.
+    area_command = any(isinstance(c, AreaCommand) for c in commands.values())
+    if (web_console or area_command) and state.alert_watcher:
         state.area_weather = AreaWeather(state.alert_watcher, state)
-        print(f"Area weather for the web console: {state.area_weather.describe()}.")
+        print(f"Area weather: {state.area_weather.describe()}.")
         area_weather = asyncio.create_task(state.area_weather.run())
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:

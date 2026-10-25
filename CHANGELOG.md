@@ -8,6 +8,17 @@ may change how the bot is configured).
 ## [Unreleased]
 
 ### Added
+- **`area [county, ST]`**, a public command: alone, the counties `[alerts]`
+  watches; with one, that county's latest report (alerts, conditions, wind,
+  how old it is, the next forecast period) in one message, from the reports
+  the bot keeps every 15 minutes, so it never waits on the NWS. Those
+  reports now run whenever `area` is on, not only with the web console. Add
+  `area = { permission = "public" }` to `[commands]` to turn it on.
+- **The phone app's Weather and Bible tabs:** a card for each county the
+  node watches (`area`), with favorites kept on the phone, shown first and
+  loaded by themselves, and the rest under Show more; the weather for any
+  other place (`wx`). The verse of the day, asked for once a day, and any
+  verse looked up (`verse`).
 
 - **The phone app's frame** (`app/`, roadmap item 16): an Angular and
   Capacitor app for users, `com.meshcontingency`, with its screens laid out
@@ -65,7 +76,12 @@ may change how the bot is configured).
   stops the bot with a clear message instead of a confusing one or a crash.
 
 ### Changed
-
+- **The phone app:** the Mesh Contingency logo as its icon; the tabs are
+  Mailbox, Check-ins, Chat, Weather, Bible, Node and Radio; the passphrase
+  box on Mailbox folds away until opened. The Weather and verse screen
+  became the two tabs.
+- **The phone app's debug builds share one signing key** (in the repo), so
+  each new build installs over the last and keeps the app's data.
 - `comm` is `alert` on its own channel, sharing its code.
 - The web console stores its state under aiohttp `AppKey`s, which silences
   aiohttp's warnings.

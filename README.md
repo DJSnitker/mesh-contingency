@@ -81,6 +81,7 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `testalert` | admins | Post the [test message](#weekly-alert-test) to the alert channel now |
 | `users [page]` | admins | List the users and what each has set |
 | `whois <name or key>` | admins | What the node knows about a user |
+| `area [county, ST]` | anyone | The weather now in the counties the node watches ([alerts]); alone, list them |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `join` | anyone | Ask to become a user, under your radio's name |
 | `ok [status]` | anyone | Check in: tell others you're ok |
@@ -505,6 +506,7 @@ real email addresses and node keys. See `config.example.toml`:
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
+area = { permission = "public" }       # needs [alerts] counties
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }
@@ -977,8 +979,8 @@ messages, so the bot needs nothing new and its permissions, limits and
 sealing all apply. Android first; the plan is in
 [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). So far it connects
 to the radio (its name, battery and firmware), finds the node, joins, and
-has the mailbox, check-ins, email, weather and verse, chat, and the
-radio's own settings. The replies it reads are pinned
+has the mailbox, check-ins, chat, the area's weather, the Bible, email,
+and the radio's own settings. The replies it reads are pinned
 in `tests/fixtures/app_replies.json`: change a reply there and in the app
 together. Building it, running it on an emulator and installing it on a
 phone: see [`app/README.md`](app/README.md).

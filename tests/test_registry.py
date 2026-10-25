@@ -19,6 +19,7 @@ from mesh_contingency.api import (
 from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.alertmap import AlertMapCommand
+from mesh_contingency.commands.area import AreaCommand
 from mesh_contingency.commands.backup import BackupCommand
 from mesh_contingency.commands.comm import CommCommand
 from mesh_contingency.commands.contact import ContactCommand
@@ -52,7 +53,7 @@ from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, res
 
 FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
 DANA = Sender("Dana", "d0" * 32)
-BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
+BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "area": AreaCommand, "verse": VerseCommand,
             "qm": QmCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "contact": ContactCommand,
             "radio": RadioCommand,

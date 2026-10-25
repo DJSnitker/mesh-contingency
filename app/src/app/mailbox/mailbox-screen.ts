@@ -196,83 +196,87 @@ export function passphraseProblem(passphrase: string, again: string): string | n
       }
     </section>
 
-    <section class="panel passphrase">
-      <h2><mc-icon name="lock" /> Passphrase</h2>
-      <p class="muted">
-        With a passphrase, new messages to you are sealed on the node: only your passphrase opens
-        them. A forgotten one can't be recovered, and the messages sealed with it are lost. The app
-        never keeps it.
-      </p>
-      <label class="field">
-        New passphrase ({{ minPassphrase }} to {{ maxPassphrase }} characters, no spaces)
-        <input
-          type="password"
-          name="new-passphrase"
-          autocomplete="new-password"
-          [maxLength]="maxPassphrase"
-          [value]="newPassphrase()"
-          (input)="newPassphrase.set(value($event))"
-        />
-      </label>
-      <label class="field">
-        Again
-        <input
-          type="password"
-          name="new-passphrase-again"
-          autocomplete="new-password"
-          [maxLength]="maxPassphrase"
-          [value]="again()"
-          (input)="again.set(value($event))"
-        />
-      </label>
-      @if (newPassphrase() && passphraseProblem(); as problem) {
-        <p class="muted">{{ problem }}</p>
-      }
-      <div class="actions">
-        <button
-          class="btn btn-sm"
-          type="button"
-          [disabled]="!link.ready() || passphraseProblem()"
-          (click)="setPass()"
-        >
-          Set it
-        </button>
-      </div>
-      @if (setPassResult(); as result) {
-        @switch (result.outcome) {
-          @case ('set') {
-            <p class="set">
-              Passphrase set: new messages to you are sealed.
-              @if (result.deleted) {
-                {{ result.deleted }} message(s) sealed with the old one were deleted.
-              }
-            </p>
-          }
-          @case ('already') {
-            <p class="set">That's already your passphrase.</p>
-          }
-          @case ('confirm') {
-            <p class="set problem">
-              You have {{ result.sealed }} sealed message(s) that only your old passphrase opens; a
-              new one deletes them. Read them first (Open inbox with the old passphrase), or:
-            </p>
-            <div class="actions">
-              <button
-                class="btn btn-sm danger"
-                type="button"
-                [disabled]="!link.ready()"
-                (click)="setPass()"
-              >
-                Set it, and delete them
-              </button>
-            </div>
+    <details class="panel accordion passphrase">
+      <summary>
+        <h2><mc-icon name="lock" /> Passphrase</h2>
+      </summary>
+      <div class="accordion-body">
+        <p class="muted">
+          With a passphrase, new messages to you are sealed on the node: only your passphrase opens
+          them. A forgotten one can't be recovered, and the messages sealed with it are lost. The
+          app never keeps it.
+        </p>
+        <label class="field">
+          New passphrase ({{ minPassphrase }} to {{ maxPassphrase }} characters, no spaces)
+          <input
+            type="password"
+            name="new-passphrase"
+            autocomplete="new-password"
+            [maxLength]="maxPassphrase"
+            [value]="newPassphrase()"
+            (input)="newPassphrase.set(value($event))"
+          />
+        </label>
+        <label class="field">
+          Again
+          <input
+            type="password"
+            name="new-passphrase-again"
+            autocomplete="new-password"
+            [maxLength]="maxPassphrase"
+            [value]="again()"
+            (input)="again.set(value($event))"
+          />
+        </label>
+        @if (newPassphrase() && passphraseProblem(); as problem) {
+          <p class="muted">{{ problem }}</p>
+        }
+        <div class="actions">
+          <button
+            class="btn btn-sm"
+            type="button"
+            [disabled]="!link.ready() || passphraseProblem()"
+            (click)="setPass()"
+          >
+            Set it
+          </button>
+        </div>
+        @if (setPassResult(); as result) {
+          @switch (result.outcome) {
+            @case ('set') {
+              <p class="set">
+                Passphrase set: new messages to you are sealed.
+                @if (result.deleted) {
+                  {{ result.deleted }} message(s) sealed with the old one were deleted.
+                }
+              </p>
+            }
+            @case ('already') {
+              <p class="set">That's already your passphrase.</p>
+            }
+            @case ('confirm') {
+              <p class="set problem">
+                You have {{ result.sealed }} sealed message(s) that only your old passphrase opens;
+                a new one deletes them. Read them first (Open inbox with the old passphrase), or:
+              </p>
+              <div class="actions">
+                <button
+                  class="btn btn-sm danger"
+                  type="button"
+                  [disabled]="!link.ready()"
+                  (click)="setPass()"
+                >
+                  Set it, and delete them
+                </button>
+              </div>
+            }
           }
         }
-      }
-      @if (setPassSaid(); as said) {
-        <p class="said">{{ said }}</p>
-      }
-    </section>
+        @if (setPassSaid(); as said) {
+          <p class="said">{{ said }}</p>
+        }
+      </div>
+    </details>
   `,
 })
 export class MailboxScreen {

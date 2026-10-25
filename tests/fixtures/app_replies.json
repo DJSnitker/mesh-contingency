@@ -5,7 +5,8 @@
     "A case: `before`, steps run first ([sender, text]); then `as` sends `send`. `reply` is what comes back to `as`; or, with `to`, the direct messages the node sends `to` meanwhile (a notice).",
     "A `split` case: the bot splits `text` into `reply`, and the app puts it back together.",
     "Mailbox cases: Dana's passphrase in them is correcthorse12; a fixture's passphrase is never a real one.",
-    "Email cases fake the node's `mail` (`email` says how it fails, if it does); weather cases give the weather the node would fetch (`weather`, or `weather_error`)."
+    "Email cases fake the node's `mail` (`email` says how it fails, if it does); weather cases give the weather the node would fetch (`weather`, or `weather_error`).",
+    "Area cases give the bot's area weather (`area`: the watched counties, and each one's report, `ago` seconds old, with its alerts; a county without one has none yet)."
   ],
   "senders": {
     "Admin": "ad",
@@ -1107,6 +1108,440 @@
       ],
       "parsed": {
         "kind": "verse",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "area, the counties",
+      "as": "BobNode",
+      "send": "area",
+      "area": {
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ],
+        "reports": {
+          "Taylor, TX": {
+            "text": "Clear",
+            "temp_f": 63.0,
+            "feels_f": null,
+            "wind_mph": 7.0,
+            "gust_mph": null,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [],
+            "ago": 720
+          },
+          "Jones, TX": {
+            "text": "Windy",
+            "temp_f": 70.0,
+            "feels_f": null,
+            "wind_mph": 25.0,
+            "gust_mph": 40.0,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [
+              {
+                "event": "Wind Advisory"
+              }
+            ],
+            "ago": 300
+          }
+        }
+      },
+      "reply": [
+        "(1/2) area: Taylor, TX; Jones, TX; Harris, TX; Story, IA; Polk, IA; Boone, MO; Lane, OR; Kent, DE; Marion, IN; Pima, AZ; Clay, KS;",
+        "(2/2) Logan, OK; Lee, FL; Washoe, NV; Yolo, CA; Cache, UT; Ada, ID; Iron, MI; Erie, PA"
+      ],
+      "parsed": {
+        "kind": "area",
+        "outcome": "counties",
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ]
+      }
+    },
+    {
+      "name": "area, a county",
+      "as": "BobNode",
+      "send": "area Taylor, TX",
+      "area": {
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ],
+        "reports": {
+          "Taylor, TX": {
+            "text": "Clear",
+            "temp_f": 63.0,
+            "feels_f": null,
+            "wind_mph": 7.0,
+            "gust_mph": null,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [],
+            "ago": 720
+          },
+          "Jones, TX": {
+            "text": "Windy",
+            "temp_f": 70.0,
+            "feels_f": null,
+            "wind_mph": 25.0,
+            "gust_mph": 40.0,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [
+              {
+                "event": "Wind Advisory"
+              }
+            ],
+            "ago": 300
+          }
+        }
+      },
+      "reply": [
+        "Taylor, TX 63F, Clear | S7mph | 12m ago | Tonight: 55F Mostly Clear 20%"
+      ],
+      "parsed": {
+        "kind": "area",
+        "outcome": "report",
+        "county": "Taylor, TX",
+        "alert": false,
+        "lines": [
+          "63F, Clear",
+          "S7mph",
+          "12m ago",
+          "Tonight: 55F Mostly Clear 20%"
+        ]
+      }
+    },
+    {
+      "name": "area, a county with an alert",
+      "as": "BobNode",
+      "send": "area Jones, TX",
+      "area": {
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ],
+        "reports": {
+          "Taylor, TX": {
+            "text": "Clear",
+            "temp_f": 63.0,
+            "feels_f": null,
+            "wind_mph": 7.0,
+            "gust_mph": null,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [],
+            "ago": 720
+          },
+          "Jones, TX": {
+            "text": "Windy",
+            "temp_f": 70.0,
+            "feels_f": null,
+            "wind_mph": 25.0,
+            "gust_mph": 40.0,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [
+              {
+                "event": "Wind Advisory"
+              }
+            ],
+            "ago": 300
+          }
+        }
+      },
+      "reply": [
+        "Jones, TX ALERT: Wind Advisory | 70F, Windy | S25mph G40 | 5m ago | Tonight: 55F Mostly Clear 20%"
+      ],
+      "parsed": {
+        "kind": "area",
+        "outcome": "report",
+        "county": "Jones, TX",
+        "alert": true,
+        "lines": [
+          "ALERT: Wind Advisory",
+          "70F, Windy",
+          "S25mph G40",
+          "5m ago",
+          "Tonight: 55F Mostly Clear 20%"
+        ]
+      }
+    },
+    {
+      "name": "area, no report yet",
+      "as": "BobNode",
+      "send": "area Harris, TX",
+      "area": {
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ],
+        "reports": {
+          "Taylor, TX": {
+            "text": "Clear",
+            "temp_f": 63.0,
+            "feels_f": null,
+            "wind_mph": 7.0,
+            "gust_mph": null,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [],
+            "ago": 720
+          },
+          "Jones, TX": {
+            "text": "Windy",
+            "temp_f": 70.0,
+            "feels_f": null,
+            "wind_mph": 25.0,
+            "gust_mph": 40.0,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [
+              {
+                "event": "Wind Advisory"
+              }
+            ],
+            "ago": 300
+          }
+        }
+      },
+      "reply": [
+        "area: no report for Harris, TX yet (network down); try again in a few minutes"
+      ],
+      "parsed": {
+        "kind": "area",
+        "outcome": "refused"
+      }
+    },
+    {
+      "name": "area, not watched",
+      "as": "BobNode",
+      "send": "area Dallas, TX",
+      "area": {
+        "counties": [
+          "Taylor, TX",
+          "Jones, TX",
+          "Harris, TX",
+          "Story, IA",
+          "Polk, IA",
+          "Boone, MO",
+          "Lane, OR",
+          "Kent, DE",
+          "Marion, IN",
+          "Pima, AZ",
+          "Clay, KS",
+          "Logan, OK",
+          "Lee, FL",
+          "Washoe, NV",
+          "Yolo, CA",
+          "Cache, UT",
+          "Ada, ID",
+          "Iron, MI",
+          "Erie, PA"
+        ],
+        "reports": {
+          "Taylor, TX": {
+            "text": "Clear",
+            "temp_f": 63.0,
+            "feels_f": null,
+            "wind_mph": 7.0,
+            "gust_mph": null,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [],
+            "ago": 720
+          },
+          "Jones, TX": {
+            "text": "Windy",
+            "temp_f": 70.0,
+            "feels_f": null,
+            "wind_mph": 25.0,
+            "gust_mph": 40.0,
+            "wind_dir": "S",
+            "periods": [
+              {
+                "name": "Tonight",
+                "temp": 55,
+                "unit": "F",
+                "text": "Mostly Clear",
+                "pop": 20
+              }
+            ],
+            "alerts": [
+              {
+                "event": "Wind Advisory"
+              }
+            ],
+            "ago": 300
+          }
+        }
+      },
+      "reply": [
+        "area: Dallas, TX isn't a watched county; send area for the list"
+      ],
+      "parsed": {
+        "kind": "area",
         "outcome": "refused"
       }
     },

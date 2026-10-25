@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress (PR 9, radio) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
+Status: in progress (first phone test; changes from it) · Requested 2026-10-24 · Updated 2026-10-24 (chat, radio tab, name)
 
 ## Goal
 
@@ -129,7 +129,11 @@ follows.
 - **Node:** pick the node; `whoami`; Join.
 - **Mailbox:** the inbox (`inbox`, and `inbox <passphrase> [page]` with the
   passphrase asked each time, never stored), `msg` to a user, `clearinbox`
-  and `clearinbox all`, `setpass` with its confirmation.
+  and `clearinbox all`, `setpass` with its confirmation (folded away until
+  opened).
+
+The tabs, in order: Mailbox, Check-ins, Chat, Weather, Bible, Node, Radio;
+Email opens from the Node screen.
 - **Check-ins:** `ok [status]` with quick choices ("ok", "need help", ...),
   each confirmed before it's sent,
   and `status [name]` (alone, your own). The roll call (`checkins`) is for
@@ -137,7 +141,15 @@ follows.
 - **Email:** `qm`, `emailall` and `email`, each confirmed before it's sent
   (an email can't be taken back); `setqm` and `addgroup`/`cleargroup` to see
   and change the addresses.
-- **Weather and verse:** `wx <zip | county, ST>` and `verse [reference]`.
+- **Weather** (a tab): a card for each county the node watches, from the
+  bot's `area` command (added for this after the first phone test): `area`
+  lists them, `area <county>` sends one county's latest report from the
+  bot's cache. Favorites are kept on the phone, shown first and loaded by
+  themselves; with any, the rest wait under Show more, each loaded when
+  asked, as each is a message over the mesh. Below, `wx <zip | county, ST>`
+  for anywhere else.
+- **Bible** (a tab): the verse of the day (`verse`), asked once a day and
+  kept on the phone until the next, and `verse <reference>`.
 - **Chat:** direct messages with any of the radio's contacts, and the
   radio's channels (Public, `#contingency-wx`, `#contingency-comm`, any
   other), to read and post, like the official MeshCore app. Delivered or not

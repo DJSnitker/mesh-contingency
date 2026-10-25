@@ -5,13 +5,16 @@ import contextlib
 import io
 import json
 import tempfile
+import time
 import tomllib
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from mesh_contingency.api import Sender, split_reply
 from mesh_contingency.bot import UNRECOGNIZED_REPLY
+from mesh_contingency.commands.area import AreaCommand
 from mesh_contingency.commands.email import EmailCommand
 from mesh_contingency.commands.emailall import EmailAllCommand
 from mesh_contingency.commands.join import ApproveCommand, JoinCommand
@@ -35,7 +38,7 @@ COMMANDS = {"join": JoinCommand, "approve": ApproveCommand, "whoami": WhoAmIComm
             "inbox": InboxCommand, "clearinbox": ClearInboxCommand, "setpass": SetPassCommand,
             "ok": OkCommand, "status": StatusCommand, "qm": QmCommand, "emailall": EmailAllCommand,
             "email": EmailCommand, "setqm": SetQmCommand, "addgroup": AddGroupCommand,
-            "cleargroup": ClearGroupCommand, "wx": WxCommand, "verse": VerseCommand}
+            "cleargroup": ClearGroupCommand, "wx": WxCommand, "verse": VerseCommand, "area": AreaCommand}
 # How a case's email fails at the node.
 EMAIL_FAILURES = {"no internet": NO_INTERNET}
 PERMISSIONS = tomllib.loads((ROOT / "config.example.toml").read_text(encoding="utf-8"))["commands"]
@@ -62,6 +65,20 @@ class Node:
             command.permission = PERMISSIONS[name]["permission"]
             self.commands[name] = command
         self.state = state
+
+    def prepare(self, case):
+        """The area weather the case gives (`area`: the watched counties, and
+        each one's report, `ago` seconds old, with its alerts)."""
+        area = case.get("area")
+        if not area:
+            return
+        now = time.time()
+        reports = {county: {**report, "updated": now - report["ago"], "observed": now - report["ago"]}
+                   for county, report in area["reports"].items()}
+        self.state.alert_watcher = SimpleNamespace(settings=SimpleNamespace(counties=area["counties"]))
+        self.state.area_weather = SimpleNamespace(
+            counties=area["counties"],
+            areas=lambda: [{"county": c, **reports.get(c, {"problem": "network down"})} for c in area["counties"]])
 
     async def send(self, who, text):
         """What the node replies to `who` sending `text`, as mesh messages."""
@@ -99,6 +116,7 @@ class AppRepliesTest(unittest.IsolatedAsyncioTestCase):
                     self.assertGreater(len(case["reply"]), 1, "a split case should need several parts")
                     continue
                 node = Node(Path(self.enterContext(tempfile.TemporaryDirectory())))
+                node.prepare(case)
                 self.enterContext(fakes(case))
                 for who, text in case.get("before", []):
                     await node.send(who, text)

@@ -68,6 +68,7 @@ every_hours = 0
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
+area = { permission = "public" }
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }
@@ -349,7 +350,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV, EventType.DISCONNECTED})
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
+        self.assertIn("public commands (anyone): help, wx, area, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, radio, reload, clearstatus, checkins, "
@@ -948,7 +949,7 @@ permission = "public"
     async def test_plugin_from_config(self):
         await self.start(CONFIG + self.PLUGINS)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join, echo, slow", out)
+        self.assertIn("public commands (anyone): help, wx, area, verse, ok, status, join, echo, slow", out)
         self.assertIn("Warning: Could not load missing (no_such_module_xyz:thing)", out)
         await self.radio.dm(STRANGER, "echo hi there")
         self.assertEqual(self.replies(), ["> hi there"])
@@ -982,10 +983,10 @@ permission = "public"
         await self.radio.dm(STRANGER, "help wx")
         await self.radio.dm(STRANGER, "help secret")
         replies = self.replies()
-        self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
+        self.assertEqual(replies[0], "commands: help, wx, area, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in parts.
-        parts = split_reply("commands: help, wx, verse, advert, contacts, contact, radio, reload, ok, status, "
+        parts = split_reply("commands: help, wx, area, verse, advert, contacts, contact, radio, reload, ok, status, "
                             "clearstatus, checkins, health, history, alert, alertmap, testalert, comm, backup, join, "
                             "approve, deny, setemail, users, whois, remove, resetpass, echo, slow, secret. "
                             "Send help <command> for usage")

@@ -45,16 +45,16 @@ describe('App', () => {
     expect(tabs).toEqual(TABS.map((tab) => tab.label));
   });
 
-  it('opens on the Node screen, with email and weather reached from it', async () => {
+  it('opens on the Node screen, with email reached from it', async () => {
     const page = await open('/');
     expect(page.querySelector('h1')?.textContent).toContain('Node');
     expect(page.querySelector('.tabs a.active')?.textContent).toContain('Node');
     const more = [...page.querySelectorAll('.more a')].map((a) => a.textContent?.trim());
-    expect(more).toEqual(['Email', 'Weather and verse']);
+    expect(more).toEqual(['Email']);
   });
 
   it('every route but the redirects is reachable from a tab or the Node screen', () => {
-    const reachable = new Set([...TABS.map((t) => t.path), '/email', '/weather']);
+    const reachable = new Set([...TABS.map((t) => t.path), '/email']);
     // A chat opens from the Chat screen's list.
     const screens = routes
       .filter((r) => r.component && !r.path?.includes(':'))

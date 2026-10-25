@@ -87,3 +87,40 @@ h1 {
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+// A section that opens and closes (details.accordion), closed unless it says.
+details.accordion {
+  > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '';
+      flex: none;
+      width: 0.55em;
+      height: 0.55em;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg);
+      transition: transform 0.15s;
+    }
+  }
+
+  &[open] > summary::after {
+    transform: rotate(-135deg);
+  }
+
+  > .accordion-body {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+  }
+}
