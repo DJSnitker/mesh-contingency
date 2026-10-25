@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing and the phone app done, 0.8.2 released; the phone app's PRs 1–9 merged; field testing paused · Written 2026-10-21 · Updated 2026-10-25 (phone app progress)
+Status: every item but field testing and the phone app done; 0.9.0 released, with the phone app's first APK (a debug build); the phone app's PRs 1–9 merged; field testing paused · Written 2026-10-21 · Updated 2026-10-25 (phone app progress)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -31,9 +31,9 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 | 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
-| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); next PR 10, docs and a release |
+| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; next PR 10, the user guide and a signed release APK |
 
-Recommended order: everything but field testing and the phone app is done and released (0.8.2). The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
+Recommended order: everything but field testing and the phone app is done and released (0.9.0, with the phone app as it stands). The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -48,11 +48,11 @@ Where things stood on 2026-10-25:
   #60 (`wx Taylor, TX`: a county as well as a zipcode), released as
   **0.8.1** (#61, tag `v0.8.1`); the wiki's Commands page covers it. Then
   #62 (`setemail` and the console's Edit emails), released as **0.8.2** (this
-  PR, tag `v0.8.2`); the wiki's Commands page and Admin Guide cover it.
-- **Merged, not released yet** (`CHANGELOG.md`, Unreleased): #64 (code
-  review fixes), the phone app (#65–#77, item 16) and the changes from its
-  first phone test (#78–#81), including the bot's new public `area` command
-  (#78) and its startup warning fix (#79).
+  #63, tag `v0.8.2`); the wiki's Commands page and Admin Guide cover it.
+  Then #64 (code-review fixes), the phone app (#65–#77, item 16), its first
+  phone test's changes (#78–#83, with the public `area` command) and #84
+  (the watch on a shutdown), released as **0.9.0** (this PR, tag `v0.9.0`)
+  with the app's debug APK attached to the GitHub release.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
