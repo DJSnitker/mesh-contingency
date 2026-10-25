@@ -7,7 +7,6 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
 
 import { ChatHistory } from '../chat/chat-history';
 import { Icon } from '../icon';
@@ -19,7 +18,7 @@ import { StepLine } from './step-line';
 @Component({
   selector: 'mc-node',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Icon, RouterLink, StepLine],
+  imports: [DatePipe, Icon, StepLine],
   styles: `
     .panel {
       display: grid;
@@ -272,12 +271,6 @@ import { StepLine } from './step-line';
         </ul>
       </section>
     }
-
-    <ul class="more">
-      <li>
-        <a routerLink="/email"><mc-icon name="mail" /> Email</a>
-      </li>
-    </ul>
   `,
 })
 export class NodeScreen {

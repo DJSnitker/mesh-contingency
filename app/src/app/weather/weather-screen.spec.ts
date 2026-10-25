@@ -112,7 +112,7 @@ describe('WeatherScreen', () => {
       'Taylor, TX',
     ]);
     expect(JSON.parse(localStorage.getItem(FAVORITES)!)).toEqual(['Jones, TX', 'Taylor, TX']);
-    const more = page.querySelector<HTMLDetailsElement>('details.more')!;
+    const more = page.querySelector<HTMLDetailsElement>('details.others')!;
     expect(more.open).toBe(false);
     expect(more.querySelector('summary')?.textContent).toContain('Show more (17)');
     expect(star('Jones, TX').getAttribute('aria-pressed')).toBe('true');
@@ -128,7 +128,7 @@ describe('WeatherScreen', () => {
 
     again.star('Jones, TX').click();
     again.star('Taylor, TX').click();
-    await again.shows(() => expect(again.page.querySelector('details.more')).toBeNull());
+    await again.shows(() => expect(again.page.querySelector('details.others')).toBeNull());
     expect(again.page.querySelectorAll('.all .card')).toHaveLength(19);
   });
 

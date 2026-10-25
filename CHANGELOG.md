@@ -92,9 +92,12 @@ may change how the bot is configured).
 - **The phone app:** the Mesh Contingency logo as its icon; the tabs are
   Mailbox, Check-ins, Chat, Weather, Bible, Node and Radio; the passphrase
   box on Mailbox folds away until opened. The Weather and verse screen
-  became the two tabs.
+  became the two tabs. Email opens from Mailbox, not Node. Every screen's
+  panels are spaced alike, and a screen opened from a link at the foot of
+  another starts at its top.
 - **The phone app on a tablet:** the screens are a column down the middle
-  (720 px at most), the tab bar too, and the Weather cards go two across.
+  (720 px at most), the tab bar too, and the Weather cards go two across
+  (a lone favorite fills the row; Show more keeps its padding).
   On a narrow phone, the Radio tab's settings no longer run off the right
   edge.
 - **The phone app's debug builds share one signing key** (in the repo), so

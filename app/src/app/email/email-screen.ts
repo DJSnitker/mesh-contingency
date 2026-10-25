@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
+import { RouterLink } from '@angular/router';
+
 import { Icon } from '../icon';
 import { NeedsNode } from '../node/needs-node';
 import { MAX_COMMAND, NodeLink } from '../node/node-link';
@@ -28,8 +30,16 @@ export const ADDRESS =
 @Component({
   selector: 'mc-email',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, NeedsNode, StepLine],
+  imports: [Icon, NeedsNode, RouterLink, StepLine],
   styles: `
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .head h1 {
+      margin: 0;
+    }
     .panel {
       display: grid;
       gap: 12px;
@@ -70,7 +80,10 @@ export const ADDRESS =
     }
   `,
   template: `
-    <h1><mc-icon name="mail" /> Email</h1>
+    <div class="head">
+      <a class="btn btn-ghost btn-sm" routerLink="/mailbox" aria-label="Back to Mailbox">‹</a>
+      <h1><mc-icon name="mail" /> Email</h1>
+    </div>
 
     <mc-needs-node />
     @if (link.whoami()?.user === false) {

@@ -45,20 +45,40 @@ describe('App', () => {
     expect(tabs).toEqual(TABS.map((tab) => tab.label));
   });
 
-  it('opens on the Node screen, with email reached from it', async () => {
+  it('opens on the Node screen', async () => {
     const page = await open('/');
     expect(page.querySelector('h1')?.textContent).toContain('Node');
     expect(page.querySelector('.tabs a.active')?.textContent).toContain('Node');
-    const more = [...page.querySelectorAll('.more a')].map((a) => a.textContent?.trim());
-    expect(more).toEqual(['Email']);
+    expect(page.querySelector('a[href="#/mailbox/email"]')).toBeNull();
   });
 
-  it('every route but the redirects is reachable from a tab, Node, Chat or Radio', () => {
-    // Channels and Contacts are the Chat screen's other tabs; a chat opens from them.
-    // The licenses open from Radio.
+  it('reaches Email from Mailbox, which stays the tab lit, and goes back', async () => {
+    const page = await open('/mailbox');
+    const link = page.querySelector<HTMLAnchorElement>('.more a[href="#/mailbox/email"]');
+    expect(link?.textContent?.trim()).toBe('Email');
+    // The link is at Mailbox's foot: Email opens at its top.
+    const scrollTo = vi.fn();
+    page.querySelector('main')!.scrollTo = scrollTo;
+    link!.click();
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('h1')?.textContent).toContain('Email');
+    });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    expect(page.querySelector('.tabs a.active')?.textContent).toContain('Mailbox');
+    page.querySelector<HTMLAnchorElement>('a[aria-label="Back to Mailbox"]')!.click();
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('h1')?.textContent).toContain('Mailbox');
+    });
+  });
+
+  it('every route but the redirects is reachable from a tab, Mailbox, Chat or Radio', () => {
+    // Email opens from Mailbox. Channels and Contacts are the Chat screen's
+    // other tabs; a chat opens from them. The licenses open from Radio.
     const reachable = new Set([
       ...TABS.map((t) => t.path),
-      '/email',
+      '/mailbox/email',
       '/chat/channels',
       '/chat/contacts',
       '/radio/licenses',
