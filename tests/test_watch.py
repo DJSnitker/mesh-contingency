@@ -259,6 +259,28 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.check(1), ["Node problem: the radio was disconnected for 4m "
                                                "(reconnect_failed), and it restarted; back now"])
 
+    async def test_radio_lost_as_the_computer_shut_down(self):
+        await self.check()
+        self.watch.lost_radio("reconnect_failed")  # its USB went first, then the bot was stopped
+        self.booted = self.now + 5 * 3600 + 25 * 60  # off for 5h 25m
+        self.now = self.booted + 10 * 60  # the radio was found 10 minutes after the computer started
+        self.watch = self.new_watch()
+        self.uptime = -9 * 60  # USB power came back with the computer
+        self.assertEqual(await self.check(0), ["Node restarted: the computer started 10m ago; "
+                                               "the radio was lost 5h 25m before (reconnect_failed)"])
+        self.assertNotIn("lost", self.watch.store.data)
+        self.assertEqual(await self.check(), [])  # said once
+
+    async def test_radio_lost_where_the_computer_cant_say_when_it_started(self):
+        await self.check()
+        self.watch.lost_radio("reconnect_failed")
+        self.booted = None
+        self.now += 3 * 60
+        self.uptime += 3 * 60
+        self.watch = self.new_watch()
+        self.assertEqual(await self.check(0),
+                         ["Node problem: the radio was disconnected for 3m (reconnect_failed); back now"])
+
     async def test_radio_lost_again_within_the_hour(self):
         await self.check()
         for minutes in (2, 3):

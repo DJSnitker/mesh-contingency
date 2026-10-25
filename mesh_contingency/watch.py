@@ -20,7 +20,9 @@ restart (power, USB, a crash), even one that restarted the bot too. When the
 radio started along with the computer (a power cut, an update, someone
 rebooting it), that's what it says instead: not a problem with the radio. And when
 the bot stopped because it lost the radio (an unplugged USB cable), it says
-for how long once the radio is back, since nobody could be told meanwhile.
+for how long once the radio is back, since nobody could be told meanwhile;
+but when the computer has started since (shutting down can take the radio's
+USB away before the bot is stopped), it's the computer restart it tells.
 A reboot asked for from the web console (radio reboot, radio freq) is only
 logged: whoever asked knows.
 
@@ -248,9 +250,16 @@ class NodeWatch:
         # Only one from before this run of the bot: the radio is back since.
         if isinstance(lost, dict) and isinstance(lost.get("time"), (int, float)) and lost["time"] < self.state.started:
             del self.store.data["lost"]
-            also = ", and it restarted" if restarted else ""
-            self.event("disconnected", f"the radio was disconnected for {duration(now - lost['time'])} "
-                                       f"({lost.get('reason', '?')}){also}; back now", now)
+            booted = computer_started()
+            if booted is not None and lost["time"] < booted:
+                # Lost as the computer shut down, or earlier: the gap says which.
+                self.event("reboot", f"the computer started {ago(booted, now)}; the radio was lost "
+                                     f"{duration(booted - lost['time'])} before ({lost.get('reason', '?')})",
+                           now, heading="Node restarted")
+            else:
+                also = ", and it restarted" if restarted else ""
+                self.event("disconnected", f"the radio was disconnected for {duration(now - lost['time'])} "
+                                           f"({lost.get('reason', '?')}){also}; back now", now)
         elif restarted and (booted := computer_started()) is not None and \
                 booted - RESTART_SLACK <= restarted <= booted + BOOT_WINDOW:
             self.event("reboot", f"the computer started {ago(booted, now)}, and the radio with it",

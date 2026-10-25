@@ -69,9 +69,10 @@ Steps, in order:
 1. If the computer was restarted, check the service came back:
    `systemctl --user status mesh-contingency`; the journal should show
    `comm: #contingency-comm is channel slot 2.` After the next reboot, check
-   #41 for real: admins get `Node restarted: the computer started ...`, not
-   `Node problem: the radio restarted ...`, and `health` doesn't say
-   `last check failed`.
+   #41 and #84 for real: admins get `Node restarted: the computer started
+   ...`, not `Node problem: the radio restarted ...` or `... the radio was
+   disconnected ...`, and `health` doesn't say `last check failed`. (The
+   2026-10-25 reboot got the second one: fixed in #84; see item 9.)
 2. After Wednesday 2026-10-28, 17:00: check the weekly alert test arrived on
    a radio, and record it in item 9.
 3. The web console checks still to do on the node (item 9, "Web console on
@@ -374,6 +375,16 @@ journal checked:**
   radio that started with it gets `Node restarted: the computer started 1m
   ago, and the radio with it` instead; the first alert check waits up to 2
   minutes for api.weather.gov to resolve. Not yet seen on a real reboot.
+- *Seen 2026-10-25, a shutdown (08:44) and a start (14:09):* the radio
+  wasn't found for 9 minutes (`No serial device found` every 30 s, then one
+  `Could not connect`), then the bot connected and set the radio's clock
+  (13m behind). But the admin got `Node problem: the radio was disconnected
+  for 5h 35m (reconnect_failed), and it restarted`: shutting down took the
+  radio's USB a moment before systemd stopped the bot, which saved it as a
+  lost radio, and a lost radio was told before a computer restart.
+- *Fixed in #84:* a radio lost before the computer last started is told as
+  `Node restarted: the computer started 9m ago; the radio was lost 5h 25m
+  before (reconnect_failed)`. To see on the next real reboot.
 
 ### Checks
 

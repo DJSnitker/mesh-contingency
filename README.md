@@ -289,6 +289,7 @@ Node ok again: battery 3.65V
 Node problem: the radio restarted 3m ago (power, USB or a crash)
 Node problem: the radio was disconnected for 7m (reconnect_failed); back now
 Node restarted: the computer started 1m ago, and the radio with it
+Node restarted: the computer started 9m ago; the radio was lost 5h 25m before (reconnect_failed)
 ```
 
 It also says when the radio has restarted (its uptime went backwards).
@@ -299,7 +300,11 @@ someone rebooting it); on Linux the bot can tell, and says `Node restarted`
 instead, since nothing is wrong with the radio. When the bot stopped
 because it lost the radio (an unplugged USB cable), nobody could be told at
 the time, so once the radio is back it says for how long it was gone (and
-whether the radio restarted meanwhile). A radio with a battery keeps running
+whether the radio restarted meanwhile). If the computer has started since,
+it says `Node restarted` and how long before that the radio was lost: a
+computer shutting down can take the radio's USB away a moment before it
+stops the bot, so a gap of a few hours there is just how long the computer
+was off. A radio with a battery keeps running
 while unplugged, so only the disconnect shows. A reboot from the web console
 ([`radio reboot` or `radio freq`](#radio-settings)) is only logged
 (`Watch: the radio restarted just now: ...`): whoever asked for it knows.
