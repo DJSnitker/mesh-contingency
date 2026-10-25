@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+import { BibleScreen } from './bible/bible-screen';
 import { ChatList } from './chat/chat-list';
 import { ChatScreen } from './chat/chat-screen';
 import { CheckinsScreen } from './checkins/checkins-screen';
@@ -20,15 +21,18 @@ export const routes: Routes = [
   { path: 'chat/channel/:name', component: ChatScreen, title: 'Chat' },
   { path: 'radio', component: RadioScreen, title: 'Radio' },
   { path: 'email', component: EmailScreen, title: 'Email' },
-  { path: 'weather', component: WeatherScreen, title: 'Weather and verse' },
+  { path: 'weather', component: WeatherScreen, title: 'Weather' },
+  { path: 'bible', component: BibleScreen, title: 'Bible' },
   { path: '**', redirectTo: 'node' },
 ];
 
-/** The tab bar, in order. Email and weather are reached from Node. */
+/** The tab bar, in order. Email is reached from Node. */
 export const TABS = [
-  { path: '/node', label: 'Node', icon: 'radio' },
   { path: '/mailbox', label: 'Mailbox', icon: 'inbox' },
   { path: '/checkins', label: 'Check-ins', icon: 'check' },
   { path: '/chat', label: 'Chat', icon: 'chat' },
+  { path: '/weather', label: 'Weather', icon: 'cloud' },
+  { path: '/bible', label: 'Bible', icon: 'book' },
+  { path: '/node', label: 'Node', icon: 'radio' },
   { path: '/radio', label: 'Radio', icon: 'sliders' },
 ];

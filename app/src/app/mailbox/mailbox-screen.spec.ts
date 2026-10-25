@@ -136,6 +136,11 @@ describe('MailboxScreen', () => {
       return answer;
     };
     const { page, link, type, press, button } = await open();
+    // Folded away until opened.
+    const section = page.querySelector<HTMLDetailsElement>('details.passphrase')!;
+    expect(section.open).toBe(false);
+    section.querySelector('summary')!.click();
+    expect(section.open).toBe(true);
     type('new-passphrase', 'batterystaple9');
     expect(button('Set it').disabled).toBe(true);
     type('new-passphrase-again', 'batterystaple9');

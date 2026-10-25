@@ -34,6 +34,7 @@ mesh-contingency-console = "mesh_contingency.web.launch:run"
 [project.entry-points."mesh_contingency.commands"]
 help = "mesh_contingency.commands.help:HelpCommand"
 wx = "mesh_contingency.commands.wx:WxCommand"
+area = "mesh_contingency.commands.area:AreaCommand"
 verse = "mesh_contingency.commands.verse:VerseCommand"
 qm = "mesh_contingency.commands.qm:QmCommand"
 emailall = "mesh_contingency.commands.emailall:EmailAllCommand"

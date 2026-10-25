@@ -258,9 +258,6 @@ import { StepLine } from './step-line';
       <li>
         <a routerLink="/email"><mc-icon name="mail" /> Email</a>
       </li>
-      <li>
-        <a routerLink="/weather"><mc-icon name="cloud" /> Weather and verse</a>
-      </li>
     </ul>
   `,
 })

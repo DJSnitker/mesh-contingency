@@ -105,6 +105,7 @@ emails_per_day_total = 200
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
+area = { permission = "public" }       # needs [alerts] counties
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }

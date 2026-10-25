@@ -151,6 +151,12 @@ export type Verse =
   | { kind: 'verse'; outcome: 'found'; reference: string; text: string }
   | { kind: 'verse'; outcome: 'refused' };
 
+/** area: the watched counties, or one county's report. */
+export type Area =
+  | { kind: 'area'; outcome: 'counties'; counties: string[] }
+  | { kind: 'area'; outcome: 'report'; county: string; alert: boolean; lines: string[] }
+  | { kind: 'area'; outcome: 'refused' };
+
 export type Reply =
   | WhoAmI
   | Join
@@ -165,7 +171,8 @@ export type Reply =
   | AddGroup
   | ClearGroup
   | Wx
-  | Verse;
+  | Verse
+  | Area;
 
 const AGO = String.raw`just now|\d+[dhm] ago`;
 const ENTRY = new RegExp(String.raw`^(.+?) (${AGO}): ([\s\S]*)$`);
@@ -346,6 +353,34 @@ export function parseVerse(text: string): Verse | null {
     : null;
 }
 
+/**
+ * area's answer: "area: Taylor, TX; Jones, TX" (the counties), or a county's
+ * report, "Taylor, TX 63F, Clear | S7mph | 12m ago | Tonight: ...", read
+ * with the county asked about.
+ */
+export function parseArea(text: string, county?: string): Area | null {
+  if (!county) {
+    const list = /^area: (.+)$/.exec(text);
+    if (list && !/^(no counties|.* isn't a watched county)/.test(list[1])) {
+      return { kind: 'area', outcome: 'counties', counties: list[1].replace(/;$/, '').split('; ') };
+    }
+  }
+  if (text.startsWith('area: ') || text.startsWith('usage: area')) {
+    return { kind: 'area', outcome: 'refused' };
+  }
+  if (county && text.startsWith(`${county} `)) {
+    const lines = text.slice(county.length + 1).split(' | ');
+    return {
+      kind: 'area',
+      outcome: 'report',
+      county,
+      alert: lines[0].startsWith('ALERT: '),
+      lines,
+    };
+  }
+  return null;
+}
+
 /** What the app reads from the node's reply to a command, or null when it can't. */
 export function parseReply(command: string, messages: string[]): Reply | null {
   const text = reassemble(messages).text;
@@ -380,6 +415,8 @@ export function parseReply(command: string, messages: string[]): Reply | null {
       return parseWx(text);
     case 'verse':
       return parseVerse(text);
+    case 'area':
+      return parseArea(text, command.slice('area '.length) || undefined);
     default:
       return null;
   }
