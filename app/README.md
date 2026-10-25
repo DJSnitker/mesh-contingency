@@ -32,6 +32,14 @@ only.
 (`mesh_contingency/radio_presets.py`) for the Radio tab, which
 `tests/test_app.py` also keeps the same.
 
+Radio links to **Open-source licenses** (`src/app/licenses/`): the
+packages in the web build, read from the `3rdpartylicenses.txt` the
+production build writes, and the Android libraries, listed by hand in
+`ANDROID` there, with Capacitor's MIT license and an Apache 2.0 text that
+angular.json copies in from `node_modules`. When an Android dependency
+changes, check `./gradlew :app:dependencies --configuration
+releaseRuntimeClasspath` (in `android/`) against that list.
+
 Android asks only for Nearby devices (location on Android 11 and older,
 which needed it to scan). Release builds have no internet permission; the
 debug manifest (`android/app/src/debug/`) adds it for live reload.

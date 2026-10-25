@@ -53,13 +53,15 @@ describe('App', () => {
     expect(more).toEqual(['Email']);
   });
 
-  it('every route but the redirects is reachable from a tab or the Node screen', () => {
+  it('every route but the redirects is reachable from a tab, Node, Chat or Radio', () => {
     // Channels and Contacts are the Chat screen's other tabs; a chat opens from them.
+    // The licenses open from Radio.
     const reachable = new Set([
       ...TABS.map((t) => t.path),
       '/email',
       '/chat/channels',
       '/chat/contacts',
+      '/radio/licenses',
     ]);
     const screens = routes
       .filter((r) => r.component && !r.path?.includes(':'))
