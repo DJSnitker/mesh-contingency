@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input } f
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
+import { DEVICE } from '../device';
 import { Radio } from '../radio/radio';
 import { channelKey, ChatHistory, Line } from './chat-history';
 import { ChatTabs } from './chat-tabs';
@@ -52,8 +53,8 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
 
     @if (radio.state() !== 'connected') {
       <p class="muted">
-        Connect your radio on the <a routerLink="/node">Node</a> screen to send. Chats kept on the
-        phone are below.
+        Connect your radio on the <a routerLink="/node">Node</a> screen to send. Chats kept on this
+        {{ device }} are below.
       </p>
     }
 
@@ -103,13 +104,14 @@ export function when(at: number, now = Date.now()): 'h:mm a' | 'MMM d' {
             Clear every chat
           </button>
         </div>
-        <p class="muted">Chats are kept on this phone only, until cleared.</p>
+        <p class="muted">Chats are kept on this {{ device }} only, until cleared.</p>
       </section>
     }
   `,
 })
 export class ChatList {
   protected readonly radio = inject(Radio);
+  protected readonly device = inject(DEVICE);
   protected readonly history = inject(ChatHistory);
   protected readonly when = when;
 
@@ -176,7 +178,7 @@ export class ChatList {
   }
 
   protected clearAll(): void {
-    if (confirm('Clear every chat kept on this phone?')) {
+    if (confirm(`Clear every chat kept on this ${this.device}?`)) {
       this.history.clearAll();
     }
   }

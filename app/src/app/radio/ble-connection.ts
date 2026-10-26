@@ -27,9 +27,11 @@ export async function askFirmware(connection: Connection): Promise<string | null
     QUERY_MS,
     'device query',
   ).catch(() => null);
-  return info
-    ? [info.manufacturerModel, info.firmware_build_date].filter(Boolean).join(', ') || null
-    : null;
+  // Newer firmware pads its model and version with zeros, in one field.
+  const parts = info
+    ? [...info.manufacturerModel.split('\0'), info.firmware_build_date].filter(Boolean)
+    : [];
+  return parts.join(', ') || null;
 }
 
 /**

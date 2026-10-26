@@ -7,14 +7,16 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test --watch=false",
-    "format": "prettier --write src",
-    "format:check": "prettier --check src",
+    "format": "prettier --write src electron",
+    "format:check": "prettier --check src electron",
     "android": "ng build && cap sync android",
     "demo": "ng serve --configuration demo",
     "emulator:setup": "scripts/android.sh setup",
     "emulator": "scripts/android.sh emulator",
     "android:run": "scripts/android.sh run",
-    "android:live": "scripts/android.sh live"
+    "android:live": "scripts/android.sh live",
+    "desktop": "ng build && electron .",
+    "desktop:run": "electron ."
   },
   "private": true,
   "packageManager": "npm@11.19.0",
@@ -40,9 +42,11 @@
     "@angular/cli": "^22.2.4",
     "@angular/compiler-cli": "^22.2.0",
     "@capacitor/cli": "^8.5.3",
+    "electron": "44.9.3",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^5.0.0"
-  }
+  },
+  "main": "electron/main.cjs"
 }

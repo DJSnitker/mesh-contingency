@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withHashLocation } from '@angular/router';
 
 import { App } from './app';
+import { Device, DEVICE } from './device';
 import { routes, TABS } from './app.routes';
 import { BLE } from './radio/ble';
 import { FakeBle, NODE_KEY } from './radio/fake-ble';
@@ -17,13 +18,14 @@ describe('App', () => {
     localStorage.clear();
   });
 
-  async function open(path: string, serial: FakeSerial | null = null) {
+  async function open(path: string, serial: FakeSerial | null = null, device: Device = 'phone') {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes, withHashLocation()),
         { provide: BLE, useValue: ble },
         { provide: SERIAL, useValue: serial },
+        { provide: DEVICE, useValue: device },
       ],
     });
     const fixture = TestBed.createComponent(App);
@@ -122,6 +124,14 @@ describe('App', () => {
     expect(page.querySelector('.radio')?.textContent).toContain('Pick one on USB');
   });
 
+  it('says phone on a phone and computer on a computer', async () => {
+    let page = await open('/node');
+    expect(page.querySelector('.radio')?.textContent).toContain('near the phone');
+    TestBed.resetTestingModule();
+    page = await open('/node', null, 'computer');
+    expect(page.querySelector('.radio')?.textContent).toContain('near the computer');
+  });
+
   it('reconnects to the radio from last time when it opens', async () => {
     localStorage.setItem(
       REMEMBERED,
@@ -142,6 +152,25 @@ describe('App', () => {
     await page.press('Reconnect', 'Battery');
     await page.press('Forget it', 'Find my radio');
     expect(ble.connects).toHaveLength(2);
+  });
+
+  it("shows the radio's name only once it's connected", async () => {
+    localStorage.setItem(REMEMBERED, JSON.stringify({ deviceId: 'AA:BB', name: 'Field T1000' }));
+    ble.failConnect = 'Connection timeout';
+    const page = await open('/node');
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('.radio')?.textContent).toContain("Your radio isn't connected.");
+    });
+    expect(page.textContent).not.toContain('Field T1000');
+    ble.failConnect = null;
+    ble.connectMs = 200;
+    await page.press('Reconnect', 'Connecting to your radio');
+    expect(page.textContent).not.toContain('Field T1000');
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('.radio-name')?.textContent).toBe('Field T1000');
+    });
   });
 
   it('turns a spinner while it connects, in the header and on Node', async () => {

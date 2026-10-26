@@ -91,6 +91,33 @@ demo` shows them with a radio connected: the fake one the tests use
 demo configuration), slow to list its contacts as a real one is. Size the
 browser window to try a phone's width or a tablet's.
 
+## The desktop app
+
+The same app on Windows, Mac and Linux (roadmap item 18,
+[`docs/plans/desktop-app.md`](../docs/plans/desktop-app.md)), in Electron:
+`electron/main.cjs` opens a window on the web build (`dist/`, served as
+`app://mesh/`, a secure origin as Web Bluetooth and Web Serial need).
+Chromium leaves its device choosers and PIN prompt to the app, so
+`electron/chooser.cjs` has its own: **Find my radio** looks for radios for
+4 seconds and lists them; **Connect over USB** lists the serial ports; and
+a radio that wants its Bluetooth PIN gets a box for it. On Linux, Web
+Bluetooth needs Chromium's experimental platform features, which the app
+turns on, and USB needs the user in the `dialout` (or `uucp`) group.
+
+USB details the desktop app handles:
+- **Only USB ports are listed**, not the computer's own serial ports (`ttyS0`...).
+- **Ports left in a bad state:** on Linux, Chromium takes an idle read on a port another program left with `VMIN=0` as the radio unplugged (Chromium issue 559872992). Picking a port sets it back (`stty min 1 time 0`).
+- **Which ports the app may reopen:** only a device the user picked, remembered by maker, model and serial number in `usb-devices.json` in the app's data folder.
+- **Two radios of the same model** look identical to it (a CP2102 board's serial number is often `0001`). So Reconnect reopens the exact port picked while the app stays open; after a restart, it reconnects only when one allowed radio is plugged in, and otherwise asks to pick. That keeps it off a node's radio on the same computer.
+
+```sh
+npm run desktop       # build, then open the desktop app
+npm run desktop:run   # open the last build
+```
+
+The screens say "computer" there and "phone" on a phone (`DEVICE`, in
+`src/app/device.ts`). Installers for each system come next (item 18, PR 3).
+
 ## Building for Android
 
 Needs Java 21 and the Android SDK (platform 36). On Linux, without Android

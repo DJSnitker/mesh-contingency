@@ -7,8 +7,9 @@ import { Port, PortInfo, Serial } from './serial';
  * adds and strips the serial framing ("<" or ">", then a 2-byte length).
  */
 export class FakePort implements Port {
-  readonly readable: ReadableStream<Uint8Array>;
-  readonly writable: WritableStream<Uint8Array>;
+  // New streams each time it opens, as a real port's.
+  readable: ReadableStream<Uint8Array> | null = null;
+  writable: WritableStream<Uint8Array> | null = null;
   opened = 0;
   closed = 0;
   baudRate: number | null = null;
@@ -21,7 +22,9 @@ export class FakePort implements Port {
   constructor(
     readonly ble: FakeBle,
     readonly info: PortInfo = { usbVendorId: 0x239a, usbProductId: 0x8029 },
-  ) {
+  ) {}
+
+  async open(options: { baudRate: number }): Promise<void> {
     this.readable = new ReadableStream<Uint8Array>({
       start: (controller) => {
         this.push = (bytes) => controller.enqueue(bytes);
@@ -35,9 +38,6 @@ export class FakePort implements Port {
         void this.ble.write('usb', '', '', new DataView(bytes.slice(3, 3 + length).buffer));
       },
     });
-  }
-
-  async open(options: { baudRate: number }): Promise<void> {
     this.opened++;
     this.baudRate = options.baudRate;
     await this.ble.connect('usb');

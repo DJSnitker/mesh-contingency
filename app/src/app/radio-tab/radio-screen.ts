@@ -13,6 +13,7 @@ import { ChatHistory } from '../chat/chat-history';
 import { Icon } from '../icon';
 import { NodeLink } from '../node/node-link';
 import presetFile from '../radio/presets.json';
+import { DEVICE } from '../device';
 import { Frequency, Radio, RadioContact } from '../radio/radio';
 
 /** MeshCore's regional presets, as the bot's radio command offers them. */
@@ -168,7 +169,7 @@ export function clockWords(offset: number): string {
         }
         @if (radio.state() === 'connecting') {
           <p class="loading" role="status">
-            <span class="spinner"></span> Connecting to {{ radio.name() ?? 'your radio' }}…
+            <span class="spinner"></span> Connecting to your radio…
           </p>
         } @else if (radio.hasRemembered()) {
           <div class="actions">
@@ -251,7 +252,7 @@ export function clockWords(offset: number): string {
             [disabled]="busy()"
             (click)="setClock()"
           >
-            Set the clock from the phone
+            Set the clock from the {{ device }}
           </button>
         </div>
       </section>
@@ -494,6 +495,7 @@ export function clockWords(offset: number): string {
 })
 export class RadioScreen {
   protected readonly radio = inject(Radio);
+  protected readonly device = inject(DEVICE);
   private readonly link = inject(NodeLink);
   protected readonly presets = PRESETS;
   protected readonly CUSTOM = CUSTOM;
@@ -613,7 +615,7 @@ export class RadioScreen {
   }
 
   protected async setClock(): Promise<void> {
-    await this.run('The clock is set from the phone.', 'Setting the clock…', () =>
+    await this.run(`The clock is set from the ${this.device}.`, 'Setting the clock…', () =>
       this.radio.setClock(),
     );
   }

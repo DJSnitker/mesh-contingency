@@ -208,6 +208,30 @@ describe('Radio', () => {
       expect(serial.requests).toBe(0);
     });
 
+    it("won't guess between two radios of the same model", async () => {
+      await usbRadio().pickUsb();
+      TestBed.resetTestingModule();
+      ble = new FakeBle();
+      serial = new FakeSerial(null);
+      serial.allowed = [new FakePort(ble), new FakePort(ble)];
+      const r = usbRadio();
+      await r.reconnect();
+      expect(r.state()).toBe('none');
+      expect(serial.allowed.map((p) => p.opened)).toEqual([0, 0]);
+      expect(r.problem()).toContain('More than one radio like yours');
+    });
+
+    it('reconnects to the very port picked, beside one of the same model', async () => {
+      const r = usbRadio();
+      await r.pickUsb();
+      await r.disconnect();
+      serial.allowed = [new FakePort(ble), port];
+      await r.reconnect();
+      expect(r.state()).toBe('connected');
+      expect(port.opened).toBe(2);
+      expect(serial.allowed[0].opened).toBe(0);
+    });
+
     it('asks to plug it in when the port remembered is gone', async () => {
       await usbRadio().pickUsb();
       TestBed.resetTestingModule();
@@ -215,7 +239,7 @@ describe('Radio', () => {
       const r = usbRadio();
       await r.reconnect();
       expect(r.state()).toBe('none');
-      expect(r.problem()).toBe('Plug Field T1000 in over USB, or pick it again.');
+      expect(r.problem()).toBe('Plug your radio in over USB, or pick it again.');
     });
 
     it('says when the cable is pulled, and closes the port on disconnect', async () => {
