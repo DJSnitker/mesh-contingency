@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withHashLocation } from '@angular/router';
 
 import { App } from './app';
+import { Device, DEVICE } from './device';
 import { routes, TABS } from './app.routes';
 import { BLE } from './radio/ble';
 import { FakeBle, NODE_KEY } from './radio/fake-ble';
@@ -17,13 +18,14 @@ describe('App', () => {
     localStorage.clear();
   });
 
-  async function open(path: string, serial: FakeSerial | null = null) {
+  async function open(path: string, serial: FakeSerial | null = null, device: Device = 'phone') {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes, withHashLocation()),
         { provide: BLE, useValue: ble },
         { provide: SERIAL, useValue: serial },
+        { provide: DEVICE, useValue: device },
       ],
     });
     const fixture = TestBed.createComponent(App);
@@ -120,6 +122,14 @@ describe('App', () => {
     expect(page.querySelector('.via')?.textContent).toBe('over USB');
     await page.press('Disconnect', "isn't connected");
     expect(page.querySelector('.radio')?.textContent).toContain('Pick one on USB');
+  });
+
+  it('says phone on a phone and computer on a computer', async () => {
+    let page = await open('/node');
+    expect(page.querySelector('.radio')?.textContent).toContain('near the phone');
+    TestBed.resetTestingModule();
+    page = await open('/node', null, 'computer');
+    expect(page.querySelector('.radio')?.textContent).toContain('near the computer');
   });
 
   it('reconnects to the radio from last time when it opens', async () => {

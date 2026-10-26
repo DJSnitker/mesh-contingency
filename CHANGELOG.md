@@ -13,6 +13,11 @@ may change how the bot is configured).
   come, roadmap item 18, or Chrome and Edge). It remembers which way the
   radio was connected and reconnects to its port without asking. Phones
   stay Bluetooth only.
+- **The desktop app** (Electron, in `app/electron/`): the app in a window on
+  a computer, with its own lists to pick a radio over Bluetooth or a USB
+  port, and a box for the radio's Bluetooth PIN. `npm run desktop` in
+  `app/` runs it; installers come with the next release. The screens say
+  "computer" there instead of "phone".
 
 ## [0.10.0] - 2026-10-25
 

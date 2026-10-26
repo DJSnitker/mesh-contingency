@@ -611,7 +611,7 @@ export function describe(error: unknown): string {
     return `Connected, but ${text}. Try again, or restart the radio.`;
   }
   return (
-    "Couldn't connect to the radio. If the MeshCore app (or another phone) is connected to it, " +
+    "Couldn't connect to the radio. If the MeshCore app (or another phone or computer) is connected to it, " +
     'disconnect that first: a radio takes one at a time.' +
     (text ? ` (${text})` : '')
   );

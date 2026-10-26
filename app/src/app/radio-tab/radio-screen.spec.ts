@@ -77,7 +77,7 @@ describe('RadioScreen', () => {
     ble.radio.clockAhead = -600;
     await act('Refresh');
     expect(text('.clock')).toBe('10m behind');
-    await act('Set the clock from the phone');
+    await act('Set the clock from the computer');
     expect(text('.clock')).toBe('right');
 
     await act('Advert nearby');

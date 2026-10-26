@@ -91,6 +91,27 @@ demo` shows them with a radio connected: the fake one the tests use
 demo configuration), slow to list its contacts as a real one is. Size the
 browser window to try a phone's width or a tablet's.
 
+## The desktop app
+
+The same app on Windows, Mac and Linux (roadmap item 18,
+[`docs/plans/desktop-app.md`](../docs/plans/desktop-app.md)), in Electron:
+`electron/main.cjs` opens a window on the web build (`dist/`, served as
+`app://mesh/`, a secure origin as Web Bluetooth and Web Serial need).
+Chromium leaves its device choosers and PIN prompt to the app, so
+`electron/chooser.cjs` has its own: **Find my radio** looks for radios for
+4 seconds and lists them; **Connect over USB** lists the serial ports; and
+a radio that wants its Bluetooth PIN gets a box for it. On Linux, Web
+Bluetooth needs Chromium's experimental platform features, which the app
+turns on, and USB needs the user in the `dialout` (or `uucp`) group.
+
+```sh
+npm run desktop       # build, then open the desktop app
+npm run desktop:run   # open the last build
+```
+
+The screens say "computer" there and "phone" on a phone (`DEVICE`, in
+`src/app/device.ts`). Installers for each system come next (item 18, PR 3).
+
 ## Building for Android
 
 Needs Java 21 and the Android SDK (platform 36). On Linux, without Android

@@ -1,6 +1,6 @@
 # Plan: the app on a computer (Windows, Mac and Linux)
 
-Status: in progress: PR 1 (USB in the app, and this plan) open · Requested 2026-10-25
+Status: in progress: PR 1 (#95) merged; PR 2 (the Electron shell) open · Requested 2026-10-25
 
 ## Goal
 
@@ -32,17 +32,20 @@ for Windows, Mac and Linux alongside the Android APK.
 
 ## PRs
 
-1. **USB in the app** (this PR) and this plan: `UsbConnection` over Web
+1. **USB in the app** (#95) and this plan: `UsbConnection` over Web
    Serial, the Node screen's **Connect over USB**, remembering which way
    the radio was connected and reconnecting to its port without asking.
-2. **The Electron shell** (`app/electron/`): a window on the app's build,
-   the Bluetooth and serial pickers, the desktop's wording (computer, not
-   phone), `npm run desktop` to run it; tried on this Linux computer with
-   a real radio over Bluetooth and USB.
+2. **The Electron shell** (`app/electron/`, this PR): a window on the
+   app's build, the Bluetooth and serial pickers and the PIN box, the
+   desktop's wording (computer, not phone), `npm run desktop` to run it.
+   Electron 44.
 3. **Builds:** CI makes the Windows installer, the Mac `.dmg` and the Linux
-   AppImage and `.deb` (electron-builder, on each system's runner), and
-   each release attaches them, unsigned. Docs: the README, `app/README.md`
-   and the wiki.
+   AppImage, `.deb` and `.pacman` (Arch; decided 2026-10-25), with
+   electron-builder on each system's runner, and
+   each release attaches them, unsigned. The AppImage tried on Arch with
+   and without FUSE 2 (`fuse2`). The licenses screen lists Electron's and
+   Chromium's notices on a computer, in place of the Android libraries.
+   Docs: the README, `app/README.md` and the wiki.
 4. **Later, if wanted:** signing and notarizing; updates from inside the app.
 
 ## To check on real hardware

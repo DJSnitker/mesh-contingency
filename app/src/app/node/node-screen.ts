@@ -10,6 +10,7 @@ import { DatePipe } from '@angular/common';
 
 import { ChatHistory } from '../chat/chat-history';
 import { Icon } from '../icon';
+import { DEVICE } from '../device';
 import { COMPANION, Radio, RadioContact } from '../radio/radio';
 import { NodeLink } from './node-link';
 import { StepLine } from './step-line';
@@ -128,8 +129,8 @@ import { StepLine } from './step-line';
               </p>
             } @else {
               <p class="muted">
-                Turn on your MeshCore radio near the phone, then pick it from the list. The phone
-                asks for its Bluetooth PIN the first time.
+                Turn on your MeshCore radio near the {{ device }}, then pick it from the list. The
+                {{ device }} asks for its Bluetooth PIN the first time.
               </p>
             }
             <div class="actions">
@@ -296,6 +297,7 @@ import { StepLine } from './step-line';
 })
 export class NodeScreen {
   protected readonly radio = inject(Radio);
+  protected readonly device = inject(DEVICE);
   protected readonly link = inject(NodeLink);
   protected readonly history = inject(ChatHistory);
   /** The companions, to pick the node from (the radio's contacts as read for Chat too). */

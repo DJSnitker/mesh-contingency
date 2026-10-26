@@ -14,6 +14,7 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { Icon } from '../icon';
+import { DEVICE } from '../device';
 import { Radio } from '../radio/radio';
 import { channelKey, channelLimit, ChatHistory, dmKey, MAX_TEXT, Status } from './chat-history';
 
@@ -159,6 +160,7 @@ const SAID: Record<Status, string> = {
 })
 export class ChatScreen {
   protected readonly radio = inject(Radio);
+  protected readonly device = inject(DEVICE);
   private readonly history = inject(ChatHistory);
   protected readonly said = SAID;
 
@@ -239,7 +241,7 @@ export class ChatScreen {
   }
 
   protected clear(): void {
-    if (confirm(`Clear the chat with ${this.title()} from this phone?`)) {
+    if (confirm(`Clear the chat with ${this.title()} from this ${this.device}?`)) {
       this.history.clear(this.chatKey());
     }
   }
