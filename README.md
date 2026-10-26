@@ -881,13 +881,17 @@ posts to a channel show the channel and the length; what was posted is in
 `history`, with the console's other actions. The radio keeps nothing either:
 the bot takes each message off it as it arrives.
 
-To clear what an older version logged (every user service's journal, which
-can't be undone):
+To clear what an older version (0.9.0 and before) logged, the journal of
+every service run as your user, which can't be undone:
 
 ```bash
-journalctl --user --rotate
-journalctl --user --vacuum-time=1s
+sudo journalctl --rotate
+sudo rm /var/log/journal/*/user-$(id -u)@*.journal
 ```
+
+The journal files belong to root, so `journalctl --user --vacuum-time` can't
+remove them. On a system that keeps the journal in memory only, a reboot
+clears it.
 
 At startup it checks the config and loads the enabled commands before
 connecting, prints which commands are available at each permission level, and
