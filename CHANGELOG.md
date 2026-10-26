@@ -8,6 +8,15 @@ may change how the bot is configured).
 ## [Unreleased]
 
 ### Changed
+- **The log no longer has what anyone wrote**: for every command, the bot
+  prints only the sender, the command's name, whether it was refused, failed
+  (the kind of error) or timed out, and how long each reply was. Never the
+  command's text or the reply, which the journal kept for months: `qm`
+  emails, `status` look-ups, `whoami`'s addresses. A message that isn't a
+  command shows as `not a command`; a console post to a channel, as its
+  channel and length. A `CommandResult`'s `console` is no longer printed.
+  `qm`, `email` and `emailall` are now private commands. The README's
+  "Privacy of the log" says how to clear what older versions logged.
 - **The web console is laid out like the phone app** (roadmap item 17,
   `docs/plans/console-like-app.md`): its menu is the Dashboard; Mailbox,
   Check-ins, Chat, Weather and Bible; then Radio, Users and History. In a
@@ -16,7 +25,10 @@ may change how the bot is configured).
   *Leave a message*; **Chat** lists the radio's channels, each opening as a
   chat thread, with a box to post on `#contingency-wx` and
   `#contingency-comm`; the Send page is gone (`/inbox` and `/send` lead to
-  Mailbox and Chat). New: **Bible** (the verse of the day, and looking one
+  Mailbox and Chat). Then **Chat posts to any of the radio's channels** as
+  this node (`POST /api/channels/{slot}/messages`, recorded in `history`),
+  and counts each channel's unread messages, with the total beside Chat in
+  the menu; Radio's Channels tab is gone, as Chat shows all it did. New: **Bible** (the verse of the day, and looking one
   up), **Look up a check-in** on Check-ins, and on Weather, starred
   counties first (kept in the browser) with the rest under Show more, and
   **Weather anywhere** (`wx`). Every page shows a spinner

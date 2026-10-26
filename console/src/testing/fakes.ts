@@ -166,7 +166,7 @@ export const CONTACTS: Contacts = {
 };
 
 export const CHANNELS: Channel[] = [
-  { slot: 0, name: 'Public', kind: 'public', uses: [], messages: 2, last: 900 },
+  { slot: 0, name: 'Public', kind: 'public', uses: [], messages: 2, last: 900, heard: 1 },
   {
     slot: 1,
     name: '#contingency-wx',
@@ -174,10 +174,11 @@ export const CHANNELS: Channel[] = [
     uses: ['alert', 'automatic alerts'],
     messages: 0,
     last: null,
+    heard: 0,
   },
-  { slot: 2, name: 'Family', kind: 'private', uses: [], messages: 0, last: null },
-  { slot: 3, name: '', kind: 'empty', uses: [], messages: 0, last: null },
-  { slot: 4, name: '', kind: 'empty', uses: [], messages: 0, last: null },
+  { slot: 2, name: 'Family', kind: 'private', uses: [], messages: 0, last: null, heard: 0 },
+  { slot: 3, name: '', kind: 'empty', uses: [], messages: 0, last: null, heard: 0 },
+  { slot: 4, name: '', kind: 'empty', uses: [], messages: 0, last: null, heard: 0 },
 ];
 
 export const RADIO: RadioSettings = {
@@ -214,6 +215,7 @@ export const PUBLIC_MESSAGES: ChannelMessages = {
     { time: 900, sender: 'test-node', text: 'net at 7', hops: null, snr: null, own: true },
     { time: 600, sender: 'Alice', text: 'anyone on?', hops: 2, snr: 6.5, own: false },
   ],
+  heard: 1,
 };
 
 function offer(name: string, usage: string, channel: string | null = null): CommandInfo {
@@ -280,6 +282,11 @@ export class FakeApi {
   radio: () => Observable<RadioSettings | null> = () => of(RADIO);
   channelMessages: (slot: number) => Observable<ChannelMessages> = (slot) =>
     of({ ...PUBLIC_MESSAGES, slot });
+  readonly posted: [number, string][] = [];
+  postToChannel: (slot: number, text: string) => Observable<{ channel: string }> = (slot, text) => {
+    this.posted.push([slot, text]);
+    return of({ channel: CHANNELS.find((c) => c.slot === slot)?.name ?? `slot ${slot}` });
+  };
   answer: (command: string, text: string) => Observable<Answer> = (command) =>
     of({ command, messages: [`${command}: done`], asks: false, ok: true });
   readonly ran: [string, string][] = [];

@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { Api, Channel } from './api';
+import { Channel } from './api';
 import { Icon } from './icon';
 import { ago } from './time';
+import { Unread } from './unread';
 
 /** What a kind of channel means for who can read it. */
 export function kindText(kind: Channel['kind']): string {
@@ -17,8 +18,9 @@ export function kindText(kind: Channel['kind']): string {
 
 /**
  * Chat, as the phone app's: the radio's channels, each opening its thread
- * (channel.ts), the ones heard on most recently first. Direct messages come
- * in a later version.
+ * (channel.ts), the ones heard on most recently first, with what each is,
+ * what the bot posts there and how many messages are unread (unread.ts).
+ * Direct messages come in a later version.
  */
 @Component({
   selector: 'mc-chat',
@@ -85,6 +87,9 @@ export function kindText(kind: Channel['kind']): string {
                     · {{ channel.messages }} message{{ channel.messages === 1 ? '' : 's' }}
                   }
                 </span>
+                @if (unread.count(channel.slot, channel.heard); as n) {
+                  <span class="unread" [attr.aria-label]="n + ' unread'">{{ n }}</span>
+                }
               </a>
             </li>
           } @empty {
@@ -104,10 +109,11 @@ export function kindText(kind: Channel['kind']): string {
   `,
 })
 export class Chat {
-  private readonly api = inject(Api);
-  protected readonly channels = signal<Channel[] | null>(null);
-  protected readonly problem = signal<string | null>(null);
-  protected readonly now = signal(Date.now() / 1000);
+  protected readonly unread = inject(Unread);
+  protected readonly channels = this.unread.channels;
+  protected readonly problem = this.unread.problem;
+  /** When the channels were read, for "5m ago". */
+  protected readonly now = computed(() => (this.channels(), Date.now() / 1000));
   protected readonly ago = ago;
   protected readonly kindText = kindText;
   /** The slots in use, heard on most recently first; then the rest by slot. */
@@ -118,13 +124,6 @@ export class Chat {
   );
 
   constructor() {
-    this.api.channels().subscribe({
-      next: (channels) => {
-        this.now.set(Date.now() / 1000);
-        this.channels.set(channels);
-        this.problem.set(null);
-      },
-      error: () => this.problem.set("can't read the radio's channels"),
-    });
+    this.unread.refresh();
   }
 }

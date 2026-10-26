@@ -38,6 +38,13 @@ class ChannelLogTest(unittest.TestCase):
             log.heard({"channel_idx": 2, "text": f"Alice: {n}"})
         self.assertEqual([m["text"] for m in log.messages(2)], ["4", "3", "2"])
 
+    def test_counts_every_message_heard_however_many_are_kept(self):
+        log = ChannelLog(keep=3)
+        for n in range(5):
+            log.heard({"channel_idx": 2, "text": f"Alice: {n}"})
+        log.sent(2, "test-node", "this node's own")
+        self.assertEqual((log.heard_count(2), log.heard_count(0)), (5, 0))
+
     def test_ignores_what_isnt_a_channel_message(self):
         log = ChannelLog()
         log.heard({"text": "Alice: no slot"})

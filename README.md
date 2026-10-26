@@ -145,9 +145,9 @@ bot → Alice:  Bob's Heltec 6m ago: meet at the shelter at 6
   `inbox <passphrase>`. Users who never set a passphrase keep plain messages,
   shown by plain `inbox`.
 - The bot still sees each message as it arrives and as it's delivered, since
-  the radio hands it plain text both ways. `msg`, `inbox` and `setpass` are
-  private commands: the console shows only the command and who sent it, never
-  the message, passphrase or reply.
+  the radio hands it plain text both ways. It doesn't log them: for every
+  command, the log shows only the command and who sent it, never what was
+  sent with it or the reply (see [Privacy of the log](#privacy-of-the-log)).
 
 When `msg` saves a message, the recipient gets a direct message such as
 `inbox: new message from Bob; send inbox to read`, at most once every 10
@@ -861,6 +861,34 @@ and the library's reconnects fail, the bot logs `Lost the radio (...)` and
 exits with an error, so systemd starts it again (every 30 s) until the radio
 is back.
 
+### Privacy of the log
+
+The journal keeps what the bot prints for weeks or months, so the bot prints
+only what happened, never what anyone wrote:
+
+```
+[d0d0d0d0d0d0 Dana] status
+  -> running status
+  (reply to d0d0d0d0d0d0 delivered)
+  -> replied (42 chars)
+```
+
+That's the sender, the command's name, refused, failed (with the kind of
+error) or timed out, and how long each reply was: never the command's text
+(a message, an email address, a passphrase, a name looked up) or the reply.
+A message that isn't a command shows as `not a command`. The web console's
+posts to a channel show the channel and the length; what was posted is in
+`history`, with the console's other actions. The radio keeps nothing either:
+the bot takes each message off it as it arrives.
+
+To clear what an older version logged (every user service's journal, which
+can't be undone):
+
+```bash
+journalctl --user --rotate
+journalctl --user --vacuum-time=1s
+```
+
 At startup it checks the config and loads the enabled commands before
 connecting, prints which commands are available at each permission level, and
 warns about any that are disabled or failed to load. It then watches the
@@ -948,7 +976,7 @@ Mailbox, Chat, Weather and More (the rest).
   weather alerts out now for the counties in `[alerts]` (each with its
   counties, in orange; it links to Weather), the node watch, the last
   backup, `health`, and a live log of what the bot prints (as in the
-  journal, with private commands' text left out).
+  journal: commands' names, never their text or replies).
 - **Mailbox:** who has messages waiting, from whom, read or not, sealed or
   not, never what they say (that stays for the recipient, over the radio);
   and **Leave a message** in a user's inbox (`msg`, from `console`).
@@ -962,8 +990,11 @@ Mailbox, Chat, Weather and More (the rest).
   and the signal, and what this node posted there, on the right. The bot
   keeps the last 200 of each channel while the console is on, in memory
   only: a restart forgets them, and none are written to disk. It takes no
-  commands from channels. `#contingency-wx` and `#contingency-comm` have a
-  box to post (`alert`, `comm`), with a count against the one-message limit.
+  commands from channels. Each channel has a box to post to it as this node,
+  with a count against the one-message limit; a post is recorded in
+  `history` (`posted to Family: ...`, by console). Each channel, and Chat in
+  the menu, counts the messages heard since you last opened it, in this
+  browser; a restart of the bot starts the counts again.
 - **Weather:** a card for each county in `[alerts] counties`, alert or
   not: the latest reading from the nearest NWS station, the next three
   forecast periods, and any alert out for it. The bot asks the NWS every 15
@@ -980,8 +1011,7 @@ Mailbox, Chat, Weather and More (the rest).
   [settings](#radio-settings), with a form for each change, and the
   frequency set apart, on one tab; its contacts (with a filter): each one's type, whether it's a user or an
   admin, its path and when it was last heard, with **Reset path** and
-  **Remove** ([`contact`](#contacts)), on another; on the third, the radio's
-  channel slots, each linking to its messages in Chat.
+  **Remove** ([`contact`](#contacts)), on another. Its channels are in Chat.
 - **Users:** every user and admin with their settings, last seen, check-in
   and messages, with **Whois**, **Edit emails** (`setemail`: the qm
   address and the emailall group), **Reset passphrase** and **Remove**; the
@@ -1171,10 +1201,11 @@ Use a class when the command keeps state or needs setup. Setup that needs the
 radio goes in `async def start(self)`, which the bot calls once after
 connecting and before handling messages; it may return a line to print.
 
-Set `private = True` on the class when what senders write or get back must
-stay off the console (messages, passphrases). The bot then prints only the
-command name and sender, not the text, error or reply. Keep the `console` of
-your `CommandResult` free of that text too.
+The bot never prints a command's text, error or reply, only its name and
+sender. Set `private = True` on the class when what senders write or get back
+is theirs alone (messages, passphrases, email): nothing else keeps its text
+either, such as the web console's chat. The `console` of a `CommandResult` is
+no longer printed; keep it free of that text anyway.
 
 For something that can't be undone, `Confirmations` from `mesh_contingency.api`
 asks first: `if not self.confirmations.confirmed(sender.public_key, what):`

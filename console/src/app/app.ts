@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { filter, map, timer } from 'rxjs';
 
 import { Api } from './api';
 import { Icon } from './icon';
+import { Unread, UNREAD_REFRESH_MS } from './unread';
 
 /**
  * The rail's pages, grouped as the phone app's tabs are: the Dashboard first,
@@ -38,6 +39,8 @@ export class App {
   protected readonly signedOut = inject(Api).signedOut;
   protected readonly pages = PAGES;
   protected readonly tabs = PAGES.filter((page) => TABS.includes(page.path));
+  /** The channels' unread messages, beside Chat. */
+  protected readonly unread = inject(Unread).total;
 
   private readonly url = toSignal(
     inject(Router).events.pipe(
@@ -51,4 +54,15 @@ export class App {
     const path = this.url().split(/[?#]/)[0];
     return path === '/more' || MORE.some((page) => path.startsWith(page.path));
   });
+
+  constructor() {
+    const unread = inject(Unread);
+    timer(0, UNREAD_REFRESH_MS)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (!this.signedOut()) {
+          unread.refresh();
+        }
+      });
+  }
 }

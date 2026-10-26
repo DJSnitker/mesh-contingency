@@ -11,6 +11,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from meshcore import EventType
+
 from mesh_contingency.alerts import message_limit
 from mesh_contingency.api import ADMIN as ADMIN_LEVEL
 from mesh_contingency.api import DISABLED, Command, CommandResult
@@ -324,12 +326,13 @@ class ReadTest(ConsoleTestCase):
         self.radio.channels[3] = ("#lookalike", b"\x09" * 16)  # a # name but not its key
         found = await self.get_json("/api/channels")
         self.assertEqual(found[:5], [
-            {"slot": 0, "name": "Public", "kind": "public", "uses": [], "messages": None, "last": None},
+            {"slot": 0, "name": "Public", "kind": "public", "uses": [], "messages": None, "last": None, "heard": None},
             {"slot": 1, "name": "#contingency-wx", "kind": "hashtag", "uses": ["alert"], "messages": None,
-             "last": None},
-            {"slot": 2, "name": "Family", "kind": "private", "uses": [], "messages": None, "last": None},
-            {"slot": 3, "name": "#lookalike", "kind": "private", "uses": [], "messages": None, "last": None},
-            {"slot": 4, "name": "", "kind": "empty", "uses": [], "messages": None, "last": None}])
+             "last": None, "heard": None},
+            {"slot": 2, "name": "Family", "kind": "private", "uses": [], "messages": None, "last": None, "heard": None},
+            {"slot": 3, "name": "#lookalike", "kind": "private", "uses": [], "messages": None, "last": None,
+             "heard": None},
+            {"slot": 4, "name": "", "kind": "empty", "uses": [], "messages": None, "last": None, "heard": None}])
         self.assertEqual(len(found), 8)
         self.assertNotIn("secret", json.dumps(found))
         self.assertNotIn((b"\x07" * 16).hex(), json.dumps(found))
@@ -350,19 +353,20 @@ class ReadTest(ConsoleTestCase):
     async def test_channel_messages(self):
         from mesh_contingency.channel_log import ChannelLog
 
-        self.assertEqual(await self.get_json("/api/channels/1/messages"), {"slot": 1, "keep": None, "messages": None})
+        self.assertEqual(await self.get_json("/api/channels/1/messages"),
+                         {"slot": 1, "keep": None, "messages": None, "heard": None})
         self.state.channel_log = log = ChannelLog()
         with mock.patch("mesh_contingency.channel_log.time.time", return_value=100.0):
             log.heard({"channel_idx": 1, "text": "Alice: anyone on?", "path_len": 2, "SNR": 6.5})
         with mock.patch("mesh_contingency.channel_log.time.time", return_value=200.0):
             log.sent(1, "test-node", "net at 7")
         found = await self.get_json("/api/channels/1/messages")
-        self.assertEqual(found, {"slot": 1, "keep": 200, "messages": [
+        self.assertEqual(found, {"slot": 1, "keep": 200, "heard": 1, "messages": [
             {"time": 200.0, "sender": "test-node", "text": "net at 7", "hops": None, "snr": None, "own": True},
             {"time": 100.0, "sender": "Alice", "text": "anyone on?", "hops": 2, "snr": 6.5, "own": False}]})
         self.assertEqual((await self.get_json("/api/channels/5/messages"))["messages"], [])
-        self.assertEqual([(c["messages"], c["last"]) for c in (await self.get_json("/api/channels"))[:2]],
-                         [(0, None), (2, 200.0)])
+        self.assertEqual([(c["messages"], c["last"], c["heard"]) for c in (await self.get_json("/api/channels"))[:2]],
+                         [(0, None, 0), (2, 200.0, 1)])
         self.assertEqual((await self.client.get("/api/channels/x/messages")).status, 404)
 
     async def test_radio_settings(self):
@@ -420,6 +424,58 @@ class Private(Command):
 
     async def execute(self, text, sender):
         return CommandResult(console="", reply=f"kept {len(text)} characters")
+
+
+class PostTest(ConsoleTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.log_in()
+        from mesh_contingency.channel_log import ChannelLog
+
+        self.state.channel_log = ChannelLog()
+        self.radio.channels[2] = ("Family", b"\x07" * 16)
+
+    async def post(self, slot, body, status=200):
+        response = await self.client.post(f"/api/channels/{slot}/messages", json=body,
+                                          headers={"Origin": f"http://{self.host}"})
+        found = await response.json()
+        self.assertEqual(response.status, status, found)
+        return found
+
+    async def test_posts_to_any_channel_as_this_node(self):
+        self.assertEqual(await self.post(2, {"text": "  supper at 6  "}), {"channel": "Family"})
+        self.assertEqual(self.radio.channel_sent, [(2, "supper at 6")])
+        kept = self.state.channel_log.messages(2)
+        self.assertEqual([(m["sender"], m["text"], m["own"]) for m in kept], [("test-node", "supper at 6", True)])
+        self.assertEqual(self.state.channel_log.heard_count(2), 0)  # this node's own aren't unread
+        entry = self.state.store(HISTORY_FILE).data["entries"][-1]
+        self.assertEqual((entry["by"], entry["what"]), ("console", "posted to Family: supper at 6"))
+        self.assertIn("[console] posted to Family (11 chars)", self.out.getvalue())
+        self.assertNotIn("supper", self.out.getvalue())
+
+    async def test_refuses_what_it_cant_post(self):
+        limit = message_limit(self.radio)
+        found = await self.post(0, {"text": "x" * (limit + 1)}, status=400)
+        self.assertEqual(found["error"], f"too long for one channel message ({limit + 1} characters; at most {limit})")
+        self.assertEqual((await self.post(5, {"text": "hi"}, status=404))["error"], "no channel in slot 5")
+        self.assertEqual((await self.post(99, {"text": "hi"}, status=404))["error"], "no channel in slot 99")
+        await self.post(0, {"text": "   "}, status=400)
+        await self.post(0, ["hi"], status=400)
+        await self.post("x", {"text": "hi"}, status=400)
+        self.assertEqual(self.radio.channel_sent, [])
+
+    async def test_says_when_the_radio_refuses(self):
+        from mesh_contingency.testing import event
+
+        self.radio.channel_result = event(EventType.ERROR, {"reason": "busy"})
+        found = await self.post(0, {"text": "hi"}, status=502)
+        self.assertIn("radio rejected channel message", found["error"])
+        self.assertEqual(self.state.store(HISTORY_FILE).data.get("entries", []), [])
+
+    async def test_needs_the_origin(self):
+        response = await self.client.post("/api/channels/0/messages", json={"text": "hi"})
+        self.assertEqual(response.status, 403)
+        self.assertEqual(self.radio.channel_sent, [])
 
 
 class RunTest(ConsoleTestCase):
@@ -480,8 +536,9 @@ class RunTest(ConsoleTestCase):
         self.assertEqual(found["messages"], ["msg: saved for Bob (1 in their inbox)"])
         box = self.state.store("mailbox.json").data[BOB]
         self.assertEqual((box[0]["from"], box[0]["text"]), ("console", "the road north is open"))
-        self.assertIn("[console] msg (private)", self.out.getvalue())
+        self.assertIn("[console] msg\n", self.out.getvalue())
         self.assertNotIn("road north", self.out.getvalue())
+        self.assertNotIn("saved for Bob", self.out.getvalue())
 
     async def test_msg_not_offered_when_turned_off(self):
         self.commands["msg"].permission = DISABLED
@@ -522,14 +579,15 @@ class RunTest(ConsoleTestCase):
         found = await self.run_command("health", status=429)
         self.assertIn("health: limit reached, try again in", found["error"])
 
-    async def test_a_private_commands_text_stays_off_the_log(self):
+    async def test_a_commands_text_stays_off_the_log(self):
         secret = "correct horse battery staple"
         command = Private(make_context("hush", state=self.state))
         command.permission = ADMIN_LEVEL
         self.commands["hush"] = command
         found = await self.run_command("hush", secret)
         self.assertEqual(found["messages"], ["kept 28 characters"])
-        self.assertIn("[console] hush (private)", self.out.getvalue())
+        self.assertIn("[console] hush\n", self.out.getvalue())
+        self.assertNotIn("kept 28", self.out.getvalue())
         self.assertNotIn(secret, self.out.getvalue())
         self.assertNotIn(secret, json.dumps(list(self.output.lines)))
 

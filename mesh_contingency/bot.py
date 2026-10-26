@@ -561,9 +561,9 @@ async def _main(output):
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
         parsed = parse_command(msg, commands)
-        # A private command's text (a message, a passphrase) is never printed.
-        private = parsed is not None and parsed[0].private
-        print(f"[{label}] {parsed[0].name + ' (private)' if private else msg.get('text', '')}", flush=True)
+        # Only the command's name is printed, never what was sent with it (a
+        # message, a passphrase, a name) or what doesn't parse as a command.
+        print(f"[{label}] {parsed[0].name if parsed else 'not a command'}", flush=True)
         state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         if parsed is None:
             words = msg.get("text", "").split()
@@ -600,7 +600,7 @@ async def _main(output):
         # A long reply comes as several messages, sent in order.
         for text in answer.messages:
             await reply(msg, sender, text)
-            print(f"  -> replied ({len(text)} chars)" + ("" if private else f": {text}"), flush=True)
+            print(f"  -> replied ({len(text)} chars)", flush=True)
 
     # Stop on SIGTERM (systemctl stop) as on Ctrl+C, or when the radio is lost
     # for good: the library's few quick reconnects failed, so exit with an

@@ -62,7 +62,7 @@
   }
 
   <section class="panel radio-tabs">
-    <div class="tabs" role="tablist" aria-label="The radio's contacts and channels">
+    <div class="tabs" role="tablist" aria-label="The radio's settings and contacts">
       @for (t of tabs; track t.id) {
         <button
           type="button"
@@ -86,7 +86,7 @@
       <div class="tab-panel" role="tabpanel" id="settings-panel" aria-labelledby="settings-tab">
         <mc-radio-settings [canChange]="has('radio')" />
       </div>
-    } @else if (tab() === 'contacts') {
+    } @else {
       <div
         class="tab-panel contacts"
         role="tabpanel"
@@ -172,63 +172,6 @@
         } @else if (!contactsProblem()) {
           <p class="loading" role="status">
             <span class="spinner"></span> Reading the radio's contacts…
-          </p>
-        }
-      </div>
-    } @else {
-      <div
-        class="tab-panel channels"
-        role="tabpanel"
-        id="channels-panel"
-        aria-labelledby="channels-tab"
-      >
-        <div class="contacts-head">
-          @if (channels(); as all) {
-            <span class="muted">{{ usedChannels().length }} of {{ all.length }} slots in use</span>
-          }
-        </div>
-        <p class="muted">
-          The group channels on the radio, by slot. The bot adds the ones it posts to itself; to add
-          or change others, use the MeshCore app. Their keys aren't shown here. Each one's messages
-          are in <a routerLink="/chat">Chat</a>.
-        </p>
-        @if (channelsProblem()) {
-          <p class="problem" role="alert"><mc-icon name="alert" /> {{ channelsProblem() }}</p>
-        }
-        @if (channels()) {
-          <ul class="contact-list channel-list" aria-label="The radio's channels">
-            @for (channel of usedChannels(); track channel.slot) {
-              <li>
-                <div class="who">
-                  <code title="Slot">{{ channel.slot }}</code>
-                  <strong>{{ channel.name || '(no name)' }}</strong>
-                  @for (use of channel.uses; track use) {
-                    <span class="badge">{{ use }}</span>
-                  }
-                </div>
-                <div class="muted about">
-                  <span>{{ kindText(channel.kind) }}</span>
-                  @if (channel.last) {
-                    <span>last {{ ago(channel.last, now()) }}</span>
-                  }
-                </div>
-                <div class="actions">
-                  <a
-                    class="btn btn-ghost btn-sm"
-                    [routerLink]="['/chat', 'channel', channel.slot]"
-                    [attr.aria-label]="'Messages on ' + (channel.name || 'slot ' + channel.slot)"
-                  >
-                    Messages{{ channel.messages ? ' (' + channel.messages + ')' : '' }}
-                  </a>
-                </div>
-              </li>
-            } @empty {
-              <li class="muted">No channels on the radio.</li>
-            }
-          </ul>
-        } @else if (!channelsProblem()) {
-          <p class="loading" role="status">
-            <span class="spinner"></span> Reading the radio's channels…
           </p>
         }
       </div>

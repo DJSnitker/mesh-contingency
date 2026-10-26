@@ -164,3 +164,28 @@ main {
     margin: 0;
   }
 }
+
+// A count of unread channel messages, beside Chat.
+.unread {
+  min-width: 1.5em;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.tabs a {
+  position: relative;
+
+  .unread {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 6px);
+    margin: 0;
+  }
+}

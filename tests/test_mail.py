@@ -151,7 +151,8 @@ class QmTest(MailCommandTestCase):
         result = await QmCommand(make_context("qm", users=USERS)).execute("Running late", DANA)
         self.assert_sent(["partner@example.com"], "Running late")
         self.assertEqual(result.reply, "qm: sent")
-        self.assertIn("partner@example.com", result.console)
+        self.assertEqual(result.console, "Sent email to 1 address(es)")  # not to whom, nor what
+        self.assertTrue(QmCommand.private)
 
     async def test_other_user_gets_their_own_addresses(self):
         await QmCommand(make_context("qm", users=USERS)).execute("hi", BOB)

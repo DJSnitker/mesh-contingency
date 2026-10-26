@@ -52,9 +52,9 @@
   }
 </section>
 
-@if (command(); as c) {
+@if (channel(); as c) {
   <section class="panel" aria-labelledby="post-title">
-    <h2 id="post-title"><mc-icon name="send" /> Post with {{ c.name }}</h2>
+    <h2 id="post-title"><mc-icon name="send" /> Post to {{ c.name || 'slot ' + c.slot }}</h2>
     <p class="muted">Everyone on the channel sees it, under the node's name, at once.</p>
     <label class="field">
       <span class="sr-only">Message to post</span>
@@ -71,17 +71,24 @@
         {{ post().trim().length }}{{ limit() === null ? '' : ' / ' + limit() }} characters
       </span>
       <button class="btn" type="button" [disabled]="!canPost()" (click)="send()">
-        <mc-icon name="send" /> Post to {{ c.channel }}
+        @if (posting()) {
+          <span class="spinner small"></span>
+        } @else {
+          <mc-icon name="send" />
+        }
+        Post
       </button>
     </div>
     @if (tooLong(post().trim())) {
       <p class="hint">A channel post is one message: shorten it, or post it in parts.</p>
     }
-    <mc-reply
-      [ran]="posting.last()"
-      [busy]="posting.busy()"
-      (confirmed)="posting.confirm()"
-      (dismissed)="posting.dismiss()"
-    />
+    @if (posted(); as p) {
+      <p [class.problem]="!p.ok" [class.muted]="p.ok" role="status">
+        @if (!p.ok) {
+          <mc-icon name="alert" />
+        }
+        {{ p.text }}
+      </p>
+    }
   </section>
 }

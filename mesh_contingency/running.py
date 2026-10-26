@@ -24,10 +24,11 @@ class Answer:
 async def run_command(command, text, sender, state):
     """Run command with text for sender, and return its Answer. A command
     that times out, refuses or fails gets a one-message reply saying so;
-    errors and timeouts are counted for health and the node watch. A private
-    command's text, and the reason it failed, are never printed."""
-    private = command.private
-    print(f"  -> running {command.name} {'' if private else text}".rstrip(), flush=True)
+    errors and timeouts are counted for health and the node watch. Only
+    what happened is printed (ran, refused, failed, timed out), never the
+    command's text, the reason it was refused or its reply: they're the
+    sender's, and the log is kept for months."""
+    print(f"  -> running {command.name}", flush=True)
     try:
         result = await asyncio.wait_for(command.execute(text, sender), command.timeout)
     except TimeoutError:
@@ -35,18 +36,18 @@ async def run_command(command, text, sender, state):
         state.error(f"{command.name} timed out")
         return Answer([f"{command.name}: timed out"], ok=False)
     except CommandError as e:
-        print(f"  {command.name}: refused" if private else f"  {e}", flush=True)
+        print(f"  {command.name}: refused", flush=True)
         return Answer([str(e)], ok=False)
     except Exception as e:
-        print(f"  {command.name} failed: {type(e).__name__ if private else e}", flush=True)
+        # The reply an error carries says why without the sender's text.
+        why = getattr(e, "reply", None)
+        print(f"  {command.name} failed: {type(e).__name__}" + (f" ({why})" if why else ""), flush=True)
         state.error(f"{command.name} failed")
         # An error may carry a reply that says why, safe to send.
         return Answer([getattr(e, "reply", None) or f"{command.name}: failed"], ok=False)
     if not isinstance(result, CommandResult):
         # Function commands may return just the reply.
         result = CommandResult(console=result if isinstance(result, str) else "", reply=result)
-    if result.console:
-        print(result.console, flush=True)
     messages = to_messages(result.reply)
     if not messages:
         print("  -> no reply", flush=True)

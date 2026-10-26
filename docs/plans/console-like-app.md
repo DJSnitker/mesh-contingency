@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: in progress: PRs 1 and 2 (#87, #88) merged; PR 3, Weather, open · Requested 2026-10-25
+Status: in progress: PRs 1–3 (#87–#89) merged; PR 4, channels, open · Requested 2026-10-25
 
 ## Goal
 
@@ -74,12 +74,13 @@ commands for the two hashtag channels over the radio.
 
 **Direct messages** are the new part of the bot:
 
-- **A log of each contact's conversation with the node**, in memory only,
-  like the channel log (newest 200 per contact; a restart forgets them;
-  nothing written to disk): what they sent, what the node answered, and the
-  console's messages, each with the time and, for the node's, delivered or
-  not. A **private command's text** (`inbox` with a passphrase, `msg`,
-  `setpass`...) is never kept: only its name, as the bot's own log prints it.
+- **A log of the console's conversations**, in memory only, like the
+  channel log (newest 200 per contact; a restart forgets them; nothing
+  written to disk): only the console's messages to a contact, each with the
+  time and delivered or not, and the contact's replies to them (below).
+  **Commands sent to the node, and the node's answers, are never kept**, as
+  the bot's log keeps only their names (decided 2026-10-25, for privacy:
+  they're the sender's business, not the console's).
 - **Sending:** `POST /api/contacts/{key}/messages` sends a direct message
   from the node (`send_dm`, retried until acknowledged, the same lock as
   replies), at most the mesh's 140 characters, and says delivered or not.
@@ -89,8 +90,7 @@ commands for the two hashtag channels over the radio.
   in their conversation, shown in Chat, and **not** answered with `unknown
   command` or `unrecognized user or function`. Anything that is a command
   runs as now, even from that contact. A contact the console hasn't
-  messaged is answered as today, and the message still shows in their
-  conversation.
+  messaged is answered as today, and nothing of it is kept.
 - **Live:** the Chat pages ask for new messages every few seconds, as the
   channel threads do now; the rail's Chat count is updated the same way.
 
@@ -107,7 +107,7 @@ commands for the two hashtag channels over the radio.
    unread counts, the Channels tab's box to post; Radio's Channels tab
    removed, since Chat's list then shows all it did.
 5. **Chat, direct messages:** the bot's conversation log, sending, replies
-   routed to the console; the Chat tab, and the Contacts tab built from
+   routed to the console (commands and their answers never kept); the Chat tab, and the Contacts tab built from
    Radio's (its details, filter, Reset path and Remove) with Message added;
    Radio's Contacts tab removed.
 6. **Docs:** the README's "Web console", the wiki's Admin Guide ("Use the

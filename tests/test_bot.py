@@ -661,7 +661,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(DANA, "wx \x1b[2J\x1b[31m33101")
         out = self.out.getvalue()
         self.assertNotIn("\x1b", out)
-        self.assertIn("[d0d0d0d0d0d0 Dana\\x1b]0;owned\\x07] wx \\x1b[2J\\x1b[31m33101", out)
+        self.assertIn("[d0d0d0d0d0d0 Dana\\x1b]0;owned\\x07] wx\n", out)
 
     async def test_files_others_can_read_are_warned_about(self):
         config_file = self.write_files(CONFIG, USERS)
@@ -740,8 +740,10 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(DANA, "hi there")
         await self.radio.dm("123456789abc", "who am i")
         out = self.out.getvalue()
-        self.assertIn(f"[{DANA} Dana] hi there", out)
-        self.assertIn("[123456789abc] who am i", out)
+        self.assertIn(f"[{DANA} Dana] not a command", out)
+        self.assertIn("[123456789abc] not a command", out)
+        self.assertNotIn("hi there", out)  # what was sent isn't printed
+        self.assertNotIn("who am i", out)
         self.assertNotIn(full_key(DANA), out)  # only the prefix is logged
 
     # --- unrecognized messages and the cooldown
@@ -838,7 +840,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         with mock.patch("mesh_contingency.commands.mail.send_email", side_effect=failure):
             await self.radio.dm(DANA, "qm running late")
         self.assertEqual(self.radio.sent, [("Dana", "qm: not sent, no internet at the node; try again later")])
-        self.assertIn("qm failed: `mail` failed: msmtp: cannot connect to smtp.example.com", self.out.getvalue())
+        out = self.out.getvalue()
+        self.assertIn("qm failed: SendError (qm: not sent, no internet at the node; try again later)", out)
+        self.assertNotIn("running late", out)
 
     async def test_admin_command(self):
         await self.start()
@@ -927,9 +931,11 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
             await self.radio.dm(STRANGER, "verse john 3:16")
         self.assertEqual(self.radio.sent, [("Stranger", "(1/2) first"), ("Stranger", "(2/2) second")])
         out = self.out.getvalue()
-        self.assertIn("full text", out)
-        self.assertIn("-> replied (11 chars): (1/2) first", out)
-        self.assertIn("-> replied (12 chars): (2/2) second", out)
+        self.assertIn(f"[{STRANGER} Stranger] verse\n  -> running verse\n", out)
+        self.assertIn("-> replied (11 chars)\n", out)
+        self.assertIn("-> replied (12 chars)\n", out)
+        for unprinted in ("john 3:16", "full text", "(1/2) first", "(2/2) second"):
+            self.assertNotIn(unprinted, out)
 
     async def test_verse_end_to_end(self):
         await self.start()
@@ -965,7 +971,7 @@ permission = "public"
         self.assertIn("Warning: Could not load missing (no_such_module_xyz:thing)", out)
         await self.radio.dm(STRANGER, "echo hi there")
         self.assertEqual(self.replies(), ["> hi there"])
-        self.assertIn("> hi there", self.out.getvalue())  # str reply also printed
+        self.assertNotIn("hi there", self.out.getvalue())  # neither the text nor the reply
 
     async def test_plugin_long_text_reply_is_split_and_capped(self):
         await self.start(CONFIG + self.PLUGINS)
@@ -1051,7 +1057,7 @@ permission = "public"
         await self.radio.dm(DANA, "help")  # others aren't limited
         self.assertIn("commands:", self.replies()[3])
 
-    async def test_private_commands_keep_text_off_the_console(self):
+    async def test_no_commands_text_or_reply_is_printed(self):
         await self.start()
         await self.radio.dm(DANA, "setpass blue-canoe-42x")
         await self.radio.dm(DANA, "msg Dana the code is 4711")
@@ -1063,11 +1069,17 @@ permission = "public"
         for secret in ("4711", "blue-canoe"):
             self.assertNotIn(secret, out)
             self.assertNotIn(secret, (self.users_file.parent / "mailbox.json").read_text())
-        self.assertIn(f"[{DANA} Dana] msg (private)\n  -> running msg\n", out)
+        self.assertIn(f"[{DANA} Dana] msg\n  -> running msg\n", out)
         self.assertIn("  inbox: refused\n", out)
         self.assertIn("  -> replied (31 chars)\n", out)
-        await self.radio.dm(DANA, "clearinbox")
-        self.assertIn(f"[{DANA} Dana] clearinbox\n", self.out.getvalue())  # not private
+        await self.radio.dm(DANA, "whoami")
+        await self.radio.dm(DANA, "status Dana")
+        out = self.out.getvalue()
+        self.assertIn(f"[{DANA} Dana] whoami\n  -> running whoami\n", out)
+        self.assertIn(f"[{DANA} Dana] status\n", out)
+        self.assertNotIn("status Dana", out)
+        for reply in self.replies()[-2:]:
+            self.assertNotIn(reply, out)
 
     # --- joining and users' own settings
 
@@ -1163,7 +1175,8 @@ permission = "public"
         with mock.patch("mesh_contingency.commands.wx.fetch_weather", side_effect=OSError("network down")):
             await self.radio.dm(STRANGER, "wx 10001")
         self.assertEqual(self.replies(), ["wx: failed"])
-        self.assertIn("wx failed: network down", self.out.getvalue())
+        self.assertIn("wx failed: OSError\n", self.out.getvalue())
+        self.assertNotIn("10001", self.out.getvalue())
 
     async def test_long_reply_is_truncated(self):
         await self.start()

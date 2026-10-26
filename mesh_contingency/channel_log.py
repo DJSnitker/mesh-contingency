@@ -7,7 +7,9 @@ automatic alerts, the weekly test) don't come back from the radio, so post()
 adds them here as it sends them.
 
 Kept in memory only, the newest KEEP of each slot: a restart forgets them,
-and nothing of other people's channel traffic is written to disk.
+and nothing of other people's channel traffic is written to disk. Each slot
+also counts the messages heard on it since the bot started, never dropped,
+so the console can tell what's new since someone last looked (unread).
 """
 
 import time
@@ -29,6 +31,7 @@ class ChannelLog:
     def __init__(self, keep=KEEP):
         self.keep = keep
         self._slots = {}  # slot -> deque of messages, oldest first
+        self._heard = {}  # slot -> messages heard (not this node's) since the bot started
 
     def _add(self, slot, entry):
         self._slots.setdefault(slot, deque(maxlen=self.keep)).append(entry)
@@ -39,6 +42,7 @@ class ChannelLog:
             return
         sender, message = split_sender(payload.get("text", ""))
         hops = payload.get("path_len")
+        self._heard[payload["channel_idx"]] = self._heard.get(payload["channel_idx"], 0) + 1
         self._add(payload["channel_idx"], {
             "time": time.time() if when is None else when, "sender": sender, "text": message,
             # 255 is how the radio says it came direct, through no repeater.
@@ -57,3 +61,8 @@ class ChannelLog:
         """(how many messages are kept, time.time() of the newest or None)."""
         kept = self._slots.get(slot)
         return (len(kept), kept[-1]["time"]) if kept else (0, None)
+
+    def heard_count(self, slot):
+        """How many messages were heard on the slot since the bot started,
+        this node's own posts aside, however many are still kept."""
+        return self._heard.get(slot, 0)
