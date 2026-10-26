@@ -7,6 +7,13 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-25
+
+The app on a computer: a desktop app for Windows, Mac and Linux, with your
+radio over Bluetooth or a USB cable (roadmap item 18,
+`docs/plans/desktop-app.md`). Its installers are attached to this release
+with the Android APK. The bot and the web console are unchanged.
+
 ### Added
 - **The app can use a radio on a USB cable**, on a computer: the Node
   screen's **Connect over USB** (Web Serial, in Chromium: the desktop app to
@@ -16,15 +23,14 @@ may change how the bot is configured).
 - **The desktop app** (Electron, in `app/electron/`): the app in a window on
   a computer, with its own lists to pick a radio over Bluetooth or a USB
   port, and a box for the radio's Bluetooth PIN. `npm run desktop` in
-  `app/` runs it; installers come with the next release. The screens say
-  "computer" there instead of "phone".
-
+  `app/` runs it. The screens say "computer" there instead of "phone".
 - **Desktop installers:** CI's Desktop build job makes them on each system,
   for each release to attach: a Windows installer, Mac disk images (Apple
   silicon and Intel), and a Linux AppImage, `.deb` and `.pacman` package,
   all unsigned (the Mac ones signed ad hoc). `npm run desktop:dist` in
   `app/` makes this system's. On the desktop, Open-source licenses lists
-  Electron and Chromium in place of the Android libraries.
+  Electron and Chromium in place of the Android libraries. Installing each
+  one, and the first-run warnings: `app/README.md`, "Installers".
 
 ### Changed
 - **The app shows the radio's name only once it's connected:** before
@@ -738,6 +744,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.11.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.11.0
 [0.10.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.10.0
 [0.9.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.9.0
 [0.8.2]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.2

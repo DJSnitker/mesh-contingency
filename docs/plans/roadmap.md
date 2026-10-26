@@ -60,6 +60,10 @@ Where things stood on 2026-10-25:
   node's journal was cleared 2026-10-25), released as **0.10.0** (this PR,
   tag `v0.10.0`), with the app's debug APK again. The wiki's Admin Guide
   has the new console and its screenshots.
+- Then item 18, the app on a computer (#95–#97): USB in the app, the
+  Electron desktop app, and its installers built by CI, released as
+  **0.11.0** (this PR, tag `v0.11.0`) with the installers and the APK
+  attached. USB tried with a real radio; Bluetooth on a computer not yet.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
@@ -657,11 +661,14 @@ people chat through `msg` and the channels; Chat became **Contacts**
 (Channels, and the radio's contacts). The plan and its PRs are in
 [console-like-app.md](console-like-app.md).
 
-## 18. The app on a computer: Windows, Mac and Linux (in progress)
+## 18. The app on a computer: Windows, Mac and Linux (done)
 
 Asked 2026-10-25: the phone app as a desktop app too, with the user's radio
 over Bluetooth or a USB cable. The plan is in
-[desktop-app.md](desktop-app.md).
+[desktop-app.md](desktop-app.md). Done: #95 (USB in the app), #96 (the
+Electron shell, USB tried with a real radio), #97 (installers for each
+system, built by CI), released in 0.11.0. Left: Bluetooth tried on a
+computer with a real radio; signing, if wanted.
 
 ## Housekeeping to do along the way
 
