@@ -54,11 +54,12 @@ Where things stood on 2026-10-25:
   phone test's changes (#78–#83, with the public `area` command) and #84
   (the watch on a shutdown), released as **0.9.0** (this PR, tag `v0.9.0`)
   with the app's debug APK attached to the GitHub release.
-- **Merged since 0.9.0, not released:** item 17, the web console laid out
-  like the phone app (#87–#93), and #90's log change: the bot logs
-  commands' names, never their text or replies (#91 says how to clear what
-  older versions logged; the node's journal was cleared 2026-10-25). The
-  wiki's Admin Guide has the new console (its screenshots too).
+- Then item 17, the web console laid out like the phone app (#87–#93),
+  and #90's log change (the bot logs commands' names, never their text or
+  replies; #91 says how to clear what older versions logged, and the
+  node's journal was cleared 2026-10-25), released as **0.10.0** (this PR,
+  tag `v0.10.0`), with the app's debug APK again. The wiki's Admin Guide
+  has the new console and its screenshots.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
@@ -98,8 +99,6 @@ Steps, in order:
    radio and user (its checklist is there), then PR 10, the wiki's user
    guide and a signed release APK, which needs a decision on where the
    release signing key is kept.
-7. A release for item 17 and the log change (0.10.0, since the console's
-   pages moved), when wanted.
 
 Paused: item 9, field testing, until more radios arrive.
 
