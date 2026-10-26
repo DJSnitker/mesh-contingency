@@ -1,7 +1,10 @@
 <header class="title">
   <div>
     <h1>Radio</h1>
-    <p class="muted">Controlling the node, not messaging anyone.</p>
+    <p class="muted">
+      Controlling the node, not messaging anyone. Its contacts and channels are in
+      <a routerLink="/contacts">Contacts</a>.
+    </p>
   </div>
   @if (problem()) {
     <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
@@ -61,121 +64,9 @@
     </section>
   }
 
-  <section class="panel radio-tabs">
-    <div class="tabs" role="tablist" aria-label="The radio's settings and contacts">
-      @for (t of tabs; track t.id) {
-        <button
-          type="button"
-          role="tab"
-          [id]="t.id + '-tab'"
-          [attr.aria-controls]="t.id + '-panel'"
-          [attr.aria-selected]="tab() === t.id"
-          [tabindex]="tab() === t.id ? 0 : -1"
-          (click)="tab.set(t.id)"
-          (keydown)="arrow($event)"
-        >
-          <mc-icon [name]="t.icon" /> {{ t.label }}
-          @if (count(t.id); as n) {
-            <span class="count">{{ n }}</span>
-          }
-        </button>
-      }
-    </div>
-
-    @if (tab() === 'settings') {
-      <div class="tab-panel" role="tabpanel" id="settings-panel" aria-labelledby="settings-tab">
-        <mc-radio-settings [canChange]="has('radio')" />
-      </div>
-    } @else {
-      <div
-        class="tab-panel contacts"
-        role="tabpanel"
-        id="contacts-panel"
-        aria-labelledby="contacts-tab"
-      >
-        <div class="contacts-head">
-          @if (contacts(); as c) {
-            <span class="muted"
-              >{{ c.contacts.length }}{{ c.max ? ' of ' + c.max : '' }} on the radio</span
-            >
-          }
-        </div>
-        <p class="muted">
-          The nodes the radio can message. It holds only so many: remove ones you don't need. A node
-          that [contacts] auto_add takes comes back when it next adverts; a user or admin you remove
-          can't be messaged until they advert again. If messages to one stop getting through, reset
-          its path: the next message floods to find a new one.
-        </p>
-        @if (contactsProblem()) {
-          <p class="problem" role="alert"><mc-icon name="alert" /> {{ contactsProblem() }}</p>
-        }
-        @if (contacts(); as c) {
-          <label>
-            <span class="sr-only">Filter the contacts</span>
-            <input
-              class="filter"
-              type="search"
-              placeholder="Filter: a name, key, repeater, user…"
-              [value]="filter()"
-              (input)="filter.set($any($event.target).value)"
-            />
-          </label>
-          <ul class="contact-list" aria-label="The radio's contacts">
-            @for (contact of shown(); track contact.key) {
-              <li>
-                <div class="who">
-                  <strong>{{ contact.name ?? '?' }}</strong>
-                  @for (flag of flags(contact); track flag) {
-                    <span class="badge" [class.muted-badge]="flag !== 'admin' && flag !== 'user'">{{
-                      flag
-                    }}</span>
-                  }
-                  <code [title]="contact.key">{{ contact.key.slice(0, 12) }}</code>
-                </div>
-                <div class="muted about">
-                  <span>{{ path(contact) }}</span>
-                  <span>{{
-                    contact.last_advert
-                      ? 'heard ' + ago(contact.last_advert, now())
-                      : 'no advert heard'
-                  }}</span>
-                </div>
-                @if (has('contact')) {
-                  <div class="actions">
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      type="button"
-                      [disabled]="runner.busy()"
-                      (click)="runner.run('contact', 'path ' + contact.key)"
-                    >
-                      Reset path
-                    </button>
-                    <button
-                      class="btn btn-ghost btn-sm danger"
-                      type="button"
-                      [disabled]="runner.busy()"
-                      (click)="runner.run('contact', 'remove ' + contact.key)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                }
-              </li>
-            } @empty {
-              <li class="muted">
-                {{
-                  c.contacts.length ? 'Nothing matches the filter.' : 'No contacts on the radio.'
-                }}
-              </li>
-            }
-          </ul>
-        } @else if (!contactsProblem()) {
-          <p class="loading" role="status">
-            <span class="spinner"></span> Reading the radio's contacts…
-          </p>
-        }
-      </div>
-    }
+  <section class="panel" aria-labelledby="settings-title">
+    <h2 id="settings-title"><mc-icon name="sliders" /> Settings</h2>
+    <mc-radio-settings [canChange]="has('radio')" />
   </section>
 } @else if (!problem()) {
   <p class="loading" role="status">

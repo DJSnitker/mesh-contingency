@@ -45,8 +45,9 @@ EXAMPLE_CONFIG = REPO / "config.example.toml"
 KEY = "demo"
 MIN, HOUR, DAY = 60, 3600, 86400
 # The pages, as their paths and the screenshot names.
-PAGES = {"": "dashboard", "mailbox": "mailbox", "checkins": "checkins", "chat": "chat", "chat/channel/0": "channel",
-         "weather": "weather", "bible": "bible", "radio": "radio", "users": "users", "history": "history"}
+PAGES = {"": "dashboard", "mailbox": "mailbox", "checkins": "checkins", "contacts/channels": "channels",
+         "contacts/channel/0": "channel", "contacts/list": "contacts", "weather": "weather", "bible": "bible",
+         "radio": "radio", "users": "users", "history": "history"}
 WIDE, PHONE = (1280, 900), (390, 844)
 CHROMES = ("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
 
@@ -191,7 +192,8 @@ def demo_context(folder, now=None):
 
     output = SafeOutput(io.StringIO(), keep=50)
     for line in ["Connected to Ridgeview Relay.", "Listening for direct messages (Ctrl+C to quit)...",
-                 "From Maria Lopez: ok", "To Maria Lopez: Checked in: ok"]:
+                 f"[{MARIA[:12]} maria-hh] ok", "  -> running ok", f"  (reply to {MARIA[:12]} delivered)",
+                 "  -> replied (15 chars)"]:
         output.write(line + "\n")
     return ctx, output
 
@@ -200,7 +202,7 @@ def screenshots(url, folder, chrome):
     """Save each page, wide, and the dashboard and a channel phone-sized, as PNGs in folder."""
     folder.mkdir(parents=True, exist_ok=True)
     shots = [(path, name, WIDE) for path, name in PAGES.items()] + [("", "dashboard-phone", PHONE),
-                                                                       ("chat/channel/0", "channel-phone", PHONE)]
+                                                                       ("contacts/channel/0", "channel-phone", PHONE)]
     for path, name, (width, height) in shots:
         with tempfile.TemporaryDirectory() as profile:  # a new profile: it logs in with the key
             subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={profile}",

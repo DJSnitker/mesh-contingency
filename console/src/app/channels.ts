@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 
 import { Channel } from './api';
+import { ContactsTabs } from './contacts-tabs';
 import { Icon } from './icon';
 import { ago } from './time';
 import { Unread } from './unread';
@@ -17,15 +18,15 @@ export function kindText(kind: Channel['kind']): string {
 }
 
 /**
- * Chat, as the phone app's: the radio's channels, each opening its thread
- * (channel.ts), the ones heard on most recently first, with what each is,
- * what the bot posts there and how many messages are unread (unread.ts).
- * Direct messages come in a later version.
+ * The Contacts section's Channels tab, as the phone app's: the radio's channels, each
+ * opening its thread (channel.ts), the ones heard on most recently first,
+ * with what each is, what the bot posts there and how many messages are
+ * unread (unread.ts).
  */
 @Component({
-  selector: 'mc-chat',
+  selector: 'mc-channels',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RouterLink],
+  imports: [ContactsTabs, Icon, RouterLink],
   styles: `
     :host {
       display: grid;
@@ -50,15 +51,10 @@ export function kindText(kind: Channel['kind']): string {
     }
   `,
   template: `
-    <header class="title">
-      <div>
-        <h1>Chat</h1>
-        <p class="muted">The radio's channels: what was said on each since the bot started.</p>
-      </div>
-      @if (problem()) {
-        <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
-      }
-    </header>
+    <mc-contacts-tabs />
+    @if (problem()) {
+      <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+    }
 
     <section class="panel" aria-labelledby="channels-title">
       <h2 id="channels-title">
@@ -71,7 +67,7 @@ export function kindText(kind: Channel['kind']): string {
         <ul class="rows" aria-label="The radio's channels">
           @for (channel of used(); track channel.slot) {
             <li>
-              <a [routerLink]="['/chat', 'channel', channel.slot]">
+              <a [routerLink]="['/contacts', 'channel', channel.slot]">
                 <span class="name"
                   >{{ channel.name || '(no name)' }}
                   @for (use of channel.uses; track use) {
@@ -108,7 +104,7 @@ export function kindText(kind: Channel['kind']): string {
     </section>
   `,
 })
-export class Chat {
+export class Channels {
   protected readonly unread = inject(Unread);
   protected readonly channels = this.unread.channels;
   protected readonly problem = this.unread.problem;

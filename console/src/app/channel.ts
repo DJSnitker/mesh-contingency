@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { catchError, EMPTY, forkJoin, interval, startWith, switchMap, tap } from 'rxjs';
 
 import { Api, Channel, ChannelMessage } from './api';
-import { kindText } from './chat';
+import { kindText } from './channels';
 import { Icon } from './icon';
 import { ago, when } from './time';
 import { Unread } from './unread';

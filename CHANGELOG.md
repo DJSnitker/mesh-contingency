@@ -19,16 +19,19 @@ may change how the bot is configured).
   "Privacy of the log" says how to clear what older versions logged.
 - **The web console is laid out like the phone app** (roadmap item 17,
   `docs/plans/console-like-app.md`): its menu is the Dashboard; Mailbox,
-  Check-ins, Chat, Weather and Bible; then Radio, Users and History. In a
-  window as narrow as a phone, the menu is the app's tab bar along the
+  Check-ins, Contacts, Weather and Bible; then Radio, Users and History. In
+  a window as narrow as a phone, the menu is the app's tab bar along the
   bottom, with More for the rest. **Mailbox** is the Inbox page and
-  *Leave a message*; **Chat** lists the radio's channels, each opening as a
-  chat thread, with a box to post on `#contingency-wx` and
-  `#contingency-comm`; the Send page is gone (`/inbox` and `/send` lead to
-  Mailbox and Chat). Then **Chat posts to any of the radio's channels** as
-  this node (`POST /api/channels/{slot}/messages`, recorded in `history`),
-  and counts each channel's unread messages, with the total beside Chat in
-  the menu; Radio's Channels tab is gone, as Chat shows all it did. New: **Bible** (the verse of the day, and looking one
+  *Leave a message*. **Contacts** has two tabs: Channels, each opening as a
+  chat thread with a box to post to it as this node
+  (`POST /api/channels/{slot}/messages`, recorded in `history`), and an
+  unread count on each, on the tab and beside Contacts in the menu; and the
+  radio's contacts (moved from Radio: filter, Reset path, Remove). Radio is
+  now Advertise, Backup and the radio's settings. The Send page is gone
+  (`/inbox` and `/send` lead to Mailbox and Contacts). The console doesn't
+  chat with people directly: they talk through `msg` and the channels, and
+  a direct message to the node is always a command.
+  New: **Bible** (the verse of the day, and looking one
   up), **Look up a check-in** on Check-ins, and on Weather, starred
   counties first (kept in the browser) with the rest under Show more, and
   **Weather anywhere** (`wx`). Every page shows a spinner
