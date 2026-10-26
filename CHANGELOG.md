@@ -8,6 +8,15 @@ may change how the bot is configured).
 ## [Unreleased]
 
 ### Changed
+- **The log no longer has what anyone wrote**: for every command, the bot
+  prints only the sender, the command's name, whether it was refused, failed
+  (the kind of error) or timed out, and how long each reply was. Never the
+  command's text or the reply, which the journal kept for months: `qm`
+  emails, `status` look-ups, `whoami`'s addresses. A message that isn't a
+  command shows as `not a command`; a console post to a channel, as its
+  channel and length. A `CommandResult`'s `console` is no longer printed.
+  `qm`, `email` and `emailall` are now private commands. The README's
+  "Privacy of the log" says how to clear what older versions logged.
 - **The web console is laid out like the phone app** (roadmap item 17,
   `docs/plans/console-like-app.md`): its menu is the Dashboard; Mailbox,
   Check-ins, Chat, Weather and Bible; then Radio, Users and History. In a

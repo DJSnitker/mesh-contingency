@@ -234,8 +234,9 @@ class Command(ABC):
     summary = ""
     # Set False (e.g. as a property) when required config is missing.
     enabled = True
-    # Set True when what senders write or get back must stay off the console
-    # (messages, passphrases): the bot then logs only the command and sender.
+    # Set True when what senders write or get back is theirs alone (messages,
+    # passphrases): nothing keeps its text, not even the web console's chat.
+    # (The bot's log never has any command's text or reply, private or not.)
     private = False
     # Set True when the command acts on the sender's own records (join asks
     # to join, ok checks in): the web console, which has none, doesn't offer it.

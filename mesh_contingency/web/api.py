@@ -320,7 +320,7 @@ async def post_to_channel(request):
         await post(ctx.radio, slot, [text], ctx.state.channel_log)
     except RuntimeError as e:
         return _error(502, str(e))
-    print(f"[{CONSOLE.name}] posted to {name}: {text}", flush=True)
+    print(f"[{CONSOLE.name}] posted to {name} ({len(text)} chars)", flush=True)
     ctx.state.record(CONSOLE.name, f"posted to {name}: {text}")
     return web.json_response({"channel": name})
 
@@ -399,7 +399,7 @@ async def run(request):
         return _error(404, f"no command {name[:30]} for the console")
     if len(text) > MAX_TEXT:
         return _error(400, f"text too long ({len(text)} characters; at most {MAX_TEXT})")
-    print(f"[{CONSOLE.name}] {name + ' (private)' if command.private else (name + ' ' + text).strip()}", flush=True)
+    print(f"[{CONSOLE.name}] {name}", flush=True)  # as over the radio: never the text
     wait, _ = request.app[LIMITER].check(CONSOLE.public_key, command.name, command.rate)
     if wait:
         print(f"  -> {command.name} limit reached", flush=True)

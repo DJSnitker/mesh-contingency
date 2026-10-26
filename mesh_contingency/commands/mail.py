@@ -98,6 +98,8 @@ def send_email(to, subject, body):
 class MailCommand(Command):
     """Base for commands that email the sender's message."""
 
+    private = True  # the message, and who it's to
+
     def check_caps(self, to, sender):
         """Raise CommandError if emailing `to` would pass a daily email cap
         ([limits] emails_per_day: emails the sender sent, one per command;
@@ -129,6 +131,6 @@ class MailCommand(Command):
         self.ctx.state.emails.record(sender.public_key, len(to))
         self.ctx.state.emails.failing = None
         return CommandResult(
-            console=f"Sent email to {', '.join(to)}\n  Subject: {subject}\n  Body: {text}",
+            console=f"Sent email to {len(to)} address(es)",
             reply=f"{self.name}: sent",
         )

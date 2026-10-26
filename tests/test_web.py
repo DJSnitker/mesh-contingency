@@ -450,7 +450,8 @@ class PostTest(ConsoleTestCase):
         self.assertEqual(self.state.channel_log.heard_count(2), 0)  # this node's own aren't unread
         entry = self.state.store(HISTORY_FILE).data["entries"][-1]
         self.assertEqual((entry["by"], entry["what"]), ("console", "posted to Family: supper at 6"))
-        self.assertIn("[console] posted to Family: supper at 6", self.out.getvalue())
+        self.assertIn("[console] posted to Family (11 chars)", self.out.getvalue())
+        self.assertNotIn("supper", self.out.getvalue())
 
     async def test_refuses_what_it_cant_post(self):
         limit = message_limit(self.radio)
@@ -535,8 +536,9 @@ class RunTest(ConsoleTestCase):
         self.assertEqual(found["messages"], ["msg: saved for Bob (1 in their inbox)"])
         box = self.state.store("mailbox.json").data[BOB]
         self.assertEqual((box[0]["from"], box[0]["text"]), ("console", "the road north is open"))
-        self.assertIn("[console] msg (private)", self.out.getvalue())
+        self.assertIn("[console] msg\n", self.out.getvalue())
         self.assertNotIn("road north", self.out.getvalue())
+        self.assertNotIn("saved for Bob", self.out.getvalue())
 
     async def test_msg_not_offered_when_turned_off(self):
         self.commands["msg"].permission = DISABLED
@@ -577,14 +579,15 @@ class RunTest(ConsoleTestCase):
         found = await self.run_command("health", status=429)
         self.assertIn("health: limit reached, try again in", found["error"])
 
-    async def test_a_private_commands_text_stays_off_the_log(self):
+    async def test_a_commands_text_stays_off_the_log(self):
         secret = "correct horse battery staple"
         command = Private(make_context("hush", state=self.state))
         command.permission = ADMIN_LEVEL
         self.commands["hush"] = command
         found = await self.run_command("hush", secret)
         self.assertEqual(found["messages"], ["kept 28 characters"])
-        self.assertIn("[console] hush (private)", self.out.getvalue())
+        self.assertIn("[console] hush\n", self.out.getvalue())
+        self.assertNotIn("kept 28", self.out.getvalue())
         self.assertNotIn(secret, self.out.getvalue())
         self.assertNotIn(secret, json.dumps(list(self.output.lines)))
 
