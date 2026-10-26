@@ -7,6 +7,12 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-25
+
+The web console laid out like the phone app, and a log that no longer
+keeps what anyone wrote. The phone app is unchanged (its APK is attached
+again, as 0.10.0).
+
 ### Changed
 - **The log no longer has what anyone wrote**: for every command, the bot
   prints only the sender, the command's name, whether it was refused, failed
@@ -37,6 +43,25 @@ may change how the bot is configured).
   **Weather anywhere** (`wx`). Every page shows a spinner
   while it reads. The phone app and the console share their rows, folding
   sections and spinners.
+
+### Upgrading from 0.9.0
+
+```sh
+git pull
+.venv/bin/python -m pip install -e ".[console]"   # or -e . without the console
+cd console && npm ci && npm run build && cd ..     # if you use the console
+```
+
+Then restart the bot. Nothing in `config.toml` changes. The console's pages
+moved: Chat and Radio's Contacts tab are now **Contacts**, and Inbox is
+**Mailbox**; an old bookmark to `/inbox` or `/send` still leads there. Its
+link changes at the restart, as always: run `mesh-contingency-console`.
+
+To clear what older versions logged (commands' text and replies), see
+"Privacy of the log" in the README; it needs `sudo` and can't be undone.
+
+**The phone app:** `mesh-contingency-0.10.0-debug.apk` installs over 0.9.0
+and keeps the app's data.
 
 ## [0.9.0] - 2026-10-25
 
@@ -689,6 +714,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.10.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.10.0
 [0.9.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.9.0
 [0.8.2]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.2
 [0.8.1]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.8.1
