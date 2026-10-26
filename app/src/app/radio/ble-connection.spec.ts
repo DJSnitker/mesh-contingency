@@ -1,4 +1,6 @@
-import { CapacitorBleConnection, QUERY_MS, within } from './ble-connection';
+import type Connection from '@liamcottle/meshcore.js/src/connection/connection.js';
+
+import { askFirmware, CapacitorBleConnection, QUERY_MS, within } from './ble-connection';
 import { RX, SERVICE, TX } from './ble';
 import { FakeBle } from './fake-ble';
 
@@ -20,6 +22,17 @@ describe('CapacitorBleConnection', () => {
     const self = await connection.getSelfInfo();
     expect(self.name).toBe('Field T1000');
     expect(self.radioFreq).toBe(910525);
+  });
+
+  it('reads the model and version newer firmware pads with zeros', async () => {
+    const connection = {
+      deviceQuery: async () => ({
+        firmwareVer: 10,
+        manufacturerModel: 'Heltec V3\0\0\0\0v1.18.0-81dbae5\0\0\0',
+        firmware_build_date: '15-Oct-2026',
+      }),
+    } as unknown as Connection;
+    expect(await askFirmware(connection)).toBe('Heltec V3, v1.18.0-81dbae5, 15-Oct-2026');
   });
 
   it("goes on when older firmware doesn't answer the device query", async () => {

@@ -5,7 +5,7 @@ import { Subject } from 'rxjs';
 
 import { BLE, SERVICE } from './ble';
 import { CapacitorBleConnection, within } from './ble-connection';
-import { PortInfo, SERIAL } from './serial';
+import { Port, PortInfo, SERIAL } from './serial';
 import { UsbConnection } from './usb-connection';
 import { fromHex, toHex } from './hex';
 
@@ -123,6 +123,8 @@ export class Radio {
 
   /** The open connection, while connected. */
   connection: RadioLink | null = null;
+  /** The USB port picked since the app opened, to reconnect to it and no other. */
+  private usbPort: Port | null = null;
 
   /** Direct messages as they arrive. */
   readonly messages = new Subject<DirectMessage>();
@@ -174,6 +176,7 @@ export class Radio {
       }
       return;
     }
+    this.usbPort = port;
     await this.connect(new UsbConnection(port), { via: 'usb', deviceId: '', usb: port.getInfo() });
   }
 
@@ -190,14 +193,28 @@ export class Radio {
       });
       return;
     }
-    // The ports allowed before; the one with the same maker and model, if it's plugged in.
+    // The port picked since the app opened; or, of the ports allowed before,
+    // the one plugged in with the same maker and model. Not when two are:
+    // two radios of one model look the same, and one may be someone else's
+    // (a node's, on the same computer).
     const ports = (await this.serial?.getPorts().catch(() => [])) ?? [];
-    const same = (info: PortInfo) =>
-      info.usbVendorId === remembered.usb?.usbVendorId &&
-      info.usbProductId === remembered.usb?.usbProductId;
-    const port = ports.find((p) => same(p.getInfo())) ?? (ports.length === 1 ? ports[0] : null);
+    const same = ports.filter(
+      (p) =>
+        p.getInfo().usbVendorId === remembered.usb?.usbVendorId &&
+        p.getInfo().usbProductId === remembered.usb?.usbProductId,
+    );
+    const port =
+      this.usbPort && ports.includes(this.usbPort)
+        ? this.usbPort
+        : same.length === 1
+          ? same[0]
+          : null;
     if (!port) {
-      this.problem.set(`Plug ${remembered.name} in over USB, or pick it again.`);
+      this.problem.set(
+        same.length > 1
+          ? `More than one radio like ${remembered.name} is plugged in: pick yours with Pick one on USB.`
+          : `Plug ${remembered.name} in over USB, or pick it again.`,
+      );
       return;
     }
     await this.connect(new UsbConnection(port), remembered);

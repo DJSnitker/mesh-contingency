@@ -104,6 +104,12 @@ a radio that wants its Bluetooth PIN gets a box for it. On Linux, Web
 Bluetooth needs Chromium's experimental platform features, which the app
 turns on, and USB needs the user in the `dialout` (or `uucp`) group.
 
+USB details the desktop app handles:
+- **Only USB ports are listed**, not the computer's own serial ports (`ttyS0`...).
+- **Ports left in a bad state:** on Linux, Chromium takes an idle read on a port another program left with `VMIN=0` as the radio unplugged (Chromium issue 559872992). Picking a port sets it back (`stty min 1 time 0`).
+- **Which ports the app may reopen:** only a device the user picked, remembered by maker, model and serial number in `usb-devices.json` in the app's data folder.
+- **Two radios of the same model** look identical to it (a CP2102 board's serial number is often `0001`). So Reconnect reopens the exact port picked while the app stays open; after a restart, it reconnects only when one allowed radio is plugged in, and otherwise asks to pick. That keeps it off a node's radio on the same computer.
+
 ```sh
 npm run desktop       # build, then open the desktop app
 npm run desktop:run   # open the last build
