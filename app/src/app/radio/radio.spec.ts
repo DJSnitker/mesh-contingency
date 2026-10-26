@@ -218,7 +218,7 @@ describe('Radio', () => {
       await r.reconnect();
       expect(r.state()).toBe('none');
       expect(serial.allowed.map((p) => p.opened)).toEqual([0, 0]);
-      expect(r.problem()).toContain('More than one radio like Field T1000');
+      expect(r.problem()).toContain('More than one radio like yours');
     });
 
     it('reconnects to the very port picked, beside one of the same model', async () => {
@@ -239,7 +239,7 @@ describe('Radio', () => {
       const r = usbRadio();
       await r.reconnect();
       expect(r.state()).toBe('none');
-      expect(r.problem()).toBe('Plug Field T1000 in over USB, or pick it again.');
+      expect(r.problem()).toBe('Plug your radio in over USB, or pick it again.');
     });
 
     it('says when the cable is pulled, and closes the port on disconnect', async () => {

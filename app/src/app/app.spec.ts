@@ -154,6 +154,25 @@ describe('App', () => {
     expect(ble.connects).toHaveLength(2);
   });
 
+  it("shows the radio's name only once it's connected", async () => {
+    localStorage.setItem(REMEMBERED, JSON.stringify({ deviceId: 'AA:BB', name: 'Field T1000' }));
+    ble.failConnect = 'Connection timeout';
+    const page = await open('/node');
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('.radio')?.textContent).toContain("Your radio isn't connected.");
+    });
+    expect(page.textContent).not.toContain('Field T1000');
+    ble.failConnect = null;
+    ble.connectMs = 200;
+    await page.press('Reconnect', 'Connecting to your radio');
+    expect(page.textContent).not.toContain('Field T1000');
+    await vi.waitFor(() => {
+      page.fixture.detectChanges();
+      expect(page.querySelector('.radio-name')?.textContent).toBe('Field T1000');
+    });
+  });
+
   it('turns a spinner while it connects, in the header and on Node', async () => {
     ble.connectMs = 200;
     const page = await open('/node');

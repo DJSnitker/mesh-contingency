@@ -212,8 +212,8 @@ export class Radio {
     if (!port) {
       this.problem.set(
         same.length > 1
-          ? `More than one radio like ${remembered.name} is plugged in: pick yours with Pick one on USB.`
-          : `Plug ${remembered.name} in over USB, or pick it again.`,
+          ? 'More than one radio like yours is plugged in: pick yours with Pick one on USB.'
+          : 'Plug your radio in over USB, or pick it again.',
       );
       return;
     }

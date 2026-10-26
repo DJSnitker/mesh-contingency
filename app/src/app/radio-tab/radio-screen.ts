@@ -169,7 +169,7 @@ export function clockWords(offset: number): string {
         }
         @if (radio.state() === 'connecting') {
           <p class="loading" role="status">
-            <span class="spinner"></span> Connecting to {{ radio.name() ?? 'your radio' }}…
+            <span class="spinner"></span> Connecting to your radio…
           </p>
         } @else if (radio.hasRemembered()) {
           <div class="actions">

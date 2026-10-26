@@ -19,6 +19,11 @@ may change how the bot is configured).
   `app/` runs it; installers come with the next release. The screens say
   "computer" there instead of "phone".
 
+### Changed
+- **The app shows the radio's name only once it's connected:** before
+  that, "Your radio isn't connected" and "Connecting to your radio", not
+  the name remembered from last time.
+
 ## [0.10.0] - 2026-10-25
 
 The web console laid out like the phone app, and a log that no longer

@@ -99,15 +99,13 @@ import { StepLine } from './step-line';
         }
         @case ('connecting') {
           <p class="loading" role="status">
-            <span class="spinner"></span> Connecting to {{ radio.name() ?? 'your radio' }}…
+            <span class="spinner"></span> Connecting to your radio…
           </p>
         }
         @default {
           @if (radio.hasRemembered()) {
-            <p>
-              <span class="radio-name">{{ radio.name() }}</span>
-              <span class="muted"> isn't connected.</span>
-            </p>
+            <!-- Its name only once it answers: not from what was remembered. -->
+            <p class="muted">Your radio isn't connected.</p>
             <div class="actions">
               <button class="btn btn-sm" type="button" (click)="radio.reconnect()">
                 Reconnect
