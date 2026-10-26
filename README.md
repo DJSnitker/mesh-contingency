@@ -986,19 +986,36 @@ Mailbox, Chat, Weather and More (the rest).
   and **Leave a message** in a user's inbox (`msg`, from `console`).
 - **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
   **Clear check-ins**; and **Look up a check-in** (`status`).
-- **Chat:** the radio's channel slots in use, the last heard on first: each
-  one's name, whether it's the usual Public channel, a hashtag channel or a
-  private one, and what the bot posts there (`alert`, `comm`, the automatic
-  alerts, the weekly test), but never its key. Each opens as a chat: what
-  the radio heard on it since the bot started, with who sent it, the hops
-  and the signal, and what this node posted there, on the right. The bot
-  keeps the last 200 of each channel while the console is on, in memory
-  only: a restart forgets them, and none are written to disk. It takes no
-  commands from channels. Each channel has a box to post to it as this node,
-  with a count against the one-message limit; a post is recorded in
-  `history` (`posted to Family: ...`, by console). Each channel, and Chat in
-  the menu, counts the messages heard since you last opened it, in this
-  browser; a restart of the bot starts the counts again.
+- **Chat:** three tabs, as in the phone app.
+  - **Chats:** the console's direct messages, the latest first. Each opens
+    as a chat with a box to message the contact as the node (at most 133
+    characters, one message), retried until the radio has an ack, then
+    marked delivered or not. A message from that contact within a day of
+    the console's last one is a reply: it shows in the chat instead of
+    being answered `unknown command`, unless it's a command they may run,
+    which runs as always. Only the console's messages and the replies are
+    kept, the last 200 per contact, in memory only: a restart forgets them,
+    and commands people send the node, and its answers, are never kept.
+    `history` records who was messaged (`messaged Priya Shah`), not what.
+  - **Channels:** the radio's channel slots in use, the last heard on
+    first: each one's name, whether it's the usual Public channel, a
+    hashtag channel or a private one, and what the bot posts there
+    (`alert`, `comm`, the automatic alerts, the weekly test), but never its
+    key. Each opens as a chat: what the radio heard on it since the bot
+    started, with who sent it, the hops and the signal, and what this node
+    posted there, on the right. The bot keeps the last 200 of each channel
+    while the console is on, in memory only. It takes no commands from
+    channels. Each channel has a box to post to it as this node, with a
+    count against the one-message limit; a post is recorded in `history`
+    (`posted to Family: ...`, by console).
+  - **Contacts:** the radio's contacts (with a filter): each one's type,
+    whether it's a user or an admin, its path and when it was last heard,
+    with **Message** (a companion), **Reset path** and **Remove**
+    ([`contact`](#contacts)).
+
+  Each chat and channel, and Chat in the menu, counts what came since you
+  last opened it, in this browser; a restart of the bot starts the counts
+  again.
 - **Weather:** a card for each county in `[alerts] counties`, alert or
   not: the latest reading from the nearest NWS station, the next three
   forecast periods, and any alert out for it. The bot asks the NWS every 15
@@ -1011,11 +1028,9 @@ Mailbox, Chat, Weather and More (the rest).
   first, since it goes out on the air) and **Look up counties again**
   (`alertmap`).
 - **Bible:** the verse of the day, and **Look up a verse** (`verse`).
-- **Radio:** **Advert**, **Flood advert** and **Back up now**; the radio's
-  [settings](#radio-settings), with a form for each change, and the
-  frequency set apart, on one tab; its contacts (with a filter): each one's type, whether it's a user or an
-  admin, its path and when it was last heard, with **Reset path** and
-  **Remove** ([`contact`](#contacts)), on another. Its channels are in Chat.
+- **Radio:** **Advert**, **Flood advert** and **Back up now**, and the
+  radio's [settings](#radio-settings), with a form for each change, and the
+  frequency set apart. Its contacts and channels are in Chat.
 - **Users:** every user and admin with their settings, last seen, check-in
   and messages, with **Whois**, **Edit emails** (`setemail`: the qm
   address and the emailall group), **Reset passphrase** and **Remove**; the

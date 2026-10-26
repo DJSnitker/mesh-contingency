@@ -478,6 +478,88 @@ class PostTest(ConsoleTestCase):
         self.assertEqual(self.radio.channel_sent, [])
 
 
+class DirectTest(ConsoleTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.log_in()
+        from mesh_contingency.conversations import Conversations
+
+        self.state.conversations = Conversations()
+        self.radio.known.update({ALICE: "alice-node", "3c3c3c3c3c3c": "Hilltop"})
+        self.radio.details[full_key("3c3c3c3c3c3c")] = {"type": 2}
+        self.delivered = asyncio.Event()
+        self.outcome = True
+        self.sent = []
+
+        async def send_direct(key, text, what="reply"):
+            self.sent.append((key, text, what))
+            await self.delivered.wait()
+            return self.outcome
+
+        self.state.send_direct = send_direct
+
+    async def message(self, key, body, status=200):
+        response = await self.client.post(f"/api/contacts/{key}/messages", json=body,
+                                          headers={"Origin": f"http://{self.host}"})
+        found = await response.json()
+        self.assertEqual(response.status, status, found)
+        return found
+
+    async def test_messages_a_contact_and_says_when_delivered(self):
+        found = await self.message(ALICE, {"text": "  net at 7?  "})
+        self.assertEqual((found["message"]["text"], found["message"]["status"]), ("net at 7?", "sending"))
+        await asyncio.sleep(0)
+        self.assertEqual(self.sent, [(ALICE, "net at 7?", "console's message")])
+        self.delivered.set()
+        await asyncio.sleep(0.01)
+        thread = await self.get_json(f"/api/contacts/{ALICE.upper()}/messages")
+        self.assertEqual((thread["key"], thread["name"], thread["keep"], thread["heard"]), (ALICE, "Alice", 200, 0))
+        self.assertEqual([(m["text"], m["own"], m["status"]) for m in thread["messages"]],
+                         [("net at 7?", True, "delivered")])
+        entry = self.state.store(HISTORY_FILE).data["entries"][-1]
+        self.assertEqual((entry["by"], entry["what"]), ("console", "messaged Alice"))  # not what was said
+        self.assertIn("[console] message to Alice (9 chars)", self.out.getvalue())
+        self.assertNotIn("net at 7", self.out.getvalue())
+
+    async def test_lists_the_conversations_with_the_replies_unread(self):
+        self.delivered.set()
+        await self.message(ALICE, {"text": "net at 7?"})
+        self.state.conversations.replied(ALICE, "yes", hops=1, snr=5.0)
+        found = await self.get_json("/api/conversations")
+        self.assertEqual([(c["key"], c["name"], c["messages"], c["heard"], c["last"]["text"]) for c in found],
+                         [(ALICE, "Alice", 2, 1, "yes")])
+
+    async def test_says_when_not_delivered(self):
+        self.outcome = False
+        self.delivered.set()
+        await self.message(ALICE, {"text": "hello"})
+        await asyncio.sleep(0.01)
+        self.assertEqual(self.state.conversations.messages(ALICE)[0]["status"], "not delivered")
+
+    async def test_refuses_what_it_cant_send(self):
+        found = await self.message(ALICE, {"text": "x" * 134}, status=400)
+        self.assertEqual(found["error"], "too long for one direct message (134 characters; at most 133)")
+        found = await self.message(full_key("3c3c3c3c3c3c"), {"text": "hi"}, status=400)
+        self.assertEqual(found["error"], "only a companion (chat) contact can be messaged")
+        await self.message("c0" * 32, {"text": "hi"}, status=404)
+        await self.message("nope", {"text": "hi"}, status=404)
+        await self.message(ALICE, {"text": "  "}, status=400)
+        await self.message(ALICE, ["hi"], status=400)
+        self.assertEqual(self.sent, [])
+        self.assertEqual(self.state.conversations.keys(), [])
+
+    async def test_needs_the_origin(self):
+        response = await self.client.post(f"/api/contacts/{ALICE}/messages", json={"text": "hi"})
+        self.assertEqual(response.status, 403)
+
+    async def test_without_the_conversations(self):
+        self.state.conversations = None
+        self.assertIsNone(await self.get_json("/api/conversations"))
+        thread = await self.get_json(f"/api/contacts/{ALICE}/messages")
+        self.assertEqual((thread["messages"], thread["heard"]), (None, None))
+        await self.message(ALICE, {"text": "hi"}, status=503)
+
+
 class RunTest(ConsoleTestCase):
     async def asyncSetUp(self):
         await super().asyncSetUp()

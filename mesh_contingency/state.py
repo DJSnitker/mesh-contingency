@@ -83,6 +83,10 @@ class State:
         self.backups = None  # the Backups, for the backup command and the schedule
         self.area_weather = None  # the AreaWeather, if the web console and [alerts] are on
         self.channel_log = None  # the ChannelLog, if the web console is on
+        self.conversations = None  # the console's Conversations, if the web console is on
+        # await send_direct(key, text): send a direct message as the node and
+        # return whether it was delivered (None: no such contact), while it runs.
+        self.send_direct = None
         self.restart = None  # restart(why): stop the bot to be started again, while it runs
         self._stores = {}
 

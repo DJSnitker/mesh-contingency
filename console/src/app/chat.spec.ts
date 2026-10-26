@@ -6,7 +6,7 @@ import { afterEach, vi } from 'vitest';
 import { Api } from './api';
 import { Chat } from './chat';
 import { SEEN, Unread } from './unread';
-import { CHANNELS, FakeApi, OVERVIEW } from '../testing/fakes';
+import { ALICE_MESSAGES, CONVERSATIONS, FakeApi, OVERVIEW } from '../testing/fakes';
 
 describe('Chat', () => {
   let api: FakeApi;
@@ -29,70 +29,66 @@ describe('Chat', () => {
     return fixture.nativeElement;
   }
 
-  it('lists the channels in use, the last heard on first, each opening its thread', async () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1_200_000);
-    const element = await render();
-    expect(element.querySelector('h2 .muted')?.textContent?.trim()).toBe('3 of 5 slots in use');
-    const rows = [...element.querySelectorAll('.rows a')].map((a) => ({
-      name: a.querySelector('.name')?.firstChild?.textContent?.trim(),
-      uses: [...a.querySelectorAll('.badge')].map((b) => b.textContent),
+  function rows(element: HTMLElement) {
+    return [...element.querySelectorAll('.rows a')].map((a) => ({
+      name: a.querySelector('.name')?.textContent?.trim(),
       side: a.querySelector('.side')?.textContent?.trim() ?? null,
       sub: a.querySelector('.sub')?.textContent?.replace(/\s+/g, ' ').trim(),
       href: a.getAttribute('href'),
       unread: a.querySelector('.unread')?.textContent ?? null,
     }));
-    expect(rows).toEqual([
+  }
+
+  it("lists the console's chats, each with its newest message and unread replies", async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_200_000);
+    TestBed.inject(Unread).refresh();
+    const element = await render();
+    expect(rows(element)).toEqual([
       {
-        name: 'Public',
-        uses: [],
-        side: '5m ago',
-        sub: 'the usual Public channel: everyone · 2 messages',
-        href: '/chat/channel/0',
+        name: 'Alice',
+        side: '4m ago',
+        sub: 'on my way',
+        href: `/chat/dm/${'a1'.repeat(32)}`,
         unread: '1',
       },
-      {
-        name: '#contingency-wx',
-        uses: ['alert', 'automatic alerts'],
-        side: null,
-        sub: 'hashtag: anyone who adds the same name',
-        href: '/chat/channel/1',
-        unread: null,
-      },
-      {
-        name: 'Family',
-        uses: [],
-        side: null,
-        sub: 'private: only radios given its key',
-        href: '/chat/channel/2',
-        unread: null,
-      },
     ]);
-  });
-
-  it("says when it can't read the channels", async () => {
-    api.channels = () => throwError(() => new Error('down'));
-    const element = await render();
-    expect(element.querySelector('.problem')?.textContent).toContain(
-      "can't read the radio's channels",
+    expect(element.textContent).toContain('never kept');
+    const tabs = [...element.querySelectorAll('mc-chat-tabs nav a')].map((a) =>
+      a.textContent?.replace(/\s+/g, ' ').trim(),
     );
-    expect(element.querySelector('.loading')).toBeNull();
+    expect(tabs).toEqual(['Chats 1', 'Channels 1', 'Contacts']);
   });
 
-  it('counts as unread only what came since the channel was last seen, in this run of the bot', async () => {
-    localStorage.setItem(SEEN, JSON.stringify({ started: OVERVIEW.started, slots: { 0: 1 } }));
-    let element = await render();
-    expect(element.querySelector('.unread')).toBeNull(); // the one heard was seen
+  it("says when the console's message wasn't delivered", async () => {
+    const last = { ...ALICE_MESSAGES.messages![1], status: 'not delivered' as const };
+    api.conversations = () => of([{ ...CONVERSATIONS[0], last, heard: 0 }]);
+    const element = await render();
+    expect(rows(element)[0].sub).toBe('You: can you check the gauge? · not delivered');
+    expect(rows(element)[0].unread).toBeNull();
+  });
 
-    api.channels = () => of(CHANNELS.map((c) => (c.slot === 0 ? { ...c, heard: 4 } : c)));
+  it('counts only replies since the chat was last seen', async () => {
+    localStorage.setItem(
+      SEEN,
+      JSON.stringify({ started: OVERVIEW.started, slots: {}, dms: { ['a1'.repeat(32)]: 1 } }),
+    );
     TestBed.inject(Unread).refresh();
-    element = await render();
-    expect(element.querySelector('.unread')?.textContent).toBe('3');
+    const element = await render();
+    expect(rows(element)[0].unread).toBeNull();
+  });
 
-    // A restart of the bot starts the counts again.
-    api.overview = () => of({ ...OVERVIEW, started: OVERVIEW.started + 60 });
-    api.channels = () => of(CHANNELS);
-    TestBed.inject(Unread).refresh();
-    element = await render();
-    expect(element.querySelector('.unread')?.textContent).toBe('1');
+  it('points to Contacts when there are no chats yet', async () => {
+    api.conversations = () => of([]);
+    const element = await render();
+    expect(element.querySelector('.panel a[href="/chat/contacts"]')).not.toBeNull();
+  });
+
+  it("says when the bot keeps none, or can't be read", async () => {
+    api.conversations = () => of(null);
+    expect((await render()).textContent).toContain("isn't keeping the console's chats");
+    api.conversations = () => throwError(() => new Error('down'));
+    expect((await render()).querySelector('.problem')?.textContent).toContain(
+      "can't read the console's conversations",
+    );
   });
 });

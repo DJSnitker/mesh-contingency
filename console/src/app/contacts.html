@@ -1,0 +1,99 @@
+<mc-chat-tabs />
+
+@if (problem()) {
+  <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
+}
+
+<mc-reply
+  [ran]="runner.last()"
+  [busy]="runner.busy()"
+  (confirmed)="runner.confirm()"
+  (dismissed)="runner.dismiss()"
+/>
+
+<section class="panel" aria-labelledby="contacts-title">
+  <div class="contacts-head">
+    <h2 id="contacts-title"><mc-icon name="users" /> Contacts</h2>
+    @if (contacts(); as c) {
+      <span class="muted"
+        >{{ c.contacts.length }}{{ c.max ? ' of ' + c.max : '' }} on the radio</span
+      >
+    }
+  </div>
+  <p class="muted">
+    The nodes the radio can message. It holds only so many: remove ones you don't need. A node that
+    [contacts] auto_add takes comes back when it next adverts; a user or admin you remove can't be
+    messaged until they advert again. If messages to one stop getting through, reset its path: the
+    next message floods to find a new one.
+  </p>
+  @if (contactsProblem()) {
+    <p class="problem" role="alert"><mc-icon name="alert" /> {{ contactsProblem() }}</p>
+  }
+  @if (contacts(); as c) {
+    <label>
+      <span class="sr-only">Filter the contacts</span>
+      <input
+        class="filter"
+        type="search"
+        placeholder="Filter: a name, key, repeater, user…"
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </label>
+    <ul class="contact-list" aria-label="The radio's contacts">
+      @for (contact of shown(); track contact.key) {
+        <li>
+          <div class="who">
+            <strong>{{ contact.name ?? '?' }}</strong>
+            @for (flag of flags(contact); track flag) {
+              <span class="badge" [class.muted-badge]="flag !== 'admin' && flag !== 'user'">{{
+                flag
+              }}</span>
+            }
+            <code [title]="contact.key">{{ contact.key.slice(0, 12) }}</code>
+          </div>
+          <div class="muted about">
+            <span>{{ path(contact) }}</span>
+            <span>{{
+              contact.last_advert ? 'heard ' + ago(contact.last_advert, now()) : 'no advert heard'
+            }}</span>
+          </div>
+          <div class="actions">
+            @if (contact.type === 'chat') {
+              <a
+                class="btn btn-ghost btn-sm"
+                [routerLink]="['/chat', 'dm', contact.key]"
+                [attr.aria-label]="'Message ' + (contact.name ?? contact.key.slice(0, 12))"
+                ><mc-icon name="send" /> Message</a
+              >
+            }
+            @if (has('contact')) {
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                [disabled]="runner.busy()"
+                (click)="runner.run('contact', 'path ' + contact.key)"
+              >
+                Reset path
+              </button>
+              <button
+                class="btn btn-ghost btn-sm danger"
+                type="button"
+                [disabled]="runner.busy()"
+                (click)="runner.run('contact', 'remove ' + contact.key)"
+              >
+                Remove
+              </button>
+            }
+          </div>
+        </li>
+      } @empty {
+        <li class="muted">
+          {{ c.contacts.length ? 'Nothing matches the filter.' : 'No contacts on the radio.' }}
+        </li>
+      }
+    </ul>
+  } @else if (!contactsProblem()) {
+    <p class="loading" role="status"><span class="spinner"></span> Reading the radio's contacts…</p>
+  }
+</section>

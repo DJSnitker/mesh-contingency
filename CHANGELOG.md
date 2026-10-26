@@ -28,7 +28,18 @@ may change how the bot is configured).
   Mailbox and Chat). Then **Chat posts to any of the radio's channels** as
   this node (`POST /api/channels/{slot}/messages`, recorded in `history`),
   and counts each channel's unread messages, with the total beside Chat in
-  the menu; Radio's Channels tab is gone, as Chat shows all it did. New: **Bible** (the verse of the day, and looking one
+  the menu; Radio's Channels tab is gone, as Chat shows all it did.
+  Then **Chat messages contacts as the node**, in three tabs as in the
+  phone app: Chats (the console's direct messages), Channels and Contacts
+  (moved from Radio, with **Message** added). A message is retried until
+  the radio has an ack and shows delivered or not; a contact's message
+  within a day of the console's last one is a reply, kept for the console
+  instead of answered `unknown command` (a command they may run still
+  runs). Only the console's messages and the replies are kept, in memory
+  (newest 200 per contact), never commands sent to the node or its
+  answers; `history` records who was messaged, not what. New API:
+  `GET /api/conversations`, `GET` and `POST /api/contacts/{key}/messages`.
+  Radio is now Advertise, Backup and the radio's settings. New: **Bible** (the verse of the day, and looking one
   up), **Look up a check-in** on Check-ins, and on Weather, starred
   counties first (kept in the browser) with the rest under Show more, and
   **Weather anywhere** (`wx`). Every page shows a spinner

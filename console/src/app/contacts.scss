@@ -1,0 +1,75 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+section {
+  display: grid;
+  gap: 12px;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.contacts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+// One contact a row: who it is, its path and when it was heard, then the
+// actions; on a phone the actions go under the rest.
+.contact-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px 18px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+
+  strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+.about {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .contact-list li {
+    grid-template-columns: 1fr;
+  }
+}

@@ -43,6 +43,7 @@ from .console import (
     watch_console,
 )
 from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
+from .conversations import Conversations
 from .directory import Directory, DirectoryError, describe, possessive
 from .limits import RateLimiter, describe_rate, wait_text
 from .names import name_problem
@@ -213,7 +214,8 @@ async def _main(output):
     async def send_dm(key, text, what="reply"):
         """Send a direct message to a contact by public key (or, for a sender
         we couldn't identify, the prefix they wrote from), retrying until the
-        radio reports an ack, and log whether it was delivered."""
+        radio reports an ack, and log whether it was delivered. Returns
+        whether it was, or None if the radio has no such contact."""
         if len(text) > MAX_REPLY_LEN:
             # Error text can echo the sender's input; never exceed the mesh limit.
             text = text[: MAX_REPLY_LEN - 3] + "..."
@@ -227,15 +229,16 @@ async def _main(output):
         if contact is None:
             state.counts["undelivered"] += 1
             print(f"  (no contact {prefix} to send {what} to; is it in the radio's contacts?)", flush=True)
-            return
+            return None
         async with send_lock:
             result = await mc.commands.send_msg_with_retry(contact, text)
         if result is None:
             state.undelivered()
             print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
-        else:
-            state.delivered()
-            print(f"  ({what} to {prefix} delivered)", flush=True)
+            return False
+        state.delivered()
+        print(f"  ({what} to {prefix} delivered)", flush=True)
+        return True
 
     background = set()  # running background tasks, kept so they aren't garbage collected
 
@@ -435,6 +438,8 @@ async def _main(output):
     if web_console:
         state.channel_log = ChannelLog()
         print(f"Channel messages for the web console: the newest {KEEP} of each channel, in memory only.")
+        state.conversations = Conversations()
+        print("The console's direct messages: only its own and the replies to them, in memory only.")
     area_weather = None
     # The reports the console's Area Weather page and the area command show.
     area_command = any(isinstance(c, AreaCommand) for c in commands.values())
@@ -561,6 +566,16 @@ async def _main(output):
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
         parsed = parse_command(msg, commands)
+        # A message from a contact the console messaged lately, that isn't a
+        # command they may run, is their reply: kept for the console, not
+        # answered. Its text is printed no more than a command's.
+        conversations, key = state.conversations, sender.public_key
+        if (conversations and key and msg.get("text", "").strip() and conversations.expecting(key)
+                and not (parsed and is_authorized(parsed[0], sender, directory.users, directory.admins))):
+            conversations.replied(key, msg["text"], msg.get("path_len"), msg.get("SNR"))
+            print(f"[{label}] reply to the console ({len(msg['text'])} chars)", flush=True)
+            state.saw(key, sender.name)
+            return
         # Only the command's name is printed, never what was sent with it (a
         # message, a passphrase, a name) or what doesn't parse as a command.
         print(f"[{label}] {parsed[0].name if parsed else 'not a command'}", flush=True)
@@ -619,6 +634,7 @@ async def _main(output):
             loop.call_later(RESTART_SECONDS, stopping.set)
 
     state.restart = restart
+    state.send_direct = send_dm  # for the web console's direct messages
 
     async def on_disconnect(event):
         reason = (event.payload or {}).get("reason", "unknown")

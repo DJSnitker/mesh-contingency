@@ -33,6 +33,7 @@ from mesh_contingency.commands.join import FILENAME as REQUESTS
 from mesh_contingency.commands.mailbox import FILENAME as MAILBOX
 from mesh_contingency.commands.status import FILENAME as STATUSES
 from mesh_contingency.console import ADVERTS_FILE
+from mesh_contingency.conversations import Conversations
 from mesh_contingency.directory import Directory
 from mesh_contingency.output import SafeOutput
 from mesh_contingency.registry import Registry
@@ -44,9 +45,6 @@ REPO = Path(__file__).resolve().parent.parent
 EXAMPLE_CONFIG = REPO / "config.example.toml"
 KEY = "demo"
 MIN, HOUR, DAY = 60, 3600, 86400
-# The pages, as their paths and the screenshot names.
-PAGES = {"": "dashboard", "mailbox": "mailbox", "checkins": "checkins", "chat": "chat", "chat/channel/0": "channel",
-         "weather": "weather", "bible": "bible", "radio": "radio", "users": "users", "history": "history"}
 WIDE, PHONE = (1280, 900), (390, 844)
 CHROMES = ("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
 
@@ -62,6 +60,13 @@ USERS = {
     LENA: {"name": "Lena Ortiz", "email": "lena@example.com"},
     RAY: {"name": "Ray Whitfield"},
 }
+# The pages, as their paths and the screenshot names.
+PAGES = {"": "dashboard", "mailbox": "mailbox", "checkins": "checkins", "chat": "chat", f"chat/dm/{PRIYA}": "dm",
+         "chat/channels": "channels", "chat/channel/0": "channel", "chat/contacts": "contacts", "weather": "weather",
+         "bible": "bible", "radio": "radio", "users": "users", "history": "history"}
+# The console's chats: (contact, minutes ago, the console's (True) or a reply, text).
+CHATS = [(PRIYA, 25, True, "Is the east side still dark?"), (PRIYA, 22, False, "Yes, since 4pm. Running on battery."),
+         (JAMES, 8, True, "Need anything at the shelter?")]
 
 
 # The demo's counties: (place, station, conditions, temperature F, wind, humidity, forecast).
@@ -156,6 +161,21 @@ def demo_context(folder, now=None):
         else:
             state.channel_log.heard({"channel_idx": slot, "text": f"{sender}: {text}", "path_len": hops, "SNR": snr},
                                     now - ago * MIN)
+    # The console's chats; a message sent from the demo is delivered after a
+    # moment and answered, as a radio would.
+    state.conversations = Conversations()
+    for key, ago, own, text in CHATS:
+        if own:
+            Conversations.delivered(state.conversations.sent(key, text, now - ago * MIN), True)
+        else:
+            state.conversations.replied(key, text, hops=1, snr=6.25, when=now - ago * MIN)
+
+    async def send_direct(key, text, what="reply"):
+        await asyncio.sleep(2)
+        asyncio.get_running_loop().call_later(6, state.conversations.replied, key, "Copy that, thanks", 1, 5.5)
+        return True
+
+    state.send_direct = send_direct
     state.area_weather.reports = {county: area_report(county, now) for county in AREAS}
     backups_folder = folder / "backups"
     state.backups = Backups(BackupSettings(to=str(backups_folder), folder=backups_folder), state, config_path,
@@ -191,16 +211,18 @@ def demo_context(folder, now=None):
 
     output = SafeOutput(io.StringIO(), keep=50)
     for line in ["Connected to Ridgeview Relay.", "Listening for direct messages (Ctrl+C to quit)...",
-                 "From Maria Lopez: ok", "To Maria Lopez: Checked in: ok"]:
+                 f"[{MARIA[:12]} maria-hh] ok", "  -> running ok", f"  (reply to {MARIA[:12]} delivered)",
+                 "  -> replied (15 chars)"]:
         output.write(line + "\n")
     return ctx, output
 
 
 def screenshots(url, folder, chrome):
-    """Save each page, wide, and the dashboard and a channel phone-sized, as PNGs in folder."""
+    """Save each page, wide, and the dashboard, a channel and a chat phone-sized, as PNGs in folder."""
     folder.mkdir(parents=True, exist_ok=True)
     shots = [(path, name, WIDE) for path, name in PAGES.items()] + [("", "dashboard-phone", PHONE),
-                                                                       ("chat/channel/0", "channel-phone", PHONE)]
+                                                                       ("chat/channel/0", "channel-phone", PHONE),
+                                                                       (f"chat/dm/{PRIYA}", "dm-phone", PHONE)]
     for path, name, (width, height) in shots:
         with tempfile.TemporaryDirectory() as profile:  # a new profile: it logs in with the key
             subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={profile}",

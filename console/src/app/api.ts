@@ -139,6 +139,38 @@ export interface ChannelMessages {
   heard: number | null;
 }
 
+/** One message of the console's conversation with a contact. */
+export interface DirectMessage {
+  id: number;
+  time: number;
+  text: string;
+  /** Sent by the console, else the contact's reply. */
+  own: boolean;
+  /** The console's: whether the radio had an ack; null for a reply. */
+  status: 'sending' | 'delivered' | 'not delivered' | null;
+  hops: number | null;
+  snr: number | null;
+}
+
+/** GET /api/conversations: one per contact the console messaged or heard back from. */
+export interface Conversation {
+  key: string;
+  name: string | null;
+  messages: number;
+  last: DirectMessage | null;
+  /** Replies heard since the bot started (for unread). */
+  heard: number;
+}
+
+/** GET /api/contacts/{key}/messages: newest first; messages is null if none are kept. */
+export interface DirectMessages {
+  key: string;
+  name: string | null;
+  keep: number | null;
+  messages: DirectMessage[] | null;
+  heard: number | null;
+}
+
 /** One of MeshCore's regional presets: frequency MHz, bandwidth kHz, SF and CR. */
 export interface Preset {
   title: string;
@@ -308,6 +340,22 @@ export class Api {
   postToChannel(slot: number, text: string): Observable<{ channel: string }> {
     return this.http
       .post<{ channel: string }>(`/api/channels/${slot}/messages`, { text })
+      .pipe(this.watch());
+  }
+
+  /** The console's conversations, the most recent first; null if the bot keeps none. */
+  conversations(): Observable<Conversation[] | null> {
+    return this.get<Conversation[] | null>('/api/conversations');
+  }
+
+  contactMessages(key: string): Observable<DirectMessages> {
+    return this.get<DirectMessages>(`/api/contacts/${key}/messages`);
+  }
+
+  /** Send a contact a direct message as this node; it comes back sending. */
+  messageContact(key: string, text: string): Observable<{ message: DirectMessage }> {
+    return this.http
+      .post<{ message: DirectMessage }>(`/api/contacts/${key}/messages`, { text })
       .pipe(this.watch());
   }
 

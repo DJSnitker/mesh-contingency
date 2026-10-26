@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: in progress: PRs 1–3 (#87–#89) merged; PR 4, channels, open · Requested 2026-10-25
+Status: in progress: PRs 1–4 (#87–#90) merged; PR 5, direct messages, open · Requested 2026-10-25
 
 ## Goal
 

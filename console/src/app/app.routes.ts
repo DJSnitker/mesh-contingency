@@ -3,9 +3,12 @@ import { Routes } from '@angular/router';
 import { AreaWeather } from './area-weather';
 import { Bible } from './bible';
 import { ChannelThread } from './channel';
+import { Channels } from './channels';
 import { Chat } from './chat';
 import { Checkins } from './checkins';
+import { Contacts } from './contacts';
 import { Dashboard } from './dashboard';
+import { DirectThread } from './dm';
 import { History } from './history';
 import { Mailbox } from './mailbox';
 import { More } from './more';
@@ -17,7 +20,10 @@ export const routes: Routes = [
   { path: 'mailbox', component: Mailbox, title: 'Mailbox · Mesh Contingency' },
   { path: 'checkins', component: Checkins, title: 'Check-ins · Mesh Contingency' },
   { path: 'chat', component: Chat, title: 'Chat · Mesh Contingency' },
+  { path: 'chat/channels', component: Channels, title: 'Channels · Chat · Mesh Contingency' },
   { path: 'chat/channel/:slot', component: ChannelThread, title: 'Chat · Mesh Contingency' },
+  { path: 'chat/contacts', component: Contacts, title: 'Contacts · Chat · Mesh Contingency' },
+  { path: 'chat/dm/:key', component: DirectThread, title: 'Chat · Mesh Contingency' },
   { path: 'weather', component: AreaWeather, title: 'Weather · Mesh Contingency' },
   { path: 'bible', component: Bible, title: 'Bible · Mesh Contingency' },
   { path: 'radio', component: Radio, title: 'Radio · Mesh Contingency' },

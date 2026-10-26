@@ -5,14 +5,16 @@ import { of } from 'rxjs';
 import { Api } from './api';
 import { App } from './app';
 import { routes } from './app.routes';
-import { CHANNELS, FakeApi } from '../testing/fakes';
+import { CHANNELS, CONVERSATIONS, FakeApi } from '../testing/fakes';
 
 describe('App', () => {
   let api: FakeApi;
 
   beforeEach(() => {
     api = new FakeApi();
-    api.channels = () => of(CHANNELS.map((c) => ({ ...c, heard: 0 }))); // nothing unread, unless a test says
+    // Nothing unread, unless a test says.
+    api.channels = () => of(CHANNELS.map((c) => ({ ...c, heard: 0 })));
+    api.conversations = () => of(CONVERSATIONS.map((c) => ({ ...c, heard: 0 })));
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), { provide: Api, useValue: api }],
     });
@@ -85,16 +87,17 @@ describe('App', () => {
     expect(element.querySelector('router-outlet')).toBeNull();
   });
 
-  it('counts the unread channel messages beside Chat', async () => {
+  it('counts the unread channel messages and replies beside Chat', async () => {
     localStorage.clear();
     api.channels = () => of(CHANNELS);
+    api.conversations = () => of(CONVERSATIONS);
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const chat = [...element.querySelectorAll('.rail a')].find((a) =>
       a.textContent?.includes('Chat'),
     )!;
-    expect(chat.querySelector('.unread')?.textContent).toBe('1'); // Public's one
+    expect(chat.querySelector('.unread')?.textContent).toBe('2'); // Public's one, Alice's reply
     fixture.destroy();
   });
 });

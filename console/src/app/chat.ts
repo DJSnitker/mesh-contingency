@@ -1,31 +1,23 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { Channel } from './api';
+import { Conversation } from './api';
+import { ChatTabs } from './chat-tabs';
 import { Icon } from './icon';
 import { ago } from './time';
 import { Unread } from './unread';
 
-/** What a kind of channel means for who can read it. */
-export function kindText(kind: Channel['kind']): string {
-  return {
-    public: 'the usual Public channel: everyone',
-    hashtag: 'hashtag: anyone who adds the same name',
-    private: 'private: only radios given its key',
-    empty: 'empty',
-  }[kind];
-}
-
 /**
- * Chat, as the phone app's: the radio's channels, each opening its thread
- * (channel.ts), the ones heard on most recently first, with what each is,
- * what the bot posts there and how many messages are unread (unread.ts).
- * Direct messages come in a later version.
+ * Chat's Chats tab, as the phone app's: the console's direct conversations
+ * with contacts, the most recent first, each opening its thread (dm.ts),
+ * with its newest message and unread replies (unread.ts). A chat starts
+ * from the Contacts tab. Only the console's messages and the replies to them
+ * are kept, never commands sent to the node.
  */
 @Component({
   selector: 'mc-chat',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RouterLink],
+  imports: [ChatTabs, Icon, RouterLink],
   styles: `
     :host {
       display: grid;
@@ -35,95 +27,76 @@ export function kindText(kind: Channel['kind']): string {
       display: grid;
       gap: 12px;
     }
-    h2 .muted {
-      margin-left: auto;
-      font-family: var(--body);
-      font-size: 0.85rem;
-      font-weight: 400;
-      text-transform: none;
-    }
     p {
       margin: 0;
     }
-    .badge {
-      margin-left: 6px;
+    .sub .failed {
+      color: var(--orange);
     }
   `,
   template: `
-    <header class="title">
-      <div>
-        <h1>Chat</h1>
-        <p class="muted">The radio's channels: what was said on each since the bot started.</p>
-      </div>
-      @if (problem()) {
-        <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
-      }
-    </header>
+    <mc-chat-tabs />
+    @if (unread.conversationsProblem(); as said) {
+      <p class="problem" role="alert"><mc-icon name="alert" /> {{ said }}</p>
+    }
 
-    <section class="panel" aria-labelledby="channels-title">
-      <h2 id="channels-title">
-        <mc-icon name="send" /> Channels
-        @if (channels(); as all) {
-          <span class="muted">{{ used().length }} of {{ all.length }} slots in use</span>
-        }
-      </h2>
-      @if (channels()) {
-        <ul class="rows" aria-label="The radio's channels">
-          @for (channel of used(); track channel.slot) {
-            <li>
-              <a [routerLink]="['/chat', 'channel', channel.slot]">
-                <span class="name"
-                  >{{ channel.name || '(no name)' }}
-                  @for (use of channel.uses; track use) {
-                    <span class="badge">{{ use }}</span>
-                  }
-                </span>
-                @if (channel.last) {
-                  <span class="side">{{ ago(channel.last, now()) }}</span>
-                }
-                <span class="sub">
-                  {{ kindText(channel.kind) }}
-                  @if (channel.messages) {
-                    · {{ channel.messages }} message{{ channel.messages === 1 ? '' : 's' }}
-                  }
-                </span>
-                @if (unread.count(channel.slot, channel.heard); as n) {
-                  <span class="unread" [attr.aria-label]="n + ' unread'">{{ n }}</span>
-                }
-              </a>
-            </li>
-          } @empty {
-            <li class="muted">No channels on the radio.</li>
+    <section class="panel" aria-labelledby="chats-title">
+      <h2 id="chats-title"><mc-icon name="chat" /> Chats</h2>
+      @if (unread.conversationsRead()) {
+        @if (unread.conversations(); as all) {
+          @if (all.length) {
+            <ul class="rows" aria-label="The console's chats">
+              @for (chat of all; track chat.key) {
+                <li>
+                  <a [routerLink]="['/chat', 'dm', chat.key]">
+                    <span class="name">{{ chat.name ?? chat.key.slice(0, 12) }}</span>
+                    @if (chat.last; as last) {
+                      <span class="side">{{ ago(last.time, now()) }}</span>
+                      <span class="sub">
+                        @if (last.own) {
+                          You:
+                        }
+                        {{ last.text }}
+                        @if (last.status === 'not delivered') {
+                          <span class="failed">· not delivered</span>
+                        }
+                      </span>
+                    }
+                    @if (unread.dmCount(chat.key, chat.heard); as n) {
+                      <span class="unread" [attr.aria-label]="n + ' unread'">{{ n }}</span>
+                    }
+                  </a>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted">
+              No chats yet. Start one from <a routerLink="/chat/contacts">Contacts</a>: message
+              anyone the radio has as a contact, as the node.
+            </p>
           }
-        </ul>
-        <p class="muted">
-          The bot adds the channels it posts to itself; to add or change others, use the MeshCore
-          app. Their keys aren't shown here.
-        </p>
-      } @else if (!problem()) {
-        <p class="loading" role="status">
-          <span class="spinner"></span> Reading the radio's channels…
-        </p>
+          <p class="muted">
+            Only the console's messages and the replies to them, in the bot's memory: a restart
+            forgets them. Commands people send the node, and its answers, are never kept.
+          </p>
+        } @else {
+          <p class="muted">The bot isn't keeping the console's chats.</p>
+        }
+      } @else if (!unread.conversationsProblem()) {
+        <p class="loading" role="status"><span class="spinner"></span> Reading the chats…</p>
       }
     </section>
   `,
 })
 export class Chat {
   protected readonly unread = inject(Unread);
-  protected readonly channels = this.unread.channels;
-  protected readonly problem = this.unread.problem;
-  /** When the channels were read, for "5m ago". */
-  protected readonly now = computed(() => (this.channels(), Date.now() / 1000));
-  protected readonly ago = ago;
-  protected readonly kindText = kindText;
-  /** The slots in use, heard on most recently first; then the rest by slot. */
-  protected readonly used = computed(() =>
-    (this.channels() ?? [])
-      .filter((c) => c.kind !== 'empty')
-      .sort((a, b) => (b.last ?? 0) - (a.last ?? 0) || a.slot - b.slot),
+  /** When the chats were read, for "5m ago". */
+  protected readonly now = computed(
+    () => (this.unread.conversations() as Conversation[] | null, Date.now() / 1000),
   );
+  protected readonly ago = ago;
 
   constructor() {
-    this.unread.refresh();
+    this.unread.refreshConversations();
   }
 }

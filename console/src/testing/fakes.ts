@@ -5,6 +5,9 @@ import {
   Answer,
   Channel,
   ChannelMessages,
+  Conversation,
+  DirectMessage,
+  DirectMessages,
   Checkins,
   CommandInfo,
   Contacts,
@@ -218,6 +221,30 @@ export const PUBLIC_MESSAGES: ChannelMessages = {
   heard: 1,
 };
 
+/** The console's chat with Alice: its message, delivered, and her reply (unread). */
+export const ALICE_MESSAGES: DirectMessages = {
+  key: 'a1'.repeat(32),
+  name: 'Alice',
+  keep: 200,
+  messages: [
+    { id: 2, time: 960, text: 'on my way', own: false, status: null, hops: 1, snr: 5.5 },
+    {
+      id: 1,
+      time: 900,
+      text: 'can you check the gauge?',
+      own: true,
+      status: 'delivered',
+      hops: null,
+      snr: null,
+    },
+  ],
+  heard: 1,
+};
+
+export const CONVERSATIONS: Conversation[] = [
+  { key: 'a1'.repeat(32), name: 'Alice', messages: 2, last: ALICE_MESSAGES.messages![0], heard: 1 },
+];
+
 function offer(name: string, usage: string, channel: string | null = null): CommandInfo {
   return { name, permission: 'admin', usage, summary: `${name} summary`, channel };
 }
@@ -282,6 +309,19 @@ export class FakeApi {
   radio: () => Observable<RadioSettings | null> = () => of(RADIO);
   channelMessages: (slot: number) => Observable<ChannelMessages> = (slot) =>
     of({ ...PUBLIC_MESSAGES, slot });
+  conversations: () => Observable<Conversation[] | null> = () => of(CONVERSATIONS);
+  contactMessages: (key: string) => Observable<DirectMessages> = (key) =>
+    of({ ...ALICE_MESSAGES, key });
+  readonly messaged: [string, string][] = [];
+  messageContact: (key: string, text: string) => Observable<{ message: DirectMessage }> = (
+    key,
+    text,
+  ) => {
+    this.messaged.push([key, text]);
+    return of({
+      message: { id: 99, time: 1000, text, own: true, status: 'sending', hops: null, snr: null },
+    });
+  };
   readonly posted: [number, string][] = [];
   postToChannel: (slot: number, text: string) => Observable<{ channel: string }> = (slot, text) => {
     this.posted.push([slot, text]);
