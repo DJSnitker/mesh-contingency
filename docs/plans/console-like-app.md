@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: in progress: PRs 1–4 (#87–#90) merged; PR 5, the Contacts section, open · Requested 2026-10-25
+Status: done: PRs 1–5 (#87–#92) merged, PR 6 (the docs) #93 · Requested 2026-10-25
 
 ## Goal
 

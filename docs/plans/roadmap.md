@@ -54,6 +54,11 @@ Where things stood on 2026-10-25:
   phone test's changes (#78–#83, with the public `area` command) and #84
   (the watch on a shutdown), released as **0.9.0** (this PR, tag `v0.9.0`)
   with the app's debug APK attached to the GitHub release.
+- **Merged since 0.9.0, not released:** item 17, the web console laid out
+  like the phone app (#87–#93), and #90's log change: the bot logs
+  commands' names, never their text or replies (#91 says how to clear what
+  older versions logged; the node's journal was cleared 2026-10-25). The
+  wiki's Admin Guide has the new console (its screenshots too).
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
@@ -78,7 +83,9 @@ Steps, in order:
    a radio, and record it in item 9.
 3. The web console checks still to do on the node (item 9, "Web console on
    the node"): a channel message heard, a real **Remove**, **Post alert
-   test**, and TX power, position and `radio freq`.
+   test**, and TX power, position and `radio freq`. (The console's
+   Remove is now on Contacts → Contacts, and posting on Contacts →
+   Channels.)
 4. The node backs up daily to `~/MeshContingencyBackups` for now; move
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
@@ -91,9 +98,8 @@ Steps, in order:
    radio and user (its checklist is there), then PR 10, the wiki's user
    guide and a signed release APK, which needs a decision on where the
    release signing key is kept.
-7. The web console like the phone app (item 17,
-   [console-like-app.md](console-like-app.md)): PR 2, the layout, once the
-   plan is merged.
+7. A release for item 17 and the log change (0.10.0, since the console's
+   pages moved), when wanted.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -641,12 +647,16 @@ always there.
 
 ---
 
-## 17. The web console laid out and working like the phone app (planned)
+## 17. The web console laid out and working like the phone app (done)
 
 Asked 2026-10-25, after the phone app's first test: the console regrouped
-and styled like the app (its side menu kept), with Chat (channels and direct
-messages from the node), Weather favorites and lookup, Bible and Check-ins.
-The plan and its PRs are in [console-like-app.md](console-like-app.md).
+and styled like the app (its side menu kept), with posting on any channel,
+Weather favorites and lookup, Bible and Check-ins. Done in #87–#93 (#93:
+the docs). Direct messages from the console were built and dropped
+before merging: a direct message to the node is always a command, and
+people chat through `msg` and the channels; Chat became **Contacts**
+(Channels, and the radio's contacts). The plan and its PRs are in
+[console-like-app.md](console-like-app.md).
 
 ## Housekeeping to do along the way
 
