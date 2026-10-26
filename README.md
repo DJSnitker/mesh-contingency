@@ -775,8 +775,8 @@ off.
 Over the mesh it only shows them. Every change is made from the
 [web console](#web-console), on the node's own computer, which reaches the
 radio over USB: a setting that cuts the node off from the mesh can't cut off
-the console, so it can always be set back. Its Radio page has a **Settings**
-tab, or type them on the command line there:
+the console, so it can always be set back. Its Radio page has the
+**Settings**, or type them on the command line there:
 
 | From the console | Does |
 |---|---|

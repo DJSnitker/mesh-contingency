@@ -19,7 +19,7 @@ import { duration } from './time';
 export const CUSTOM = 'custom';
 
 /**
- * The radio's own settings (the Radio page's Settings tab): what radio
+ * The radio's own settings (on the Radio page): what radio
  * shows, and, if the console may run radio, a form for each change: name,
  * TX power, position, clock, reboot, and last the frequency, bandwidth, SF
  * and CR, from MeshCore's presets or typed in. Those cut the node off from
