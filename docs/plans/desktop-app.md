@@ -1,6 +1,6 @@
 # Plan: the app on a computer (Windows, Mac and Linux)
 
-Status: in progress: PR 1 (#95) and PR 2 (#96) merged; PR 3 (the installers) open · Requested 2026-10-25
+Status: done: PRs 1–3 (#95–#97) merged, released in 0.11.0; signing later, if wanted · Requested 2026-10-25
 
 ## Goal
 
@@ -39,7 +39,7 @@ for Windows, Mac and Linux alongside the Android APK.
    app's build, the Bluetooth and serial pickers and the PIN box, the
    desktop's wording (computer, not phone), `npm run desktop` to run it.
    Electron 44.
-3. **Builds** (this PR): CI makes the Windows installer, the Mac `.dmg` and the Linux
+3. **Builds** (#97): CI makes the Windows installer, the Mac `.dmg` and the Linux
    AppImage, `.deb` and `.pacman` (Arch; decided 2026-10-25), with
    electron-builder on each system's runner, and
    each release attaches them, unsigned. The AppImage tried on Arch with
