@@ -19,6 +19,13 @@ may change how the bot is configured).
   `app/` runs it; installers come with the next release. The screens say
   "computer" there instead of "phone".
 
+- **Desktop installers:** CI's Desktop build job makes them on each system,
+  for each release to attach: a Windows installer, Mac disk images (Apple
+  silicon and Intel), and a Linux AppImage, `.deb` and `.pacman` package,
+  all unsigned (the Mac ones signed ad hoc). `npm run desktop:dist` in
+  `app/` makes this system's. On the desktop, Open-source licenses lists
+  Electron and Chromium in place of the Android libraries.
+
 ### Changed
 - **The app shows the radio's name only once it's connected:** before
   that, "Your radio isn't connected" and "Connecting to your radio", not

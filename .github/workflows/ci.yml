@@ -122,6 +122,48 @@ jobs:
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
+  desktop:
+    name: Desktop build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: Linux, args: --linux }
+          - { os: windows-latest, name: Windows, args: --win }
+          - { os: macos-latest, name: Mac, args: --mac }
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      # The pacman package is made with bsdtar.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+      - run: npm ci
+      - run: npx ng build
+      # Unsigned: the Mac build is signed ad hoc only (electron-builder.yml).
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # Attached to each release with the APK.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: mesh-contingency-desktop-${{ matrix.name }}
+          path: |
+            app/release/*.AppImage
+            app/release/*.deb
+            app/release/*.pacman
+            app/release/*.exe
+            app/release/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
   package:
     name: Package and plugin install
     runs-on: ubuntu-latest

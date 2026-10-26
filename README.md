@@ -1055,7 +1055,11 @@ plan is in [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). It connects
 to the radio (its name, battery and firmware), finds the node, joins, and
 has the mailbox, check-ins, chat, the area's weather, the Bible, email,
 and the radio's own settings. Each release since 0.9.0 attaches its Android
-APK (a debug build, for sideloading). The replies it reads are pinned
+APK (a debug build, for sideloading). From 0.11.0, each release also attaches
+the **desktop app**, the same app for Windows, Mac and Linux (Electron, with
+the radio over Bluetooth or USB): a Windows installer, Mac disk images, and
+a Linux AppImage, `.deb` and `.pacman` package. They're unsigned, so each
+system warns the first time; see [`app/README.md`](app/README.md). The replies it reads are pinned
 in `tests/fixtures/app_replies.json`: change a reply there and in the app
 together. Building it, running it on an emulator and installing it on a
 phone: see [`app/README.md`](app/README.md).
@@ -1091,6 +1095,9 @@ Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
 - **Phone app**: the same, in `app/`.
 - **Android build**: the phone app's debug APK, kept for 14 days as the
   run's `mesh-contingency-debug-apk` artifact.
+- **Desktop build**: the desktop app's installers, built on Linux, Windows
+  and Mac runners, kept for 14 days as the run's
+  `mesh-contingency-desktop-<system>` artifacts.
 
 The PR template has a short checklist. Never include real data (your
 `config.toml` or `users.toml`, email addresses, node keys) in code, tests or issues.

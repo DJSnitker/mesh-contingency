@@ -1,6 +1,14 @@
 import { FakeBle } from '../radio/fake-ble';
 import { openScreen } from '../screens.testing';
-import { ANDROID, APACHE, BUILT, CAPACITOR_ANDROID, parseNotices } from './licenses-screen';
+import { DESKTOP } from '../device';
+import {
+  ANDROID,
+  APACHE,
+  BUILT,
+  CAPACITOR_ANDROID,
+  ELECTRON,
+  parseNotices,
+} from './licenses-screen';
 
 const DASHES = '-'.repeat(80);
 /** As angular.json's production build writes it. */
@@ -46,6 +54,7 @@ describe('LicensesScreen', () => {
       [BUILT]: NOTICES,
       [CAPACITOR_ANDROID]: 'MIT License\n\nCopyright (c) 2017-present Drifty Co.\n',
       [APACHE]: 'Apache License\nVersion 2.0, January 2004\n',
+      [ELECTRON]: 'Copyright (c) Electron contributors\n\nPermission is hereby granted...\n',
     };
     vi.stubGlobal(
       'fetch',
@@ -57,8 +66,10 @@ describe('LicensesScreen', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  async function open() {
-    const screen = await openScreen('/radio/licenses', new FakeBle(), false);
+  async function open(desktop = false) {
+    const screen = await openScreen('/radio/licenses', new FakeBle(), false, [
+      { provide: DESKTOP, useValue: desktop },
+    ]);
     await vi.waitFor(() => {
       screen.fixture.detectChanges();
       expect(screen.page.querySelector('[role="status"]')).toBeNull();
@@ -102,6 +113,18 @@ describe('LicensesScreen', () => {
     expect(android[0].querySelector('pre')?.textContent).toContain('Drifty Co.');
     expect(android[1].textContent).toContain('Copyright The Android Open Source Project');
     expect(android[1].querySelector('pre')?.textContent).toContain('Version 2.0');
+  });
+
+  it('lists Electron and Chromium in the desktop app, not the Android libraries', async () => {
+    const { page } = await open(true);
+    expect(page.querySelector('.android')).toBeNull();
+    const desktop = [...page.querySelectorAll('.desktop details')];
+    expect(desktop.map((d) => d.querySelector('.name')?.textContent)).toEqual([
+      'Electron',
+      'Chromium',
+    ]);
+    expect(desktop[0].querySelector('pre')?.textContent).toContain('Electron contributors');
+    expect(page.querySelector('.desktop')?.textContent).toContain('LICENSES.chromium.html');
   });
 
   it("says so when the build didn't write the notices (a browser's dev server)", async () => {

@@ -1,0 +1,58 @@
+# The desktop app's installers (roadmap item 18): npm run desktop:dist,
+# and CI's Desktop build job on each system. Unsigned (ad-hoc on a Mac,
+# which Apple silicon needs to run it at all).
+appId: com.meshcontingency
+productName: Mesh Contingency
+artifactName: mesh-contingency-${version}-${os}-${arch}.${ext}
+copyright: Copyright © Doug Snitker
+directories:
+  output: release
+  buildResources: electron
+# The web build and the shell only: the app's npm packages are bundled
+# into dist/ already, and the shell needs none.
+files:
+  - dist/**
+  - electron/*.cjs
+  - package.json
+  - "!**/node_modules/**"
+publish: null
+# The shell has no native modules: nothing to rebuild for Electron.
+npmRebuild: false
+# The proprietary license, shown by the Windows installer and kept with the app.
+extraResources:
+  - from: ../LICENSE
+    to: LICENSE
+
+linux:
+  target: [AppImage, deb, pacman]
+  icon: electron/icon.png
+  category: Network
+  synopsis: Mesh Contingency, over your MeshCore radio
+  description: The Mesh Contingency app for a computer, reaching your MeshCore radio over Bluetooth or USB.
+  maintainer: Doug Snitker <DJSnitker@users.noreply.github.com>
+  vendor: Doug Snitker
+  syncDesktopName: true
+deb:
+  # USB radios need the user in the dialout group; Bluetooth needs BlueZ.
+  depends: [libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0, bluez]
+pacman:
+  depends: [gtk3, libnotify, nss, libxss, libxtst, xdg-utils, at-spi2-core, util-linux-libs, libsecret, bluez]
+
+win:
+  target: [nsis]
+  icon: electron/icon.png
+nsis:
+  license: ../LICENSE
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  icon: electron/icon.png
+  category: public.app-category.utilities
+  identity: "-"
+  hardenedRuntime: false
+  extendInfo:
+    NSBluetoothAlwaysUsageDescription: Mesh Contingency uses Bluetooth to reach your MeshCore radio.

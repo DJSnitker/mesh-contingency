@@ -1,6 +1,6 @@
 # Plan: the app on a computer (Windows, Mac and Linux)
 
-Status: in progress: PR 1 (#95) merged; PR 2 (the Electron shell) open · Requested 2026-10-25
+Status: in progress: PR 1 (#95) and PR 2 (#96) merged; PR 3 (the installers) open · Requested 2026-10-25
 
 ## Goal
 
@@ -35,11 +35,11 @@ for Windows, Mac and Linux alongside the Android APK.
 1. **USB in the app** (#95) and this plan: `UsbConnection` over Web
    Serial, the Node screen's **Connect over USB**, remembering which way
    the radio was connected and reconnecting to its port without asking.
-2. **The Electron shell** (`app/electron/`, this PR): a window on the
+2. **The Electron shell** (`app/electron/`, #96): a window on the
    app's build, the Bluetooth and serial pickers and the PIN box, the
    desktop's wording (computer, not phone), `npm run desktop` to run it.
    Electron 44.
-3. **Builds:** CI makes the Windows installer, the Mac `.dmg` and the Linux
+3. **Builds** (this PR): CI makes the Windows installer, the Mac `.dmg` and the Linux
    AppImage, `.deb` and `.pacman` (Arch; decided 2026-10-25), with
    electron-builder on each system's runner, and
    each release attaches them, unsigned. The AppImage tried on Arch with
