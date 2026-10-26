@@ -5,7 +5,9 @@ import { App } from './app';
 import { routes, TABS } from './app.routes';
 import { BLE } from './radio/ble';
 import { FakeBle, NODE_KEY } from './radio/fake-ble';
+import { FakePort, FakeSerial } from './radio/fake-serial';
 import { REMEMBERED } from './radio/radio';
+import { SERIAL } from './radio/serial';
 
 describe('App', () => {
   let ble: FakeBle;
@@ -15,10 +17,14 @@ describe('App', () => {
     localStorage.clear();
   });
 
-  async function open(path: string) {
+  async function open(path: string, serial: FakeSerial | null = null) {
     TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes, withHashLocation()), { provide: BLE, useValue: ble }],
+      providers: [
+        provideRouter(routes, withHashLocation()),
+        { provide: BLE, useValue: ble },
+        { provide: SERIAL, useValue: serial },
+      ],
     });
     const fixture = TestBed.createComponent(App);
     await TestBed.inject(Router).navigateByUrl(path);
@@ -102,6 +108,18 @@ describe('App', () => {
     expect(page.querySelector('.battery')?.textContent).toBe('3.92 V');
     expect(page.querySelector('.radio-state')?.textContent).toContain('Field T1000');
     expect(page.querySelector('.radio-state')?.classList).toContain('connected');
+  });
+
+  it('offers USB only where there is USB, and says how the radio is connected', async () => {
+    let page = await open('/node');
+    expect(page.querySelector('.radio')?.textContent).not.toContain('USB');
+    TestBed.resetTestingModule();
+    page = await open('/node', new FakeSerial(new FakePort(ble)));
+    expect(page.querySelector('.radio')?.textContent).toContain('Plug your MeshCore radio in');
+    await page.press('Connect over USB', 'Battery');
+    expect(page.querySelector('.via')?.textContent).toBe('over USB');
+    await page.press('Disconnect', "isn't connected");
+    expect(page.querySelector('.radio')?.textContent).toContain('Pick one on USB');
   });
 
   it('reconnects to the radio from last time when it opens', async () => {

@@ -74,6 +74,10 @@ import { StepLine } from './step-line';
           <dl>
             <dt>Name</dt>
             <dd class="radio-name">{{ radio.name() }}</dd>
+            @if (radio.canUseUsb) {
+              <dt>Connected</dt>
+              <dd class="via">{{ radio.via() === 'usb' ? 'over USB' : 'over Bluetooth' }}</dd>
+            }
             @if (radio.batteryMilliVolts(); as mv) {
               <dt>Battery</dt>
               <dd class="battery">{{ (mv / 1000).toFixed(2) }} V</dd>
@@ -110,16 +114,33 @@ import { StepLine } from './step-line';
               <button class="btn btn-ghost btn-sm" type="button" (click)="radio.pick()">
                 Pick another
               </button>
+              @if (radio.canUseUsb) {
+                <button class="btn btn-ghost btn-sm" type="button" (click)="radio.pickUsb()">
+                  Pick one on USB
+                </button>
+              }
             </div>
           } @else {
-            <p class="muted">
-              Turn on your MeshCore radio near the phone, then pick it from the list. The phone asks
-              for its Bluetooth PIN the first time.
-            </p>
+            @if (radio.canUseUsb) {
+              <p class="muted">
+                Plug your MeshCore radio in with a USB cable and pick its port, or turn it on nearby
+                and find it over Bluetooth (it asks for the radio's Bluetooth PIN the first time).
+              </p>
+            } @else {
+              <p class="muted">
+                Turn on your MeshCore radio near the phone, then pick it from the list. The phone
+                asks for its Bluetooth PIN the first time.
+              </p>
+            }
             <div class="actions">
               <button class="btn" type="button" (click)="radio.pick()">
                 <mc-icon name="radio" /> Find my radio
               </button>
+              @if (radio.canUseUsb) {
+                <button class="btn" type="button" (click)="radio.pickUsb()">
+                  <mc-icon name="radio" /> Connect over USB
+                </button>
+              }
             </div>
           }
         }

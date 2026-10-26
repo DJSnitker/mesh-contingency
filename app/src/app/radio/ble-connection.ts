@@ -16,6 +16,23 @@ export function within<T>(promise: Promise<T>, ms: number, what: string): Promis
 }
 
 /**
+ * Say which protocol version the app speaks, and return the radio's model
+ * and firmware build date: what Connection.onConnected does, but not
+ * waiting forever on a radio that doesn't answer (older firmware may not,
+ * and works anyway).
+ */
+export async function askFirmware(connection: Connection): Promise<string | null> {
+  const info = await within(
+    connection.deviceQuery(Constants.SupportedCompanionProtocolVersion),
+    QUERY_MS,
+    'device query',
+  ).catch(() => null);
+  return info
+    ? [info.manufacturerModel, info.firmware_build_date].filter(Boolean).join(', ') || null
+    : null;
+}
+
+/**
  * A companion radio over Bluetooth (the Capacitor plugin), the way
  * meshcore.js's WebBleConnection does it in a browser: frames go to RX and
  * come back as TX notifications. Writes wait their turn, since the radio
@@ -44,17 +61,7 @@ export class CapacitorBleConnection extends Connection {
     await this.ble.startNotifications(this.deviceId, SERVICE, TX, (value) => {
       this.onFrameReceived(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
     });
-    // What Connection.onConnected does, but not waiting forever on a radio
-    // that doesn't answer; older firmware may not, and works anyway.
-    const info = await within(
-      this.deviceQuery(Constants.SupportedCompanionProtocolVersion),
-      QUERY_MS,
-      'device query',
-    ).catch(() => null);
-    if (info) {
-      this.firmware =
-        [info.manufacturerModel, info.firmware_build_date].filter(Boolean).join(', ') || null;
-    }
+    this.firmware = await askFirmware(this);
     this.emit('connected');
   }
 

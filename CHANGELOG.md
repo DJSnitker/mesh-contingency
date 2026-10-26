@@ -7,6 +7,13 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+- **The app can use a radio on a USB cable**, on a computer: the Node
+  screen's **Connect over USB** (Web Serial, in Chromium: the desktop app to
+  come, roadmap item 18, or Chrome and Edge). It remembers which way the
+  radio was connected and reconnects to its port without asking. Phones
+  stay Bluetooth only.
+
 ## [0.10.0] - 2026-10-25
 
 The web console laid out like the phone app, and a log that no longer
