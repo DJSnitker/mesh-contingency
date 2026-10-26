@@ -103,6 +103,15 @@ Steps, in order:
    radio and user (its checklist is there), then PR 10, the wiki's user
    guide and a signed release APK, which needs a decision on where the
    release signing key is kept.
+7. The desktop app (item 18, released in 0.11.0): try **Bluetooth on a
+   computer** with a real radio (USB was tried on 2026-10-25; Bluetooth
+   wasn't). Run the desktop app, press **Find my radio**, pick the radio and
+   type its PIN; note what Linux (BlueZ) does, and fix anything in
+   `app/electron/`.
+8. Desktop installers are unsigned (Windows SmartScreen and macOS warn the
+   first time): decide whether to sign them (an Apple Developer account,
+   $99 a year, and a Windows code-signing certificate), and with that,
+   updates from inside the app. See [desktop-app.md](desktop-app.md).
 
 Paused: item 9, field testing, until more radios arrive.
 
