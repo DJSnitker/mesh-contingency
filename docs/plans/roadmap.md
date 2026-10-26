@@ -657,6 +657,12 @@ people chat through `msg` and the channels; Chat became **Contacts**
 (Channels, and the radio's contacts). The plan and its PRs are in
 [console-like-app.md](console-like-app.md).
 
+## 18. The app on a computer: Windows, Mac and Linux (in progress)
+
+Asked 2026-10-25: the phone app as a desktop app too, with the user's radio
+over Bluetooth or a USB cable. The plan is in
+[desktop-app.md](desktop-app.md).
+
 ## Housekeeping to do along the way
 
 Nothing open. Done in #37: the CI smoke test takes its commands from

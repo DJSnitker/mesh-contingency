@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 
 import { BLE } from './ble';
+import { SERIAL } from './serial';
 import { QUERY_MS } from './ble-connection';
 import { FakeBle, NODE_KEY } from './fake-ble';
+import { FakePort, FakeSerial } from './fake-serial';
 import {
   ANSWER_MS,
   ChannelMessage,
@@ -52,6 +54,7 @@ describe('Radio', () => {
   it('remembers the radio and reconnects to it when the app opens', async () => {
     await radio().pick();
     expect(JSON.parse(localStorage.getItem(REMEMBERED)!)).toEqual({
+      via: 'bluetooth',
       deviceId: 'AA:BB:CC:DD:EE:FF',
       name: 'Field T1000',
     });
@@ -126,6 +129,113 @@ describe('Radio', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('reconnects to a radio remembered from before USB, over Bluetooth', async () => {
+    localStorage.setItem(REMEMBERED, JSON.stringify({ deviceId: 'AA:BB', name: 'Old One' }));
+    const r = radio();
+    expect(r.via()).toBe('bluetooth');
+    await r.reconnect();
+    expect(ble.connects).toEqual(['AA:BB']);
+  });
+
+  it('has no USB on a phone', async () => {
+    const r = radio();
+    expect(r.canUseUsb).toBe(false);
+    await r.pickUsb();
+    expect(r.state()).toBe('none');
+    expect(r.problem()).toContain('Bluetooth');
+  });
+
+  describe('over USB', () => {
+    let serial: FakeSerial;
+    let port: FakePort;
+
+    function usbRadio(): Radio {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: BLE, useValue: ble },
+          { provide: SERIAL, useValue: serial },
+        ],
+      });
+      return TestBed.inject(Radio);
+    }
+
+    beforeEach(() => {
+      port = new FakePort(ble);
+      serial = new FakeSerial(port);
+    });
+
+    it('connects to the radio on the port picked, at 115200 baud', async () => {
+      const r = usbRadio();
+      expect(r.canUseUsb).toBe(true);
+      port.noise = new TextEncoder().encode('booting...\r\n'); // not a frame: skipped
+      await r.pickUsb();
+      expect(r.state()).toBe('connected');
+      expect(r.via()).toBe('usb');
+      expect(r.name()).toBe('Field T1000');
+      expect(r.batteryMilliVolts()).toBe(3920);
+      expect(r.firmware()).toBe('Seeed Tracker T1000-E, 19 Feb 2025');
+      expect(port.baudRate).toBe(115200);
+      expect(ble.initialized).toBe(0); // no Bluetooth needed
+    });
+
+    it('sends and reads through it like over Bluetooth', async () => {
+      const r = usbRadio();
+      await r.pickUsb();
+      ble.contacts = [{ name: 'Ridge Node', publicKey: NODE_KEY, type: 1 }];
+      const contacts = await r.contacts();
+      expect(contacts.map((c) => c.name)).toEqual(['Ridge Node']);
+    });
+
+    it('remembers the port and reconnects to it without asking', async () => {
+      await usbRadio().pickUsb();
+      expect(JSON.parse(localStorage.getItem(REMEMBERED)!)).toEqual({
+        via: 'usb',
+        deviceId: '',
+        usb: { usbVendorId: 0x239a, usbProductId: 0x8029 },
+        name: 'Field T1000',
+      });
+      TestBed.resetTestingModule();
+      ble = new FakeBle();
+      const again = new FakePort(ble);
+      serial = new FakeSerial(null);
+      serial.allowed = [new FakePort(ble, { usbVendorId: 1, usbProductId: 2 }), again];
+      const r = usbRadio();
+      await r.reconnect();
+      expect(r.state()).toBe('connected');
+      expect(again.opened).toBe(1);
+      expect(serial.requests).toBe(0);
+    });
+
+    it('asks to plug it in when the port remembered is gone', async () => {
+      await usbRadio().pickUsb();
+      TestBed.resetTestingModule();
+      serial = new FakeSerial(null);
+      const r = usbRadio();
+      await r.reconnect();
+      expect(r.state()).toBe('none');
+      expect(r.problem()).toBe('Plug Field T1000 in over USB, or pick it again.');
+    });
+
+    it('says when the cable is pulled, and closes the port on disconnect', async () => {
+      const r = usbRadio();
+      await r.pickUsb();
+      port.unplug();
+      await vi.waitFor(() => expect(r.state()).toBe('lost'));
+      expect(r.problem()).toContain('unplugged');
+      await r.pickUsb();
+      await r.disconnect();
+      expect(port.closed).toBeGreaterThan(0);
+    });
+
+    it('says nothing when the list is closed without picking', async () => {
+      serial.picked = null;
+      const r = usbRadio();
+      await r.pickUsb();
+      expect(r.state()).toBe('none');
+      expect(r.problem()).toBeNull();
+    });
   });
 
   it('explains Bluetooth being off and a missing permission', () => {

@@ -16,10 +16,18 @@ copy of the console's icons, which `tests/test_app.py` keeps the same.
 ## How it talks to the radio
 
 `src/app/radio/`: `Radio` (the service the screens use: connect, reconnect,
-the radio's name and battery) over `CapacitorBleConnection`, a meshcore.js
-`Connection` on the Bluetooth plugin, writing one frame at a time. The
-plugin is behind the `BLE` token, so the tests use `FakeBle`, a pretend
-companion radio that answers frames as a real one does.
+the radio's name and battery) over either of two meshcore.js `Connection`s:
+`CapacitorBleConnection`, on the Bluetooth plugin, writing one frame at a
+time; or `UsbConnection`, a radio on a USB cable over Web Serial, with
+meshcore.js's serial framing. Web Serial is in Chromium on a computer (the
+desktop app, roadmap item 18, or Chrome and Edge), not in Android's web
+view, so the Node screen offers **Connect over USB** only where it's there
+(`Radio.canUseUsb`). The app remembers which way it last connected, and
+reconnects to a USB radio's port without asking again.
+
+The plugin and Web Serial are behind the `BLE` and `SERIAL` tokens, so the
+tests use `FakeBle`, a pretend companion radio that answers frames as a
+real one does, and `FakeSerial`, a USB port with that same radio on it.
 
 `src/app/node/`: `NodeLink` sends the node commands through the radio, one
 at a time, and collects its answers (numbered parts put back in order) and
@@ -48,7 +56,7 @@ debug manifest (`android/app/src/debug/`) adds it for live reload.
 
 ```sh
 npm ci                 # once, and after package-lock.json changes
-npm start              # in a browser at http://127.0.0.1:4200 (no Bluetooth there)
+npm start              # in a browser at http://127.0.0.1:4200 (in Chrome or Edge, a radio on USB works)
 npm run demo           # the same, on the tests' fake radio with made-up contacts and chats
 npm test               # unit tests (Vitest)
 npm run format:check   # formatting (Prettier); npm run format fixes it

@@ -1047,8 +1047,8 @@ itself: see [`console/README.md`](console/README.md).
 
 ### Phone app
 
-A phone app for users, in `app/`, that talks Bluetooth to
-the user's own MeshCore radio and reaches the node by ordinary direct
+A phone app for users, in `app/`, that talks Bluetooth (or, on a computer,
+USB) to the user's own MeshCore radio and reaches the node by ordinary direct
 messages, so its permissions, limits and sealing all apply; the bot needs
 only `area` turned on, for the Weather tab's county cards. Android first; the
 plan is in [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). It connects

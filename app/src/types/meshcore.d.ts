@@ -145,3 +145,17 @@ declare module '@liamcottle/meshcore.js/src/connection/connection.js' {
     ): Promise<void>;
   }
 }
+
+declare module '@liamcottle/meshcore.js/src/connection/serial_connection.js' {
+  import Connection from '@liamcottle/meshcore.js/src/connection/connection.js';
+
+  /**
+   * A companion radio over a serial port (USB): frames go out as "<", a
+   * 2-byte length and the frame, and come back as ">" the same way.
+   * Subclasses write the bytes and pass what they read to onDataReceived.
+   */
+  export default class SerialConnection extends Connection {
+    write(bytes: Uint8Array): Promise<void>;
+    onDataReceived(value: Uint8Array): Promise<void>;
+  }
+}

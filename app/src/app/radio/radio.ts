@@ -5,6 +5,8 @@ import { Subject } from 'rxjs';
 
 import { BLE, SERVICE } from './ble';
 import { CapacitorBleConnection, within } from './ble-connection';
+import { PortInfo, SERIAL } from './serial';
+import { UsbConnection } from './usb-connection';
 import { fromHex, toHex } from './hex';
 
 /** How long the radio has to answer once connected (ms). */
@@ -64,19 +66,34 @@ export const REMEMBERED = 'mc.radio';
 
 export type RadioState = 'none' | 'connecting' | 'connected' | 'lost';
 
+/** How the radio is reached: Bluetooth, or a USB cable (on a computer). */
+export type Via = 'bluetooth' | 'usb';
+
+/** A connection to the radio, either way. */
+export type RadioLink = CapacitorBleConnection | UsbConnection;
+
 /** The radio as the app remembers it: enough to reconnect and to name it. */
 interface Remembered {
+  /** Missing in what the app remembered before USB: Bluetooth. */
+  via?: Via;
+  /** Its Bluetooth device, or "" over USB. */
   deviceId: string;
+  /** Its USB port's maker and model, to find the port again. */
+  usb?: PortInfo;
   name: string;
 }
 
 /**
- * The user's own companion radio, over Bluetooth: connecting to it, what it
- * says about itself, and the connection the other screens send through.
+ * The user's own companion radio, over Bluetooth or (on a computer, with
+ * Web Serial) a USB cable: connecting to it, what it says about itself, and
+ * the connection the other screens send through.
  */
 @Injectable({ providedIn: 'root' })
 export class Radio {
   private readonly ble = inject(BLE);
+  private readonly serial = inject(SERIAL);
+  /** Whether a radio on a USB cable can be used here: on a computer, not a phone. */
+  readonly canUseUsb = this.serial !== null;
   private initialized = false;
 
   readonly state = signal<RadioState>('none');
@@ -101,9 +118,11 @@ export class Radio {
   /** Why the last connect failed, or why the radio went away. */
   readonly problem = signal<string | null>(null);
   readonly hasRemembered = computed(() => this.name() !== null);
+  /** How the radio is (or was last) reached. */
+  readonly via = signal<Via>(this.remembered()?.via ?? 'bluetooth');
 
   /** The open connection, while connected. */
-  connection: CapacitorBleConnection | null = null;
+  connection: RadioLink | null = null;
 
   /** Direct messages as they arrive. */
   readonly messages = new Subject<DirectMessage>();
@@ -132,15 +151,56 @@ export class Radio {
       }
       return;
     }
-    await this.connect(deviceId);
+    await this.connect(new CapacitorBleConnection(this.ble, deviceId), {
+      via: 'bluetooth',
+      deviceId,
+    });
+  }
+
+  /** Show the computer's list of serial ports, and connect to the radio on the one picked. */
+  async pickUsb(): Promise<void> {
+    this.problem.set(null);
+    if (!this.serial) {
+      this.problem.set("USB radios can't be used here: connect over Bluetooth.");
+      return;
+    }
+    let port;
+    try {
+      port = await this.serial.requestPort({ filters: [] });
+    } catch (error) {
+      // Closing the list without picking isn't a problem worth showing.
+      if (!/no port selected|cancel|abort/i.test(String(error))) {
+        this.problem.set(describe(error));
+      }
+      return;
+    }
+    await this.connect(new UsbConnection(port), { via: 'usb', deviceId: '', usb: port.getInfo() });
   }
 
   /** Connect to the radio remembered from last time, if there is one. */
   async reconnect(): Promise<void> {
     const remembered = this.remembered();
-    if (remembered) {
-      await this.connect(remembered.deviceId);
+    if (!remembered) {
+      return;
     }
+    if (remembered.via !== 'usb') {
+      await this.connect(new CapacitorBleConnection(this.ble, remembered.deviceId), {
+        via: 'bluetooth',
+        deviceId: remembered.deviceId,
+      });
+      return;
+    }
+    // The ports allowed before; the one with the same maker and model, if it's plugged in.
+    const ports = (await this.serial?.getPorts().catch(() => [])) ?? [];
+    const same = (info: PortInfo) =>
+      info.usbVendorId === remembered.usb?.usbVendorId &&
+      info.usbProductId === remembered.usb?.usbProductId;
+    const port = ports.find((p) => same(p.getInfo())) ?? (ports.length === 1 ? ports[0] : null);
+    if (!port) {
+      this.problem.set(`Plug ${remembered.name} in over USB, or pick it again.`);
+      return;
+    }
+    await this.connect(new UsbConnection(port), remembered);
   }
 
   async disconnect(): Promise<void> {
@@ -355,7 +415,7 @@ export class Radio {
   }
 
   /** The open connection; throws when there's none. */
-  private open(): CapacitorBleConnection {
+  private open(): RadioLink {
     if (!this.connection) {
       throw new Error('no radio connected');
     }
@@ -366,10 +426,7 @@ export class Radio {
    * Ask the radio something, once the request before has its answer, giving
    * up after ANSWER_MS. Its Err (a rejection with nothing) becomes an error.
    */
-  private request<T>(
-    what: string,
-    ask: (connection: CapacitorBleConnection) => Promise<T>,
-  ): Promise<T> {
+  private request<T>(what: string, ask: (connection: RadioLink) => Promise<T>): Promise<T> {
     const connection = this.open();
     return this.exclusive(() =>
       within(ask(connection), ANSWER_MS, what).catch((error) => {
@@ -386,7 +443,7 @@ export class Radio {
   }
 
   /** Send, and resolve with the radio's Sent answer (or reject on its error). */
-  private whenSent(connection: CapacitorBleConnection, send: () => Promise<void>): Promise<Sent> {
+  private whenSent(connection: RadioLink, send: () => Promise<void>): Promise<Sent> {
     return new Promise<Sent>((resolve, reject) => {
       const onSent = (sent: Sent) => {
         connection.off(Constants.ResponseCodes['Err'], onErr);
@@ -403,7 +460,7 @@ export class Radio {
   }
 
   /** Fetch the messages waiting on the radio, until there are none. */
-  private async drain(connection: CapacitorBleConnection): Promise<void> {
+  private async drain(connection: RadioLink): Promise<void> {
     if (this.draining) {
       this.drainAgain = true;
       return;
@@ -440,16 +497,18 @@ export class Radio {
     }
   }
 
-  private async connect(deviceId: string): Promise<void> {
+  private async connect(connection: RadioLink, how: Omit<Remembered, 'name'>): Promise<void> {
     if (this.state() === 'connecting') {
       return;
     }
     await this.disconnect();
     this.state.set('connecting');
     this.problem.set(null);
-    const connection = new CapacitorBleConnection(this.ble, deviceId);
+    this.via.set(how.via ?? 'bluetooth');
     try {
-      await this.initialize();
+      if (how.via !== 'usb') {
+        await this.initialize();
+      }
       await connection.open();
       const self = await within(connection.getSelfInfo(), ANSWER_MS, 'its name');
       // Messages are dated by the radio's clock, so set it from the phone's.
@@ -467,7 +526,7 @@ export class Radio {
       this.batteryMilliVolts.set(battery?.batteryMilliVolts ?? null);
       this.firmware.set(connection.firmware);
       this.state.set('connected');
-      this.remember({ deviceId, name: self.name });
+      this.remember({ ...how, name: self.name });
       // The radio says when messages are waiting; fetch any from meanwhile too.
       connection.on(Constants.PushCodes['MsgWaiting'], () => void this.drain(connection));
       void this.drain(connection);
@@ -478,7 +537,9 @@ export class Radio {
           this.problem.set(
             this.restarting
               ? 'The radio is restarting. Connect again once it’s back, in about half a minute.'
-              : 'The radio went out of range or was turned off.',
+              : this.via() === 'usb'
+                ? 'The radio was unplugged or turned off.'
+                : 'The radio went out of range or was turned off.',
           );
         }
       });
@@ -501,7 +562,9 @@ export class Radio {
   private remembered(): Remembered | null {
     try {
       const stored = JSON.parse(localStorage.getItem(REMEMBERED) ?? 'null');
-      return typeof stored?.deviceId === 'string' && typeof stored?.name === 'string'
+      return typeof stored?.deviceId === 'string' &&
+        typeof stored?.name === 'string' &&
+        (stored.via === undefined || stored.via === 'bluetooth' || stored.via === 'usb')
         ? stored
         : null;
     } catch {
@@ -519,7 +582,7 @@ export class Radio {
 }
 
 /** Send, and resolve on the radio's Ok (or reject on its Err). */
-function okOrErr(connection: CapacitorBleConnection, send: () => Promise<void>): Promise<void> {
+function okOrErr(connection: RadioLink, send: () => Promise<void>): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const onOk = () => {
       connection.off(Constants.ResponseCodes['Err'], onErr);
