@@ -113,10 +113,35 @@ USB details the desktop app handles:
 ```sh
 npm run desktop       # build, then open the desktop app
 npm run desktop:run   # open the last build
+npm run desktop:dist  # build the installers for this system, into release/
 ```
 
 The screens say "computer" there and "phone" on a phone (`DEVICE`, in
-`src/app/device.ts`). Installers for each system come next (item 18, PR 3).
+`src/app/device.ts`). Open-source licenses lists Electron and Chromium in
+the desktop app (`DESKTOP`), and the Android libraries elsewhere.
+
+### Installers
+
+`electron-builder.yml` makes the installers. CI's **Desktop build** job runs
+it on each system's runner, and each release attaches what it makes:
+
+| System | File | Installing |
+|---|---|---|
+| Windows | `mesh-contingency-<version>-win-x64.exe` | Run it. Windows warns about an unknown publisher (SmartScreen): **More info**, then **Run anyway**. |
+| Mac (Apple silicon) | `mesh-contingency-<version>-mac-arm64.dmg` | Open it and drag the app to Applications. The first time, open it, then allow it in System Settings, Privacy & Security (**Open Anyway**). |
+| Mac (Intel) | `mesh-contingency-<version>-mac-x64.dmg` | The same. |
+| Linux, any | `mesh-contingency-<version>-linux-x86_64.AppImage` | `chmod +x` it, then run it. It needs FUSE 2 (`fuse2` on Arch, `libfuse2t64` on Ubuntu 24.04); without it, run it with `--appimage-extract-and-run`. |
+| Debian, Ubuntu | `mesh-contingency-<version>-linux-amd64.deb` | `sudo apt install ./mesh-contingency-<version>-linux-amd64.deb` |
+| Arch | `mesh-contingency-<version>-linux-x64.pacman` | `sudo pacman -U mesh-contingency-<version>-linux-x64.pacman` |
+
+Things to know:
+- **Unsigned builds:** none is signed with a certificate. The Mac builds are signed ad hoc, which Apple silicon needs to run an app at all. Signing, and updates from inside the app, are later decisions.
+- **Linux USB:** using a radio over USB needs the user in the `dialout` group (`uucp` on Arch).
+- **What's inside:** each build bundles the web build and `electron/`, nothing from `node_modules`.
+- **Version:** the installers take `package.json`'s version.
+
+To try a build here: `npm run desktop:dist` makes this system's. On
+Linux, the `.pacman` needs `bsdtar` (libarchive).
 
 ## Building for Android
 

@@ -16,7 +16,8 @@
     "android:run": "scripts/android.sh run",
     "android:live": "scripts/android.sh live",
     "desktop": "ng build && electron .",
-    "desktop:run": "electron ."
+    "desktop:run": "electron .",
+    "desktop:dist": "ng build && electron-builder"
   },
   "private": true,
   "packageManager": "npm@11.19.0",
@@ -43,10 +44,19 @@
     "@angular/compiler-cli": "^22.2.0",
     "@capacitor/cli": "^8.5.3",
     "electron": "44.9.3",
+    "electron-builder": "26.17.0",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^5.0.0"
   },
-  "main": "electron/main.cjs"
+  "main": "electron/main.cjs",
+  "description": "Mesh Contingency, the app: your MeshCore radio over Bluetooth or USB.",
+  "author": {
+    "name": "Doug Snitker",
+    "email": "DJSnitker@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/DJSnitker/mesh-contingency",
+  "license": "SEE LICENSE IN LICENSE",
+  "desktopName": "mesh-contingency-app.desktop"
 }

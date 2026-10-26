@@ -1,6 +1,7 @@
 // Opening a screen in tests, with the fake radio connected and the node
 // picked, and pressing its buttons; the node answers with the bot's real
 // replies from tests/fixtures/app_replies.json.
+import { Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   provideRouter,
@@ -27,7 +28,12 @@ export function reply(name: string): string[] {
 }
 
 /** The screen at `path`, with the radio connected and the node picked (unless `ready` is false). */
-export async function openScreen(path: string, ble: FakeBle, ready = true) {
+export async function openScreen(
+  path: string,
+  ble: FakeBle,
+  ready = true,
+  providers: Provider[] = [],
+) {
   if (ready) {
     localStorage.setItem(
       REMEMBERED,
@@ -41,6 +47,7 @@ export async function openScreen(path: string, ble: FakeBle, ready = true) {
       provideRouter(routes, withHashLocation(), withComponentInputBinding()),
       { provide: BLE, useValue: ble },
       { provide: TIMING, useValue: { firstReplyMs: 2000, quietMs: 50, partsMs: 200 } },
+      ...providers,
     ],
   });
   const fixture = TestBed.createComponent(App);

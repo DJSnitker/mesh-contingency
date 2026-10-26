@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, InjectionToken, signal } fr
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
+import { DESKTOP } from '../device';
 import { Icon } from '../icon';
 
 /** A package and its license, as the attribution lists it. */
@@ -33,6 +34,7 @@ export const BUILT = '3rdpartylicenses.txt';
 /** Copied in by angular.json from node_modules. */
 export const CAPACITOR_ANDROID = 'licenses/capacitor-android/LICENSE';
 export const APACHE = 'licenses/apache-2.0/LICENSE.txt';
+export const ELECTRON = 'licenses/electron/LICENSE';
 
 /**
  * The Android libraries in the APK, which the web build doesn't list: the
@@ -160,12 +162,25 @@ export function parseNotices(text: string): Attribution[] {
         }
       </section>
 
-      <section class="panel android">
-        <h2>Android</h2>
-        @for (a of android(); track a.name) {
-          <ng-container *ngTemplateOutlet="entry; context: { $implicit: a }" />
-        }
-      </section>
+      @if (desktop) {
+        <section class="panel desktop">
+          <h2>Desktop</h2>
+          @for (a of computer(); track a.name) {
+            <ng-container *ngTemplateOutlet="entry; context: { $implicit: a }" />
+          }
+          <p class="muted">
+            Chromium's own notices, for it and the open-source software in it, are installed with
+            the app, in LICENSES.chromium.html beside it.
+          </p>
+        </section>
+      } @else {
+        <section class="panel android">
+          <h2>Android</h2>
+          @for (a of android(); track a.name) {
+            <ng-container *ngTemplateOutlet="entry; context: { $implicit: a }" />
+          }
+        </section>
+      }
     }
 
     <ng-template #entry let-a>
@@ -186,25 +201,37 @@ export function parseNotices(text: string): Attribution[] {
 })
 export class LicensesScreen {
   private readonly read = inject(READ_FILE);
+  protected readonly desktop = inject(DESKTOP);
 
   protected readonly loading = signal(true);
   protected readonly app = signal<Attribution[]>([]);
   protected readonly android = signal<Attribution[]>([]);
+  protected readonly computer = signal<Attribution[]>([]);
 
   constructor() {
     void this.load();
   }
 
   private async load(): Promise<void> {
-    const [built, capacitor, apache] = await Promise.all([
+    const [built, capacitor, apache, electron] = await Promise.all([
       this.read(BUILT),
       this.read(CAPACITOR_ANDROID),
       this.read(APACHE),
+      this.desktop ? this.read(ELECTRON) : null,
     ]);
     this.app.set(built ? parseNotices(built) : []);
     this.android.set([
       { name: 'Capacitor (Android)', license: 'MIT', text: tidy(capacitor) },
       ...ANDROID.map((a) => ({ ...a, text: tidy(apache) })),
+    ]);
+    this.computer.set([
+      { name: 'Electron', license: 'MIT', text: tidy(electron) },
+      {
+        name: 'Chromium',
+        license: 'BSD-3-Clause and others',
+        copyright: 'The Chromium Authors',
+        text: null,
+      },
     ]);
     this.loading.set(false);
   }

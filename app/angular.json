@@ -35,6 +35,11 @@
                 "output": "licenses/capacitor-android"
               },
               {
+                "glob": "LICENSE",
+                "input": "node_modules/electron",
+                "output": "licenses/electron"
+              },
+              {
                 "glob": "LICENSE.txt",
                 "input": "node_modules/rxjs",
                 "output": "licenses/apache-2.0"
