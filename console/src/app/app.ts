@@ -16,7 +16,7 @@ export const PAGES = [
   { path: '/', label: 'Dashboard', icon: 'gauge' },
   { path: '/mailbox', label: 'Mailbox', icon: 'inbox' },
   { path: '/checkins', label: 'Check-ins', icon: 'check' },
-  { path: '/chat', label: 'Chat', icon: 'chat' },
+  { path: '/contacts', label: 'Contacts', icon: 'users' },
   { path: '/weather', label: 'Weather', icon: 'cloud' },
   { path: '/bible', label: 'Bible', icon: 'book' },
   { path: '/radio', label: 'Radio', icon: 'radio' },
@@ -25,7 +25,7 @@ export const PAGES = [
 ];
 
 /** At phone width, the bottom bar's tabs; More lists the other pages. */
-export const TABS = ['/', '/mailbox', '/chat', '/weather'];
+export const TABS = ['/', '/mailbox', '/contacts', '/weather'];
 export const MORE = PAGES.filter((page) => !TABS.includes(page.path));
 
 @Component({

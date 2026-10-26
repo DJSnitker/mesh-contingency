@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 
 import { Channel } from './api';
-import { ChatTabs } from './chat-tabs';
+import { ContactsTabs } from './contacts-tabs';
 import { Icon } from './icon';
 import { ago } from './time';
 import { Unread } from './unread';
@@ -18,7 +18,7 @@ export function kindText(kind: Channel['kind']): string {
 }
 
 /**
- * Chat's Channels tab, as the phone app's: the radio's channels, each
+ * The Contacts section's Channels tab, as the phone app's: the radio's channels, each
  * opening its thread (channel.ts), the ones heard on most recently first,
  * with what each is, what the bot posts there and how many messages are
  * unread (unread.ts).
@@ -26,7 +26,7 @@ export function kindText(kind: Channel['kind']): string {
 @Component({
   selector: 'mc-channels',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ChatTabs, Icon, RouterLink],
+  imports: [ContactsTabs, Icon, RouterLink],
   styles: `
     :host {
       display: grid;
@@ -51,7 +51,7 @@ export function kindText(kind: Channel['kind']): string {
     }
   `,
   template: `
-    <mc-chat-tabs />
+    <mc-contacts-tabs />
     @if (problem()) {
       <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
     }
@@ -67,7 +67,7 @@ export function kindText(kind: Channel['kind']): string {
         <ul class="rows" aria-label="The radio's channels">
           @for (channel of used(); track channel.slot) {
             <li>
-              <a [routerLink]="['/chat', 'channel', channel.slot]">
+              <a [routerLink]="['/contacts', 'channel', channel.slot]">
                 <span class="name"
                   >{{ channel.name || '(no name)' }}
                   @for (use of channel.uses; track use) {

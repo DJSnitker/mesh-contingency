@@ -1,4 +1,4 @@
-<mc-chat-tabs />
+<mc-contacts-tabs />
 
 @if (problem()) {
   <p class="problem" role="alert"><mc-icon name="alert" /> {{ problem() }}</p>
@@ -58,16 +58,8 @@
               contact.last_advert ? 'heard ' + ago(contact.last_advert, now()) : 'no advert heard'
             }}</span>
           </div>
-          <div class="actions">
-            @if (contact.type === 'chat') {
-              <a
-                class="btn btn-ghost btn-sm"
-                [routerLink]="['/chat', 'dm', contact.key]"
-                [attr.aria-label]="'Message ' + (contact.name ?? contact.key.slice(0, 12))"
-                ><mc-icon name="send" /> Message</a
-              >
-            }
-            @if (has('contact')) {
+          @if (has('contact')) {
+            <div class="actions">
               <button
                 class="btn btn-ghost btn-sm"
                 type="button"
@@ -84,8 +76,8 @@
               >
                 Remove
               </button>
-            }
-          </div>
+            </div>
+          }
         </li>
       } @empty {
         <li class="muted">

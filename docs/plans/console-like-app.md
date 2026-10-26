@@ -1,6 +1,6 @@
 # Plan: the web console, laid out and working like the phone app
 
-Status: in progress: PRs 1–4 (#87–#90) merged; PR 5, direct messages, open · Requested 2026-10-25
+Status: in progress: PRs 1–4 (#87–#90) merged; PR 5, the Contacts section, open · Requested 2026-10-25
 
 ## Goal
 
@@ -25,8 +25,9 @@ settings).
   - **Chat, channels:** each channel as a chat thread, read and post, on
     any of the node's channels (today only `#contingency-wx` and
     `#contingency-comm`, through `alert` and `comm`).
-  - **Chat, direct messages:** the node messages a contact on the radio and
-    sees the reply; a Contacts tab to start one.
+  - ~~**Chat, direct messages:** the node messages a contact on the radio and
+    sees the reply; a Contacts tab to start one.~~ Dropped (2026-10-25,
+    below).
   - **Weather:** favorite counties first, the rest under Show more, and the
     weather anywhere (`wx`).
   - **Bible and Check-ins:** look up a verse or the verse of the day; look
@@ -34,6 +35,15 @@ settings).
     sender's own check-in, which the console, not a person, can't run.)
 - **Still this computer only** (`127.0.0.1`, the key in the link): nothing
   here changes who can reach the console.
+
+**Dropped: direct messages (2026-10-25).** Built in #92 and taken out
+before merging. A MeshCore direct message is only text, so the bot can't
+tell a chat reply from a command except by its first word: "ok on my way"
+would check the person in, "help is coming" would get the help text. The
+best use of direct messages to this node is commands; people chat through
+`msg` and the channels. So **Chat is renamed Contacts**, with two tabs,
+Channels and the radio's contacts, and every direct message to the node is
+a command, as before.
 
 ## The pages
 
@@ -44,18 +54,18 @@ The rail, in order (the app's names where they're the same thing):
 | **Dashboard** | the node at a glance, health, live log | the same, in the app's panels |
 | **Mailbox** | Inbox (who has messages waiting); Send's *Leave a message* | both, on one page: the waiting messages per user, and *Leave a message* below |
 | **Check-ins** | the roll call | the roll call, plus *Look up a check-in* (`status`) |
-| **Chat** | Radio's Contacts and Channels tabs; Send's channel posting | three tabs as in the app: **Chat** (direct messages, newest first, unread counts), **Channels** (every channel as a thread, with a box to post, and what each is and what the bot posts there), **Contacts** (Radio's contacts tab moved here: each one's type, user or admin, path and when heard, with a filter, **Reset path** and **Remove**, and **Message** to start a chat) |
+| **Contacts** (was to be Chat) | Radio's Contacts and Channels tabs; Send's channel posting | two tabs: **Channels** (every channel as a thread, with a box to post, and what each is and what the bot posts there, with unread counts) and **Contacts** (Radio's contacts tab moved here: each one's type, user or admin, path and when heard, with a filter, **Reset path** and **Remove**) |
 | **Weather** | Area Weather: a card per county, weather alerts | the cards, with favorites (kept in the browser) shown first and the rest under Show more; *Weather anywhere* (`wx`); the alerts panel as now |
 | **Bible** | (none) | the verse of the day and *Look up a verse* (`verse`), as in the app |
-| **Radio** | Advertise, Backup, the radio's settings, contacts and channels | the radio itself only: Advertise, Backup and its settings. Its contacts and channels move up to Chat (decided 2026-10-25: an admin managing a contact is usually about to message it, or just heard from it). Unlike the phone app, which keeps contacts on Radio too |
+| **Radio** | Advertise, Backup, the radio's settings, contacts and channels | the radio itself only: Advertise, Backup and its settings. Its contacts and channels move up to Contacts (decided 2026-10-25: an admin managing a contact is usually about to message it, or just heard from it). Unlike the phone app, which keeps contacts on Radio too |
 | **Users** | users and join requests | the same, in the app's panels |
 | **History** | what admins have done | the same |
 
-**Send goes away:** posting moves to Chat → Channels, and leaving a message to
-Mailbox. At phone width the bottom bar holds Dashboard, Mailbox, Chat,
+**Send goes away:** posting moves to Contacts → Channels, and leaving a message to
+Mailbox. At phone width the bottom bar holds Dashboard, Mailbox, Contacts,
 Weather and **More** (the other pages, as a list).
 
-Unread counts (Chat on the rail, each thread) are per browser: the newest
+Unread counts (Contacts on the rail, each channel) are per browser: the newest
 message seen is kept in `localStorage`, as the app keeps its on the phone.
 
 ## How it works
@@ -72,7 +82,7 @@ as `alert` does), held to what fits after the node's name, recorded in
 `history` as `by console` and added to the log. `alert` and `comm` stay the
 commands for the two hashtag channels over the radio.
 
-**Direct messages** are the new part of the bot:
+**Direct messages** (dropped, as above; kept here for the record) were to be the new part of the bot:
 
 - **A log of the console's conversations**, in memory only, like the
   channel log (newest 200 per contact; a restart forgets them; nothing
@@ -106,10 +116,10 @@ commands for the two hashtag channels over the radio.
 4. **Chat, channels:** posting on any channel (the new API), threads with
    unread counts, the Channels tab's box to post; Radio's Channels tab
    removed, since Chat's list then shows all it did.
-5. **Chat, direct messages:** the bot's conversation log, sending, replies
-   routed to the console (commands and their answers never kept); the Chat tab, and the Contacts tab built from
-   Radio's (its details, filter, Reset path and Remove) with Message added;
-   Radio's Contacts tab removed.
+5. **The Contacts section:** Chat renamed Contacts, with the Channels tab
+   and the Contacts tab moved from Radio (its details, filter, Reset path
+   and Remove); Radio's Contacts tab removed. (The direct messages built
+   for this PR were taken out: see *Dropped* above.)
 6. **Docs:** the README's "Web console", the wiki's Admin Guide ("Use the
    web console"), the demo's screenshots, the changelog.
 

@@ -19,11 +19,6 @@ Posting: POST /api/channels/{slot}/messages posts to any of the radio's
 channels as this node, as alert and comm do to theirs: one message, held to
 what fits after the node's name, recorded in history by console.
 
-Messaging: POST /api/contacts/{key}/messages sends a contact a direct
-message as this node; /api/conversations and /api/contacts/{key}/messages
-show the console's conversations, only its own messages and the replies to
-them (conversations.py), never commands sent to the node.
-
 Watching: /api/log sends the lines the bot prints, as server-sent events.
 """
 
@@ -35,7 +30,7 @@ from aiohttp import web
 from meshcore import EventType
 
 from ..alerts import PUBLIC_SECRET, hashtag_secret, is_empty, message_limit, post, read_channels
-from ..api import ADMIN, CONSOLE, MAX_REPLY_LEN, PUBLIC, USER, is_authorized
+from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
 from ..area_weather import EVERY_MINUTES
 from ..commands.health import RADIO_SECONDS, activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
@@ -328,103 +323,6 @@ async def post_to_channel(request):
     print(f"[{CONSOLE.name}] posted to {name} ({len(text)} chars)", flush=True)
     ctx.state.record(CONSOLE.name, f"posted to {name}: {text}")
     return web.json_response({"channel": name})
-
-
-def _contact_name(ctx, key):
-    """A contact's name: in the users file, else as the radio has it, else None."""
-    contact = ctx.radio.contacts.get(key) if ctx.radio is not None else None
-    if contact is None and ctx.radio is not None:
-        contact = next((c for c in ctx.radio.contacts.values() if c["public_key"].lower() == key), None)
-    return ctx.users.get(key, {}).get("name") or (contact or {}).get("adv_name") or None
-
-
-def _contact_key(request):
-    """The route's full public key, lowercase, or None if it isn't one."""
-    key = request.match_info["key"].lower()
-    return key if len(key) == 64 and all(c in "0123456789abcdef" for c in key) else None
-
-
-@routes.get("/api/conversations")
-async def conversations(request):
-    """The console's conversations, the most recent first: each contact's
-    key and name, how many messages are kept, the newest (time, text, own,
-    status) and how many replies were heard since the bot started (heard,
-    for unread). null if the console's messages aren't kept."""
-    ctx = _ctx(request)
-    kept = ctx.state.conversations
-    if kept is None:
-        return web.json_response(None)
-    return web.json_response([
-        {"key": key, "name": _contact_name(ctx, key), "messages": len(kept.messages(key)),
-         "last": kept.last(key), "heard": kept.heard_count(key)}
-        for key in kept.keys()])
-
-
-@routes.get("/api/contacts/{key}/messages")
-async def contact_messages(request):
-    """The console's conversation with a contact, newest first: its
-    messages (the console's, own, with sending, delivered or not delivered,
-    and the contact's replies, with hops and snr as heard), how many are
-    kept (keep) and heard as /api/conversations says. messages is null if
-    they aren't kept."""
-    ctx = _ctx(request)
-    key = _contact_key(request)
-    if key is None:
-        return _error(404, "not a contact's key")
-    kept = ctx.state.conversations
-    return web.json_response({"key": key, "name": _contact_name(ctx, key), "keep": kept.keep if kept else None,
-                              "messages": kept.messages(key) if kept else None,
-                              "heard": kept.heard_count(key) if kept else None})
-
-
-_sending = set()  # direct messages going out, kept until they're delivered or not
-
-
-@routes.post("/api/contacts/{key}/messages")
-async def message_contact(request):
-    """{"text": the message} -> {"message": it, sending}: send a companion
-    contact a direct message as this node, retried until the radio has an
-    ack, as replies are. One message, at most MAX_REPLY_LEN characters.
-    Kept in the conversation, where its status becomes delivered or not
-    delivered; history records who was messaged (by console), not what."""
-    ctx = _ctx(request)
-    key = _contact_key(request)
-    if key is None:
-        return _error(404, "not a contact's key")
-    try:
-        asked = await request.json()
-    except ValueError:
-        return _error(400, 'send JSON: {"text": ...}')
-    text = asked.get("text") if isinstance(asked, dict) else None
-    if not isinstance(text, str) or not text.strip():
-        return _error(400, "text must be a message")
-    text = text.strip()
-    if len(text) > MAX_REPLY_LEN:
-        return _error(400, f"too long for one direct message ({len(text)} characters; at most {MAX_REPLY_LEN})")
-    kept, send = ctx.state.conversations, ctx.state.send_direct
-    if ctx.radio is None or kept is None or send is None:
-        return _error(503, "no radio")
-    contact = next((c for c in ctx.radio.contacts.values() if c["public_key"].lower() == key), None)
-    if contact is None:
-        return _error(404, "the radio has no such contact")
-    if TYPE_NAMES.get(contact.get("type")) != "chat":
-        return _error(400, "only a companion (chat) contact can be messaged")
-    name = _contact_name(ctx, key) or key[:12]
-    entry = kept.sent(key, text)
-
-    async def deliver():
-        try:
-            kept.delivered(entry, await send(key, text, what="console's message") is True)
-        except Exception as e:
-            kept.delivered(entry, False)
-            print(f"  console's message to {key[:12]} failed: {type(e).__name__}", flush=True)
-
-    task = asyncio.create_task(deliver())
-    _sending.add(task)
-    task.add_done_callback(_sending.discard)
-    print(f"[{CONSOLE.name}] message to {name} ({len(text)} chars)", flush=True)
-    ctx.state.record(CONSOLE.name, f"messaged {name}")
-    return web.json_response({"message": dict(entry)})
 
 
 @routes.get("/api/radio")

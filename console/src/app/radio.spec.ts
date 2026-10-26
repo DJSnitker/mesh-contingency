@@ -56,11 +56,11 @@ describe('Radio', () => {
     ]);
   });
 
-  it('has the settings, and its contacts and channels are in Chat', async () => {
+  it('has the settings, and its contacts and channels are in Contacts', async () => {
     const fixture = await render();
     const element: HTMLElement = fixture.nativeElement;
     expect(element.querySelector('mc-radio-settings')).not.toBeNull();
     expect(element.querySelector('[role=tab]')).toBeNull();
-    expect(element.querySelector('.title a')?.getAttribute('href')).toBe('/chat');
+    expect(element.querySelector('.title a')?.getAttribute('href')).toBe('/contacts');
   });
 });

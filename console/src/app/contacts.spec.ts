@@ -127,30 +127,20 @@ describe('Contacts', () => {
     );
   });
 
-  it('messages a companion, but not a repeater', async () => {
-    const fixture = await render();
-    const items = fixture.nativeElement.querySelectorAll('.contact-list li');
-    const alice = items[0].querySelector('a.btn') as HTMLAnchorElement;
-    expect(alice.textContent?.trim()).toBe('Message');
-    expect(alice.getAttribute('href')).toBe(`/chat/dm/${'a1'.repeat(32)}`);
-    expect(alice.getAttribute('aria-label')).toBe('Message Alice');
-    expect(items[1].querySelector('a.btn')).toBeNull(); // Hilltop, a repeater
-  });
-
   it('lists the contacts with nothing to do to them when contact is not offered', async () => {
     api.commands = () => of(COMMANDS.filter((c) => c.name !== 'contact'));
     const fixture = await render();
     const element: HTMLElement = fixture.nativeElement;
     expect(element.querySelectorAll('.contact-list li').length).toBe(2);
     expect(element.querySelector('.contact-list button')).toBeNull();
-    expect(element.querySelector('.contact-list a.btn')).not.toBeNull(); // Message stays
   });
 
-  it('is a tab of Chat', async () => {
+  it('is a tab of the Contacts section, beside Channels, with no chat', async () => {
     const fixture = await render();
-    const tabs = [...fixture.nativeElement.querySelectorAll('mc-chat-tabs nav a')].map((a) =>
-      (a as HTMLElement).textContent?.trim(),
+    const tabs = [...fixture.nativeElement.querySelectorAll('mc-contacts-tabs nav a')].map((a) =>
+      (a as HTMLElement).textContent?.replace(/\s+/g, ' ').trim(),
     );
-    expect(tabs).toEqual(['Chats', 'Channels', 'Contacts']);
+    expect(tabs).toEqual(['Channels', 'Contacts']);
+    expect(fixture.nativeElement.querySelector('.contact-list a')).toBeNull(); // no Message
   });
 });

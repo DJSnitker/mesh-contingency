@@ -47,7 +47,7 @@ describe('Channels', () => {
         uses: [],
         side: '5m ago',
         sub: 'the usual Public channel: everyone · 2 messages',
-        href: '/chat/channel/0',
+        href: '/contacts/channel/0',
         unread: '1',
       },
       {
@@ -55,7 +55,7 @@ describe('Channels', () => {
         uses: ['alert', 'automatic alerts'],
         side: null,
         sub: 'hashtag: anyone who adds the same name',
-        href: '/chat/channel/1',
+        href: '/contacts/channel/1',
         unread: null,
       },
       {
@@ -63,7 +63,7 @@ describe('Channels', () => {
         uses: [],
         side: null,
         sub: 'private: only radios given its key',
-        href: '/chat/channel/2',
+        href: '/contacts/channel/2',
         unread: null,
       },
     ]);

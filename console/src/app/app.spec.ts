@@ -5,7 +5,7 @@ import { of } from 'rxjs';
 import { Api } from './api';
 import { App } from './app';
 import { routes } from './app.routes';
-import { CHANNELS, CONVERSATIONS, FakeApi } from '../testing/fakes';
+import { CHANNELS, FakeApi } from '../testing/fakes';
 
 describe('App', () => {
   let api: FakeApi;
@@ -14,7 +14,6 @@ describe('App', () => {
     api = new FakeApi();
     // Nothing unread, unless a test says.
     api.channels = () => of(CHANNELS.map((c) => ({ ...c, heard: 0 })));
-    api.conversations = () => of(CONVERSATIONS.map((c) => ({ ...c, heard: 0 })));
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), { provide: Api, useValue: api }],
     });
@@ -29,7 +28,7 @@ describe('App', () => {
       'Dashboard',
       'Mailbox',
       'Check-ins',
-      'Chat',
+      'Contacts',
       'Weather',
       'Bible',
       'Radio',
@@ -46,7 +45,7 @@ describe('App', () => {
     expect(tabs().map((a) => a.textContent?.trim())).toEqual([
       'Dashboard',
       'Mailbox',
-      'Chat',
+      'Contacts',
       'Weather',
       'More',
     ]);
@@ -58,9 +57,9 @@ describe('App', () => {
     await router.navigateByUrl('/radio');
     await fixture.whenStable();
     expect(lit()).toBe('More');
-    await router.navigateByUrl('/chat/channel/1');
+    await router.navigateByUrl('/contacts/channel/1');
     await fixture.whenStable();
-    expect(lit()).toBe('Chat');
+    expect(lit()).toBe('Contacts');
     await router.navigateByUrl('/more');
     await fixture.whenStable();
     expect(lit()).toBe('More');
@@ -75,7 +74,7 @@ describe('App', () => {
     await router.navigateByUrl('/inbox');
     expect(router.url).toBe('/mailbox');
     await router.navigateByUrl('/send');
-    expect(router.url).toBe('/chat');
+    expect(router.url).toBe('/contacts/channels');
   });
 
   it('says how to get back in when signed out', async () => {
@@ -87,17 +86,16 @@ describe('App', () => {
     expect(element.querySelector('router-outlet')).toBeNull();
   });
 
-  it('counts the unread channel messages and replies beside Chat', async () => {
+  it('counts the unread channel messages beside Contacts', async () => {
     localStorage.clear();
     api.channels = () => of(CHANNELS);
-    api.conversations = () => of(CONVERSATIONS);
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const chat = [...element.querySelectorAll('.rail a')].find((a) =>
-      a.textContent?.includes('Chat'),
+      a.textContent?.includes('Contacts'),
     )!;
-    expect(chat.querySelector('.unread')?.textContent).toBe('2'); // Public's one, Alice's reply
+    expect(chat.querySelector('.unread')?.textContent).toBe('1'); // Public's one
     fixture.destroy();
   });
 });

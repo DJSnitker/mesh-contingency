@@ -321,43 +321,6 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         # Not taken as a command, nor answered.
         self.assertEqual(self.replies(), [])
 
-    @unittest.skipIf(aiohttp_missing(), "the web console needs aiohttp")
-    async def test_replies_to_the_console_are_kept_not_answered(self):
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            port = s.getsockname()[1]
-        state = {}
-        real_state = bot.State
-
-        def keep(*args, **kwargs):
-            state["it"] = real_state(*args, **kwargs)
-            return state["it"]
-
-        self.enterContext(mock.patch("mesh_contingency.bot.State", keep))
-        await self.start(CONFIG + f"\n[console]\nenabled = true\nport = {port}\n")
-        it = state["it"]
-        # Before the console messages them, a stranger's word is unrecognized.
-        await self.radio.dm(STRANGER, "on my way")
-        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
-        self.assertEqual(it.conversations.messages(full_key(STRANGER)), [])
-
-        self.assertTrue(await it.send_direct(full_key(STRANGER), "Can you check the river gauge?"))
-        self.assertEqual(self.radio.sent[-1], ("Stranger", "Can you check the river gauge?"))
-        it.conversations.sent(full_key(STRANGER), "Can you check the river gauge?")
-        await self.radio.dm(STRANGER, "on my way")
-        await self.radio.dm(STRANGER, "advert")  # an admin command they may not run: a reply too
-        self.assertEqual(len(self.radio.sent), 2)  # no answer to either
-        self.assertEqual([m["text"] for m in it.conversations.messages(full_key(STRANGER))],
-                         ["advert", "on my way", "Can you check the river gauge?"])
-        self.assertEqual(it.conversations.heard_count(full_key(STRANGER)), 2)
-        out = self.out.getvalue()
-        self.assertIn(f"[{STRANGER} Stranger] reply to the console (9 chars)", out)
-        self.assertNotIn("on my way", out)
-        # A command they may run still runs, and isn't kept.
-        await self.radio.dm(STRANGER, "help")
-        self.assertTrue(self.replies()[-1].startswith("commands:"))
-        self.assertEqual(it.conversations.heard_count(full_key(STRANGER)), 2)
-
     async def test_a_right_clock_is_left_alone(self):
         await self.start()
         self.assertEqual([c for c, _ in self.radio.settings_calls], [])

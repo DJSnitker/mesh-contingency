@@ -1,22 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
 import { Api, CommandInfo, Contact, Contacts as RadioContacts } from './api';
-import { ChatTabs } from './chat-tabs';
+import { ContactsTabs } from './contacts-tabs';
 import { Icon } from './icon';
 import { Reply, Runner } from './runner';
 import { ago } from './time';
 
 /**
- * Chat's Contacts tab: the radio's contacts, each one's type, whether it's a
- * user or admin, its path and when it was heard, with a filter. Message a
- * companion to chat with it as the node (dm.ts); reset the path to one, or
- * remove it (it asks first, as over the radio), if /api/commands has contact.
+ * The Contacts section's Contacts tab: the radio's contacts, each one's
+ * type, whether it's a user or admin, its path and when it was heard, with a
+ * filter; reset the path to one, or remove it (it asks first, as over the
+ * radio), if /api/commands has contact.
  */
 @Component({
   selector: 'mc-contacts',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ChatTabs, Icon, Reply, RouterLink],
+  imports: [ContactsTabs, Icon, Reply],
   providers: [Runner],
   styleUrl: './contacts.scss',
   templateUrl: './contacts.html',

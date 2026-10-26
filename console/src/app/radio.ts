@@ -10,7 +10,7 @@ import { Reply, Runner } from './runner';
  * Controlling the node rather than sending messages: the radio's advert
  * (nearby, or flooded across the mesh), a backup of the bot's data now, each
  * offered only if /api/commands has it, and the radio's settings
- * (radio-settings.ts). Its contacts and channels are in Chat.
+ * (radio-settings.ts). Its contacts and channels are in Contacts.
  */
 @Component({
   selector: 'mc-radio',

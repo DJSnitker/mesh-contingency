@@ -58,7 +58,7 @@ describe('ChannelThread', () => {
       { from: null, mine: true, text: 'net at 7', meta: '5m ago · this node' },
     ]);
     expect(element.querySelector('a[aria-label="All channels"]')?.getAttribute('href')).toBe(
-      '/chat/channels',
+      '/contacts/channels',
     );
     expect(element.querySelector('#post-title')?.textContent).toContain('Post to Public');
   });
