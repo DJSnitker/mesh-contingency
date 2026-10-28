@@ -19,7 +19,7 @@ dependencies = ["meshcore>=2.3.17,<2.4", "pycryptodome>=3.21"]
 [project.optional-dependencies]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
 # can't fail CI unannounced (Dependabot proposes upgrades).
-dev = ["ruff==0.17.1"]
+dev = ["ruff==0.17.2"]
 # The web console ([console] in config.toml), served by the bot on 127.0.0.1.
 console = ["aiohttp>=3.10,<4"]
 
