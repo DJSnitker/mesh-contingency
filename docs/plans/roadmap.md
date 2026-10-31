@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing and the phone app done; 0.9.0 released, with the phone app's first APK (a debug build); the phone app's PRs 1–9 merged; field testing paused · Written 2026-10-21 · Updated 2026-10-25 (phone app progress)
+Status: every item but field testing and the phone app's signed release done; 0.11.0 released, with the app's debug APK and desktop installers; the App Guide on the wiki; field testing paused · Written 2026-10-21 · Updated 2026-10-31 (App Guide)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -31,10 +31,11 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 13a | Release 0.8.0 | release | small | done (v0.8.0) |
 | 14 | `wx` takes a county as well as a zipcode | feature | small | done (#60, v0.8.1) |
 | 15 | Admins set a user's email addresses (`setemail`, console Edit emails) | feature | small | done (#62, v0.8.2) |
-| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; next PR 10, the user guide and a signed release APK |
-| 17 | The web console laid out and working like the phone app | feature | large | planned: [console-like-app.md](console-like-app.md) |
+| 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; the wiki's App Guide (2026-10-31); left: a signed release APK |
+| 17 | The web console laid out and working like the phone app | feature | large | done: [console-like-app.md](console-like-app.md) (#87–#93, v0.10.0) |
+| 18 | The app on a computer: Electron desktop app, radio over Bluetooth or USB | feature | large | done: [desktop-app.md](desktop-app.md) (#95–#97, v0.11.0); Bluetooth on a computer untried, installers unsigned |
 
-Recommended order: everything but field testing, the phone app and the console redesign (17) is done and released (0.9.0, with the phone app as it stands). Item 17, the console like the app, is next, PR by PR. The phone app (16) has all its screens; next is its PR 10 (the user guide and a signed release), after a session with a second radio, like field testing (9).
+Recommended order: everything but field testing and the phone app's signed release is done and released (0.11.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
@@ -100,9 +101,11 @@ Steps, in order:
 6. The phone app (item 16, `com.meshcontingency`): every screen is built
    and runs on the user's phone with their own radio (see "First phone
    test" in [mobile-app.md](mobile-app.md)). Next: a session with a second
-   radio and user (its checklist is there), then PR 10, the wiki's user
-   guide and a signed release APK, which needs a decision on where the
-   release signing key is kept.
+   radio and user (its checklist is there), then a signed release APK,
+   which needs a decision on where the release signing key is kept. Its
+   user guide is done: the wiki's **App Guide** (2026-10-31, wiki
+   e20b046), with screenshots from `npm run demo` in `app/`; retake them
+   when a screen changes how it looks.
 7. The desktop app (item 18, released in 0.11.0): try **Bluetooth on a
    computer** with a real radio (USB was tried on 2026-10-25; Bluetooth
    wasn't). Run the desktop app, press **Find my radio**, pick the radio and

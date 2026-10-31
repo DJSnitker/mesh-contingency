@@ -1,6 +1,6 @@
 # Plan: a phone app for users, over their own radio
 
-Status: in progress: PRs 1–9 merged, and the changes from the first phone test (#78–#81); next, PR 10 (docs and a release) after a session with a second radio · Requested 2026-10-24 · Updated 2026-10-25 (phone test, Chat tabs, spinners, tablet, licenses)
+Status: in progress: PRs 1–9 merged, the changes from the first phone test (#78–#81), a debug APK with each release since 0.9.0, and the wiki's App Guide; left, a signed release APK after a session with a second radio · Requested 2026-10-24 · Updated 2026-10-31 (App Guide)
 
 ## Goal
 
@@ -237,7 +237,10 @@ so 21 goes beside it (sdkman is already here).
    *Done: #76.*
 9. **Radio:** the radio's settings and contacts. *Done: #77.*
 10. **Docs and a release:** the wiki's user guide, the changelog, a version
-   number for the app, and a signed release APK.
+   number for the app, and a signed release APK. *The user guide is done:
+   the wiki's App Guide (2026-10-31), with screenshots from `npm run demo`;
+   the changelog and version came with 0.9.0–0.11.0. Left: the signed
+   release APK.*
 
 Then the first phone test (below) brought #78–#81.
 
