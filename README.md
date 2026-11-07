@@ -824,6 +824,9 @@ email doesn't count toward the daily limits. s-nail would normally save the
 unsent message to `~/dead.letter`, unsealed; the bot runs `mail` with
 `DEAD=/dev/null` so it doesn't.
 
+Sending email by radio, over Winlink, when the node has no internet, is
+being looked into: see [Not built yet: email over Winlink](#not-built-yet-email-over-winlink).
+
 ## Running
 
 ```sh
@@ -1079,6 +1082,131 @@ The tests use only the standard library. Network calls, the `mail` command
 and the radio are all faked (see `mesh_contingency/testing.py`), so they run
 offline and without a device. `tests/test_bot.py` drives the real
 `mesh_contingency.bot.main()` with simulated direct messages.
+
+## Not built yet: email over Winlink
+
+These are notes from looking into whether `email`, `qm` and `emailall`
+could go out over [Winlink](https://winlink.org) by radio, with VARA HF or
+VARA FM, when the node has no internet. **None of it is built**; it's here
+to decide whether to build it. Nothing below is legal advice: check the
+rules with the ARRL or your section before putting your callsign on it.
+
+**In short:** it's possible. The easy, legal and fully automatic way is
+**VARA FM to a local Winlink gateway (RMS)**. **VARA HF** works too, but the
+FCC rules in effect need a licensed operator to start each HF send.
+
+### How it would work
+
+```
+mesh user ── "qm safe at shelter" ──> node (Mesh Contingency)
+                                        │ now:   mail -s ... (SMTP, needs the internet)
+                                        │ added: pat compose ... ; pat connect varafm:///RMS
+                                        ▼
+                         Pat ──TCP──> VARA FM/HF modem ──audio──> radio ──> Winlink RMS ──> the recipient's email
+```
+
+- **One place to hook in.** `email`, `qm` and `emailall` all send through
+  `send_email(to, subject, body)` in `mesh_contingency/commands/mail.py`,
+  which runs `mail -s`. A second way of sending would sit beside it there;
+  the commands wouldn't change.
+- **[Pat](https://github.com/la5nta/pat)** is the Winlink side: an
+  open-source Winlink client for Linux with a command line and a web
+  interface. `pat compose -s <subject> <to...>` reads the message from its
+  input, so the bot can run it without anyone typing, and
+  `pat connect varafm:///W5XXX-10` sends it. Pat speaks VARA HF and FM,
+  ARDOP and packet.
+- **VARA is the awkward part:** closed source and Windows only. On Linux it
+  runs under Wine (it works, but COM ports and audio are fiddly to set up;
+  reports on a Raspberry Pi are mixed), and Pat doesn't start it, so it must
+  already be running. A tidy option is a small Windows PC running VARA, with
+  Pat on the node reaching it over the network.
+- **No hidden queue,** as for email now: the bot would compose, connect and
+  report at once (`qm: sent by Winlink via W5XXX-10`, or `qm: not sent, the
+  gateway didn't answer`). A failed connection deletes the message from
+  Pat's outbox.
+- **Speed is no problem.** A `qm` is a few hundred bytes. The free VARA is
+  speed-limited (on HF reportedly 500 Hz at about 175 bps; on FM, narrow
+  only), which is still plenty. One license, about $69, unlocks full speed
+  on both HF and FM. A VARA FM connect and send would likely take under a
+  minute; HF longer, depending on conditions.
+
+### The FCC rules decide the design
+
+Once a mesh user's `qm` goes over amateur radio, it's third-party traffic
+sent under **the node operator's callsign**.
+
+| | VARA FM (2 m / 70 cm) | VARA HF |
+|---|---|---|
+| The bot sends with no operator present? | **Yes.** §97.221(b) allows automatic control of data stations on 6 m and shorter. | **Generally no.** Outside a few narrow segments, §97.221(c) allows it only when *answering* a station under local or remote control, and at most 500 Hz wide. A client that starts the connection isn't answering. |
+| Third-party traffic under automatic control | Allowed for data (§97.115(c)) | The same, but the limit above still applies |
+| In practice | A fully automatic fallback | The node keeps the messages and tells the control operator, who sends them |
+
+The HF way means a kept outbox, which goes against the earlier decision to
+keep no email queue (it would be the operator's, not hidden, but it's still
+a change).
+
+On both bands:
+
+- **No business, no obscenity (§97.113), no encryption.** The control
+  operator answers for what mesh users send, so: a separate permission for
+  Winlink sending, for vetted users only; a lower daily limit than internet
+  email; and the mesh sender named in the body ("From Alice via MeshCore,
+  relayed by N0CALL").
+- **Every message is from the operator's callsign**
+  (`N0CALL@winlink.org`); a mesh user can't send under their own.
+- **Gateways in the US,** to stay clear of international third-party rules.
+- **Ask the gateway's operator first:** it's their station, and a bot using
+  it automatically is something they should agree to.
+
+### A real gain: replies could come back
+
+Today a reply to a `qm` never reaches the mesh. With Winlink:
+
+- Sending to an address adds it to the callsign's Winlink accept list, so
+  the family's reply to `N0CALL@winlink.org` gets through (other internet
+  senders need `//WL2K` at the start of the subject).
+- Each connection to the gateway also downloads waiting mail.
+- With a tag the bot added to the subject (say `[MC alice]`), the bot could
+  put the reply in Alice's mesh `inbox`.
+
+That would make `qm` a two-way link to family when the internet is down:
+a separate, later step, but the strongest reason to build this.
+
+### Which gateway, and when it helps
+
+- **VARA FM** reaches a local gateway. If that gateway has lost its
+  internet too, the message gets out only if it's on Winlink's radio-only
+  forwarding network: check what your local gateways do.
+- **VARA HF** reaches gateways hundreds of miles away, outside the disaster
+  area. That's the point of HF here, and why it's worth keeping despite the
+  operator.
+- **Open-source modes Pat supports natively,** with no Wine: ARDOP on HF and
+  1200-baud packet on VHF. Slower, but enough for short messages.
+
+### If it's built
+
+1. Decide: FM automatic and HF started by the operator (or FM only at
+   first)? Winlink always, or only when internet email fails? Who gets the
+   permission? Is an operator's HF outbox acceptable?
+2. Sending through Pat: a `[winlink]` config section (Pat's path, the
+   connect address, the mode), plain failure reasons in replies, a `health`
+   line and the watch's notices; tests with a fake `pat` script, so CI needs
+   no radio.
+3. Operator-started HF (a `wlsend` command and a direct message to the
+   control operator), if wanted.
+4. Replies from Winlink into users' mesh inboxes.
+5. Docs, then a real VARA FM send to a local gateway (with the radio gear,
+   like field testing).
+
+Sources: [Pat's VARA page](https://github.com/la5nta/pat/wiki/VARA),
+[Pat's command line](https://github.com/la5nta/pat/wiki/The-command-line-interface),
+[Winlink with Pat on Linux](https://gerner.github.io/projects/jekyll/update/2024/01/25/winlink-pat-linux.html),
+[Winlink under Linux](https://g7vrd.co.uk/winlink-linux),
+[VARA free and paid](https://gadgeteer.co.za/?p=17885),
+[SEAPAC 2025: VARA FM setup](https://seapac.org/workshop-presentations_files/2025/SEAPAC%202025%20VARA%20FM%20SETUP%20(3).pdf),
+[Winlink spam control](https://catalog.winlink.org/spam-control.txt),
+[Winlink accept list](https://winlink.org/node/157),
+[47 CFR §97.221](https://www.law.cornell.edu/cfr/text/47/97.221).
 
 ## Contributing
 
