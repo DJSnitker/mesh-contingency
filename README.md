@@ -1424,6 +1424,9 @@ result = await cmd.execute("", Sender("Dana", "d0" * 32))
 
 ## Security notes
 
+How private messages are over MeshCore (channels, direct messages, what
+the node can see) is in [ENCRYPTION_NOTES.md](ENCRYPTION_NOTES.md).
+
 - Commands never pass mesh text to a shell. Email goes to `mail` as argument
   and stdin; addresses typed into `email` are strictly validated, and
   control characters are stripped from subjects.
