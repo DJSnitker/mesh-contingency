@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing and the phone app's signed release done; 0.11.0 released, with the app's debug APK and desktop installers; the App Guide on the wiki; field testing paused · Written 2026-10-21 · Updated 2026-10-31 (App Guide)
+Status: every item but field testing, the phone app's signed release and NOAA Weather Radio alerts (19, planned) done; 0.11.0 released, with the app's debug APK and desktop installers; the App Guide on the wiki; field testing paused · Written 2026-10-21 · Updated 2026-11-07 (item 19 planned)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -34,6 +34,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; the wiki's App Guide (2026-10-31); left: a signed release APK |
 | 17 | The web console laid out and working like the phone app | feature | large | done: [console-like-app.md](console-like-app.md) (#87–#93, v0.10.0) |
 | 18 | The app on a computer: Electron desktop app, radio over Bluetooth or USB | feature | large | done: [desktop-app.md](desktop-app.md) (#95–#97, v0.11.0); Bluetooth on a computer untried, installers unsigned |
+| 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | feature | medium | planned: [weather-radio.md](weather-radio.md); decisions first |
 
 Recommended order: everything but field testing and the phone app's signed release is done and released (0.11.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
@@ -115,6 +116,13 @@ Steps, in order:
    first time): decide whether to sign them (an Apple Developer account,
    $99 a year, and a Windows code-signing certificate), and with that,
    updates from inside the app. See [desktop-app.md](desktop-app.md).
+
+9. Item 19, alerts from NOAA Weather Radio: the plan is in
+   [weather-radio.md](weather-radio.md). Before building, settle its five
+   decisions (the receiver, always on, which events, how a post reads,
+   speech-to-text later), then PR 2 (the SAME parser), which needs no
+   radio. The listener (PR 3) is tried on the node once there's an RTL-SDR
+   dongle and antenna.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -681,6 +689,18 @@ over Bluetooth or a USB cable. The plan is in
 Electron shell, USB tried with a real radio), #97 (installers for each
 system, built by CI), released in 0.11.0. Left: Bluetooth tried on a
 computer with a real radio; signing, if wanted.
+
+## 19. Alerts from NOAA Weather Radio, with no internet (planned)
+
+Asked 2026-11-07: the automatic alerts stop when the node loses the
+internet, so listen to the local NOAA Weather Radio station as well. An
+RTL-SDR dongle and `multimon-ng` decode each warning's SAME header (the
+event, the counties, how long it's valid); the bot posts the alerts for
+the `[alerts]` counties to the same channel, posted once whichever of NWR
+and the NWS API reports it first. `health` and the watch show whether the
+receiver hears the weekly test. The headers have no details (those are
+spoken); speech-to-text is a later, separate step. The plan, its open
+decisions and its PRs are in [weather-radio.md](weather-radio.md).
 
 ## Housekeeping to do along the way
 
