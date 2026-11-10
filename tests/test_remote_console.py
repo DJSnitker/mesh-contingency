@@ -160,6 +160,24 @@ class LockoutTest(LoginsTestCase):
         self.clock.now += 15 * 60 + 1
         self.assertEqual(self.logins.recent_failures(), 0)
 
+    async def test_a_lockout_doesnt_hide_failures_from_the_node_watch(self):
+        locked = []
+        self.logins.on_lockout = lambda: locked.append(True)
+        for i in range(10):
+            await self.refused(401, name=f"guess{i}", address="192.168.1.50")
+        self.assertEqual(locked, [True])  # the address, once
+        await self.refused(429, address="192.168.1.50")  # tries while locked out count too
+        await self.refused(401, name="other", address="192.168.1.51")
+        self.assertEqual(self.logins.recent_failures(), 12)
+        self.assertEqual(self.logins.recent_addresses(), ["192.168.1.50", "192.168.1.51"])
+
+    async def test_a_name_lockout_tells_the_node_watch_too(self):
+        locked = []
+        self.logins.on_lockout = lambda: locked.append(True)
+        for i in range(5):
+            await self.refused(401, address=f"192.168.1.{i + 1}")
+        self.assertEqual(locked, [True])
+
 
 class SessionTest(LoginsTestCase):
     async def asyncSetUp(self):

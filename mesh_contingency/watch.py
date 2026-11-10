@@ -12,7 +12,11 @@ when it's over ("Node ok again: ..."):
   login refused...), until one is sent;
 - errors: `errors` commands failed or timed out within ERROR_WINDOW;
 - users: the users file can't be reloaded, until it can;
-- backup: a backup of the bot's data failed, until one works.
+- backup: a backup of the bot's data failed, until one works;
+- logins: failed_logins failed logins to the remote console within
+  LOGIN_WINDOW, from any devices (someone guessing passwords, or a
+  forgotten one), until LOGIN_WINDOW passes without that many. Only with
+  the remote console on; a lockout there checks straight away.
 
 It also says when the radio has restarted: its uptime went backwards.
 Restarting the bot doesn't restart the radio, so this is always a real
@@ -45,10 +49,11 @@ from meshcore import EventType
 from .state import ago, duration
 
 WATCH_FILE = "watch.json"
-WATCH_KEYS = {"enabled", "every_minutes", "battery_volts", "undelivered_in_row", "errors"}
+WATCH_KEYS = {"enabled", "every_minutes", "battery_volts", "undelivered_in_row", "errors", "failed_logins"}
 DEFAULT_EVERY_MINUTES = 5
 MIN_EVERY_MINUTES = 1
 ERROR_WINDOW = 30 * 60  # seconds in which `errors` command errors make a problem
+LOGIN_WINDOW = 15 * 60  # seconds in which failed_logins failed console logins make a problem
 NOTICE_GAP = 3600  # seconds between two announcements of the same problem
 BATTERY_MARGIN = 0.1  # volts above battery_volts before the battery is ok again
 # The radio's start time is worked out from its uptime, which comes in whole
@@ -60,7 +65,8 @@ BOOT_WINDOW = 10 * 60
 RADIO_SECONDS = 5  # how long to wait for the radio to answer
 # Each problem's name in health, and what the "ok again" notice says.
 LABELS = {"battery": "battery low", "undelivered": "replies undelivered", "email": "email failing",
-          "errors": "command errors", "users": "users file", "backup": "backup failing"}
+          "errors": "command errors", "users": "users file", "backup": "backup failing",
+          "logins": "failed console logins"}
 
 
 async def ask_radio(request, wanted, seconds=RADIO_SECONDS):
@@ -89,6 +95,7 @@ class WatchSettings:
     battery_volts: float = 3.5  # 0 for no battery check
     undelivered_in_row: int = 5  # 0 for no check
     errors: int = 3  # within ERROR_WINDOW; 0 for no check
+    failed_logins: int = 10  # failed remote console logins within LOGIN_WINDOW; 0 for no check
 
 
 def load_watch(config):
@@ -109,7 +116,8 @@ def load_watch(config):
         return value
 
     return WatchSettings(enabled, number("every_minutes", MIN_EVERY_MINUTES), number("battery_volts", 0),
-                         number("undelivered_in_row", 0, whole=True), number("errors", 0, whole=True))
+                         number("undelivered_in_row", 0, whole=True), number("errors", 0, whole=True),
+                         number("failed_logins", 0, whole=True))
 
 
 class NodeWatch:
@@ -146,8 +154,15 @@ class NodeWatch:
                   "email failing",
                   f"{self.settings.errors} errors in {ERROR_WINDOW // 60} min" if self.settings.errors else "",
                   f"{self.directory.name} not reloading",
-                  "backups failing" if self.state.backups else ""]
+                  "backups failing" if self.state.backups else "",
+                  self.describe_logins()]
         return f"every {self.settings.every_minutes:g} min: {', '.join(c for c in checks if c)}"
+
+    def describe_logins(self):
+        """The failed-logins check, if the remote console is on; "" if not."""
+        if not (self.settings.failed_logins and self.state.console_logins):
+            return ""
+        return f"{self.settings.failed_logins} failed console logins in {LOGIN_WINDOW // 60} min"
 
     def problems(self, now):
         """{problem: what's wrong} for each problem there is now."""
@@ -172,6 +187,13 @@ class NodeWatch:
             found["users"] = f"{self.directory.name} not reloaded: {self.directory.problem[1]}"
         if state.backups and state.backups.failing:
             found["backup"] = f"backup to {state.backups.settings.to} failing: {state.backups.failing}"
+        logins = state.console_logins
+        if settings.failed_logins and logins:
+            failed = logins.recent_failures(LOGIN_WINDOW)
+            if failed >= settings.failed_logins:
+                addresses = logins.recent_addresses(LOGIN_WINDOW)
+                shown = ", ".join(addresses[:3]) + (f" and {len(addresses) - 3} more" if len(addresses) > 3 else "")
+                found["logins"] = f"{failed} failed console logins in {LOGIN_WINDOW // 60} min, from {shown}"
         return found
 
     def ok_text(self, problem):
@@ -179,7 +201,7 @@ class NodeWatch:
             return f"battery {self.voltage:.2f}V" if self.voltage is not None else "battery ok"
         return {"undelivered": "messages delivered", "email": "an email was sent",
                 "errors": "no more command errors", "users": f"{self.directory.name} reloaded",
-                "backup": "a backup was made"}[problem]
+                "backup": "a backup was made", "logins": "no more failed console logins"}[problem]
 
     def over(self, problem, since, now):
         """True if there's evidence an announced problem (announced at
@@ -194,6 +216,8 @@ class NodeWatch:
                     and (state.last_delivered or 0) > since)
         if problem == "errors":
             return now - since >= ERROR_WINDOW
+        if problem == "logins":
+            return now - since >= LOGIN_WINDOW
         if problem == "backup":
             backups = state.backups
             return backups is None or (not backups.failing and (backups.last or 0) > since)

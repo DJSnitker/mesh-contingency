@@ -435,6 +435,11 @@ async def _main(output):
     if web_console:
         state.channel_log = ChannelLog()
         print(f"Channel messages for the web console: the newest {KEEP} of each channel, in memory only.")
+    if web_console and web_console.logins:
+        state.console_logins = web_console.logins
+        if state.watch and state.watch.describe_logins():
+            web_console.logins.on_lockout = state.watch.wake.set  # tell the admins without waiting
+            print(f"Watching the remote console's logins: {state.watch.describe_logins()} go to the admins.")
     area_weather = None
     # The reports the console's Area Weather page and the area command show.
     area_command = any(isinstance(c, AreaCommand) for c in commands.values())

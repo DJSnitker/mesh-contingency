@@ -301,6 +301,7 @@ direct message when a problem starts and when it's over:
 | Command errors | `errors` commands fail or time out within 30 minutes | 30 minutes have passed and there are fewer |
 | Users file | `users.toml` has a mistake and isn't reloaded | it's reloaded |
 | Backup failing | a [backup](#backups) can't be made | one is |
+| Failed console logins | `failed_logins` failed logins to the [remote console](#remote-console) within 15 minutes, from any devices (only with it on) | 15 minutes have passed and there are fewer |
 
 ```
 Node problem: battery low, 3.42V (below 3.50V)
@@ -343,6 +344,7 @@ every_minutes = 5        # how often to check; at least 1
 battery_volts = 3.5      # warn below this; 0 for no battery check
 undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
 errors = 3               # commands failed or timed out within 30 min; 0 for no check
+failed_logins = 10       # failed remote console logins within 15 min; 0 for no check
 ```
 
 With `enabled = false`, a users file that can't be reloaded is still sent to
@@ -1118,7 +1120,10 @@ A login lasts until 30 minutes without using it, 12 hours at most, **Log
 out**, or a restart of the bot. After 5 wrong passwords for one name, or 10
 from one device, in 15 minutes, that name or device waits 15 minutes; a new
 password set with `user password` lets them in again at once. Each login,
-failure, lockout and logout is in the bot's journal (never a password).
+failure, lockout and logout is in the bot's journal (never a password),
+and a burst of failed logins (10 in 15 minutes, from any devices; `[watch]
+failed_logins`) is a [node watch](#node-watch) problem, so the mesh's
+admins hear about it over the radio, naming the devices it came from.
 Requests from addresses outside the local network (10.x, 172.16-31.x,
 192.168.x, 169.254.x, 100.64-127.x for Tailscale-style VPNs, and IPv6
 unique and link-local) are refused before the login page, so a port

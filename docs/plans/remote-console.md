@@ -1,6 +1,6 @@
 # Plan: console users, logging in from the network
 
-Status: PRs 2–5 built (console users, the API acting as each, the remote listener and logins, the app's pages and the docs); the node watch next · Requested 2026-11-10 · Redone 2026-11-10
+Status: built, PRs 2–6 (#121–#125); left: the wiki Admin Guide, and the checks on the real node below · Requested 2026-11-10 · Redone 2026-11-10
 
 ## Goal
 

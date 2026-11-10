@@ -17,7 +17,9 @@
   LOCK_SECONDS. A wrong name and a wrong password get the same answer and
   take as long (an unknown name is checked against a made-up password).
 - Every login, failure, lockout and logout is printed to the journal, never
-  a password.
+  a password. Failed logins (and tries while locked out) are also counted
+  for the node watch (recent_failures), which tells the mesh's admins about
+  a burst; a lockout calls on_lockout, so it can check straight away.
 """
 
 import asyncio
@@ -135,6 +137,10 @@ class Logins:
         self.sessions = {}
         self.failures = {}  # ("name", name) or ("address", address) -> deque of times
         self.locked_until = {}
+        # Every failed login and try while locked out, as (time, address), for the node watch:
+        # unlike failures, a lockout doesn't clear it.
+        self.failure_log = deque()
+        self.on_lockout = None  # called after a name or address is locked out
         # Checked for a name that isn't a console user, so it takes as long.
         self._made_up = store.hash_password(secrets.token_urlsafe(16))
 
@@ -162,6 +168,8 @@ class Logins:
         """Count a failed login (or a wrong current password) for name and address."""
         now = self.clock()
         print(f"Console login failed: {shown} from {address}", flush=True)
+        self.failure_log.append((now, address))
+        locked = False
         for what, limit in ((("name", name), NAME_FAILURES), (("address", address), ADDRESS_FAILURES)):
             times = self.failures.setdefault(what, deque())
             self._recent(what, now)
@@ -172,6 +180,9 @@ class Logins:
                 who = shown if what[0] == "name" else address
                 print(f"Console login: {who} locked out for {minutes(LOCK_SECONDS)} after {limit} failed "
                       f"login(s) in {minutes(FAIL_WINDOW)}", flush=True)
+                locked = True
+        if locked and self.on_lockout:
+            self.on_lockout()
 
     def unlock_name(self, name):
         """A new password for name (on the node): its lockout ends."""
@@ -179,10 +190,22 @@ class Logins:
         if self.locked_until.pop(("name", name), None):
             print(f"Console login: {name} may log in again (a new password)", flush=True)
 
-    def recent_failures(self):
-        """Failed logins in the last FAIL_WINDOW, by address (for the node watch)."""
+    def _recent_log(self, window):
         now = self.clock()
-        return sum(len(self._recent(what, now) or ()) for what in list(self.failures) if what[0] == "address")
+        while self.failure_log and self.failure_log[0][0] <= now - window:
+            self.failure_log.popleft()
+        return self.failure_log
+
+    def recent_failures(self, window=FAIL_WINDOW):
+        """Failed logins, and tries while locked out, in the last window seconds."""
+        return len(self._recent_log(window))
+
+    def recent_addresses(self, window=FAIL_WINDOW):
+        """The addresses those came from, most first."""
+        counts = {}
+        for _, address in self._recent_log(window):
+            counts[address] = counts.get(address, 0) + 1
+        return sorted(counts, key=lambda a: (-counts[a], a))
 
     # Logging in and out
 
@@ -194,6 +217,7 @@ class Logins:
         wait = self.locked(name, address)
         if wait:
             print(f"Console login refused: {shown} from {address} (locked out)", flush=True)
+            self.failure_log.append((self.clock(), address))
             raise LoginRefused(429, f"Too many failed logins: try again in {minutes(wait)}.")
         user = self.users.get(name) if not store.check_name(name) else None
         ok = await asyncio.to_thread(store.verify_password, password[:store.PASSWORD_MAX],
