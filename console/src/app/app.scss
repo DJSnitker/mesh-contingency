@@ -189,3 +189,32 @@ main {
     margin: 0;
   }
 }
+
+// Who this is, at the foot of the rail: Account, and Log out on the remote console.
+.rail .who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    text-decoration: none;
+
+    &:hover,
+    &.active {
+      color: var(--text);
+    }
+  }
+
+  @media (max-width: 800px) {
+    display: none; // the phone layout reaches Account from More
+  }
+}

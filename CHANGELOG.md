@@ -30,8 +30,15 @@ may change how the bot is configured).
   `mesh-contingency-console cert show|renew`. Console users can also be
   added, given a new password and removed from the console's API, on
   either listener; each change is in `history`. The `[console]` extra now
-  needs `cryptography`. The app's login page comes next; until then the
-  remote console's API answers, but its pages don't log in.
+  needs `cryptography`.
+- The console app logs in to the remote console: a **Log in** page (name
+  and password) in place of "Open the console's link"; who's logged in at
+  the foot of the menu, with **Log out**; an **Account** page with
+  **Change password** (the current one first); a **Console users** page to
+  add one, give one a new password or remove one (after asking; not
+  yourself); and the remote console's addresses and certificate
+  fingerprint on the Dashboard. README: "Remote console", and its Security
+  notes; `config.example.toml`: `remote`, `remote_port`, `cert`, `key`.
 
 ## [0.11.0] - 2026-10-25
 

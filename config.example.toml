@@ -75,9 +75,21 @@ errors = 3               # commands failed or timed out within 30 min; 0 for no 
 # open it, with a new key, to console.url next to this file; the
 # mesh-contingency-console command opens it. It listens on 127.0.0.1 only;
 # host may be 127.0.0.1 or localhost.
+#
+# remote = true also opens it to the local network (an EOC's laptops and
+# phones), over HTTPS on remote_port, for console users: a name and password
+# each, separate from the radio's users (see "Remote console" in the
+# README). Make the first with: mesh-contingency-console user add NAME.
+# Requests from public (internet) addresses are refused. The bot makes its
+# own certificate in console_tls/ and prints its fingerprint; cert and key
+# use your own instead.
 [console]
 enabled = false
 port = 8737
+# remote = false
+# remote_port = 8738
+# cert = "/path/to/cert.pem"
+# key = "/path/to/key.pem"
 
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,

@@ -5,7 +5,7 @@ import { of } from 'rxjs';
 import { Api } from './api';
 import { App } from './app';
 import { routes } from './app.routes';
-import { CHANNELS, FakeApi } from '../testing/fakes';
+import { CHANNELS, FakeApi, SAM } from '../testing/fakes';
 
 describe('App', () => {
   let api: FakeApi;
@@ -33,6 +33,7 @@ describe('App', () => {
       'Bible',
       'Radio',
       'Users',
+      'Console users',
       'History',
     ]);
   });
@@ -64,7 +65,7 @@ describe('App', () => {
     await fixture.whenStable();
     expect(lit()).toBe('More');
     expect([...element.querySelectorAll('main .more a')].map((a) => a.textContent?.trim())).toEqual(
-      ['Check-ins', 'Bible', 'Radio', 'Users', 'History'],
+      ['Check-ins', 'Bible', 'Radio', 'Users', 'Console users', 'History', 'Account'],
     );
   });
 
@@ -84,6 +85,34 @@ describe('App', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('[role=alert]')?.textContent).toContain('console.url');
     expect(element.querySelector('router-outlet')).toBeNull();
+  });
+
+  it('asks the remote console for a login instead', async () => {
+    api.signedOut.set(true);
+    api.loginNeeded.set(true);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('mc-login h1')?.textContent).toBe('Log in to the console');
+    expect(element.textContent).not.toContain('console.url');
+    expect(element.querySelector('router-outlet')).toBeNull();
+  });
+
+  it('says who this is at the foot of the rail, with Log out on the remote console', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const who = () => element.querySelector('.rail .who');
+    expect(who()?.textContent).toContain('console');
+    expect(who()?.querySelector('button')).toBeNull();
+    api.me.set(SAM);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(who()?.querySelector('a')?.textContent?.trim()).toBe('sam');
+    who()?.querySelector('button')?.click();
+    expect(api.calls).toContainEqual(['logOut']);
+    await fixture.whenStable();
+    expect(element.querySelector('mc-login')).not.toBeNull();
   });
 
   it('counts the unread channel messages beside Contacts', async () => {

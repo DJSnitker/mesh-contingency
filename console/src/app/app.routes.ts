@@ -1,10 +1,12 @@
 import { Routes } from '@angular/router';
 
+import { Account } from './account';
 import { AreaWeather } from './area-weather';
 import { Bible } from './bible';
 import { ChannelThread } from './channel';
 import { Channels } from './channels';
 import { Checkins } from './checkins';
+import { ConsoleUsers } from './console-users';
 import { Contacts } from './contacts';
 import { Dashboard } from './dashboard';
 import { History } from './history';
@@ -29,6 +31,12 @@ export const routes: Routes = [
   { path: 'bible', component: Bible, title: 'Bible · Mesh Contingency' },
   { path: 'radio', component: Radio, title: 'Radio · Mesh Contingency' },
   { path: 'users', component: Users, title: 'Users · Mesh Contingency' },
+  {
+    path: 'console-users',
+    component: ConsoleUsers,
+    title: 'Console users · Mesh Contingency',
+  },
+  { path: 'account', component: Account, title: 'Account · Mesh Contingency' },
   { path: 'history', component: History, title: 'History · Mesh Contingency' },
   { path: 'more', component: More, title: 'More · Mesh Contingency' },
   // The pages before the console was laid out like the phone app.

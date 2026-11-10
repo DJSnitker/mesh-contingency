@@ -5,7 +5,7 @@ import { of, throwError } from 'rxjs';
 
 import { Api } from './api';
 import { Dashboard } from './dashboard';
-import { FakeApi, OVERVIEW } from '../testing/fakes';
+import { FakeApi, OVERVIEW, SAM } from '../testing/fakes';
 
 /** An element's text as read: its children's, a space between. */
 function read(element: Element): string {
@@ -107,5 +107,17 @@ describe('Dashboard', () => {
     const element = await render();
     const rows = [...element.querySelectorAll('.row')].map(read);
     expect(rows.slice(0, 3)).toEqual(['Alerts none', 'Watch off', 'Backup off']);
+  });
+
+  it('says when the remote console is off', async () => {
+    expect((await render()).querySelector('.remote-console')?.textContent).toContain('Off');
+  });
+
+  it('shows the remote console, with its certificate', async () => {
+    api.me.set(SAM);
+    const element = await render();
+    const row = element.querySelector('.remote-console')?.textContent ?? '';
+    expect(row).toContain('https://node.local:8738/, https://192.168.1.5:8738/');
+    expect(element.querySelector('.remote-console .fingerprint')?.textContent).toBe('AB:CD:EF');
   });
 });

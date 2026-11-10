@@ -1038,7 +1038,12 @@ Mailbox, Contacts, Weather and More (the rest).
   address and the emailall group), **Reset passphrase** and **Remove**; the
   join requests waiting, with **Approve** and **Deny**; and **Reload users
   file** (`reload`), after editing it.
+- **Console users:** who may log in from other computers (see
+  [Remote console](#remote-console)): add one, give one a new password, or
+  remove one.
 - **History:** what admins have done, newest first, with a filter.
+- **Account** (at the foot of the menu, or in More): who you are; on the
+  remote console, **Change password** and **Log out**.
 
 Everything it does runs the same commands as over the radio, as an admin
 called `console`: the same checks, rate limits and confirmations (`remove`
@@ -1055,6 +1060,69 @@ without it; set another `port`. Without a build it says `Note: the web
 console's app isn't built, so only its API answers`. After a `git pull` that
 changes `console/`, build again and restart the bot. Working on the app
 itself: see [`console/README.md`](console/README.md).
+
+#### Remote console
+
+For an Emergency Operations Center, where the node's computer is in another
+room and people work from whatever laptop, tablet or phone is at hand, the
+same console can also answer the local network, over HTTPS, for **console
+users**: a name and password each. Console users are separate from the
+radio's users and admins: they need no radio, owning one (even an
+admin's) gives no way in, and they have no rights over the mesh. A console
+user can do everything the console does, the radio's settings included,
+and manage the other console users.
+
+1. Make the first console user on the node's computer (it asks for a
+   password twice, 12 characters or more):
+   ```sh
+   mesh-contingency-console user add sam
+   ```
+   `user password sam`, `user remove sam` (it asks first) and `user list`
+   work too, with the bot running or not: they're the way back in if
+   everyone is locked out. They're kept in `console_users.json` next to
+   `config.toml`, as password hashes only, readable only by you, and left
+   out of backups.
+2. In `config.toml`, then restart the bot:
+   ```toml
+   [console]
+   enabled = true
+   remote = true
+   # remote_port = 8738
+   ```
+3. The bot makes its own HTTPS certificate the first time (in
+   `console_tls/`) and prints where to open it and the certificate's
+   fingerprint:
+   ```
+   Remote console: https://node.local:8738/ (certificate SHA-256 30:2B:...:C1:57)
+     also https://192.168.1.20:8738/
+   ```
+   Each browser warns about the certificate once: check that the
+   fingerprint it shows is the one the bot printed (also on the Dashboard),
+   then go on. To use your own certificate instead, set `cert` and `key`
+   under `[console]`. `mesh-contingency-console cert show` prints the
+   fingerprint, and `cert renew` makes a new certificate (say the
+   computer's address changed), used from the next start.
+4. If the computer has a firewall, let the local network reach the port,
+   e.g. with ufw: `sudo ufw allow from 192.168.1.0/24 to any port 8738
+   proto tcp`.
+
+Then open the address on another device and log in. What a console user
+does is recorded as theirs: `history` says `by sam (console)`, a message
+left from Mailbox is `from sam (console)`, and their rate limits and
+confirmations are their own. Add more console users on the **Console
+users** page; a console user can't remove themselves there, so there's
+always one left, and their own password is on **Account**. Giving someone
+a new password, or removing them, logs them out at their next click.
+
+A login lasts until 30 minutes without using it, 12 hours at most, **Log
+out**, or a restart of the bot. After 5 wrong passwords for one name, or 10
+from one device, in 15 minutes, that name or device waits 15 minutes; a new
+password set with `user password` lets them in again at once. Each login,
+failure, lockout and logout is in the bot's journal (never a password).
+Requests from addresses outside the local network (10.x, 172.16-31.x,
+192.168.x, 169.254.x, 100.64-127.x for Tailscale-style VPNs, and IPv6
+unique and link-local) are refused before the login page, so a port
+forward on the router doesn't put it on the internet.
 
 ### Phone app
 
@@ -1491,6 +1559,20 @@ the node can see) is in [ENCRYPTION_NOTES.md](ENCRYPTION_NOTES.md).
   being framed. Sealed text, sealing keys and message text never leave the
   node this way. Anyone who can use your account on that computer can use
   the console as an admin, as they could edit `users.toml`.
+- The [remote console](#remote-console), off unless `remote = true`, is a
+  second listener on every address, HTTPS only (TLS 1.2 or newer, a
+  certificate the bot makes, EC P-256, or yours), with
+  `Strict-Transport-Security`. It answers only private, link-local and
+  loopback source addresses. Console users' passwords are kept as scrypt
+  hashes (a salt each) in `console_users.json`, readable only by you and
+  never backed up; a wrong name and a wrong password get the same answer,
+  in the same time. Logins are random session ids in memory, in `Secure`,
+  `HttpOnly`, `SameSite=Strict` cookies; anything that changes something
+  also needs the console's own `https://` `Origin`. Lockouts (5 failures
+  per name, 10 per address, in 15 minutes) slow guessing; use long
+  passwords, since there's no second factor. A console user is an admin of
+  the node, the radio's settings included, but not of the mesh: they can't
+  run commands over the radio, and no radio can be one.
 
 ## License
 
