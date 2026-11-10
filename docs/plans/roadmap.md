@@ -35,7 +35,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 17 | The web console laid out and working like the phone app | feature | large | done: [console-like-app.md](console-like-app.md) (#87–#93, v0.10.0) |
 | 18 | The app on a computer: Electron desktop app, radio over Bluetooth or USB | feature | large | done: [desktop-app.md](desktop-app.md) (#95–#97, v0.11.0); Bluetooth on a computer untried, installers unsigned |
 | 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | feature | medium | planned: [weather-radio.md](weather-radio.md); decisions first |
-| 20 | Log in to the web console from another computer: per-admin password + authenticator code, HTTPS | feature | large | planned: [remote-console.md](remote-console.md) |
+| 20 | Console users, separate from radios, logging in from the local network: password, HTTPS | feature | large | planned: [remote-console.md](remote-console.md) |
 
 Recommended order: everything but field testing and the phone app's signed release is done and released (0.11.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
@@ -98,8 +98,8 @@ Steps, in order:
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
 5. Use the web console day to day, and note anything that would make it
-   better; access from other devices is out of scope until it has real
-   logins and HTTPS (item 20, [remote-console.md](remote-console.md)).
+   better; access from other devices is out of scope until it has its own
+   console users and HTTPS (item 20, [remote-console.md](remote-console.md)).
 6. The phone app (item 16, `com.meshcontingency`): every screen is built
    and runs on the user's phone with their own radio (see "First phone
    test" in [mobile-app.md](mobile-app.md)). Next: a session with a second
