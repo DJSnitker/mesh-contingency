@@ -973,6 +973,14 @@ on:
    each start makes a new key, and the page then says to open the console
    again.
 
+   To type just `mesh-contingency-console`, from any folder, link it onto
+   your PATH once:
+   ```sh
+   ln -s "$PWD/.venv/bin/mesh-contingency-console" ~/.local/bin/
+   ```
+   The link follows the project's `.venv`: if you rebuild that, install
+   again and the link works as before.
+
 Its pages, in the order of the menu, grouped as the phone app's tabs are:
 the Dashboard, then what people do (Mailbox to Bible), then what only
 admins look after (Radio, Users, History). In a window as narrow as a
