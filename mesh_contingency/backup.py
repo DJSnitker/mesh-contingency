@@ -4,7 +4,9 @@ check-ins and history: [backup] in config.toml, and the backup command.
 Each backup is a new folder named for the time, e.g. 20261022-030000, in the
 `to` folder: config.toml, the users file, every JSON file next to
 config.toml (check-ins, the mailbox, history...) and the users file's own
-backups folder. Files keep their permissions (most are readable only by
+backups folder. Not the console's users (console_users.json): after a
+restore they take a minute to make again, and their password hashes stay on
+this computer. Files keep their permissions (most are readable only by
 their owner), and the folders are made readable only by their owner too.
 The newest `keep` are kept; other folders there are never touched.
 
@@ -22,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .directory import BACKUP_FOLDER
+from .web.console_users import USERS_FILE as CONSOLE_USERS_FILE
 
 BACKUP_FILE = "backup.json"  # when the last backup was made
 BACKUP_KEYS = {"to", "every_hours", "keep"}
@@ -100,7 +103,8 @@ class Backups:
         if users and users.is_file():
             files.append((users, users.name))
         if self.state.data_dir:
-            files += [(p, p.name) for p in sorted(self.state.data_dir.glob("*.json")) if p.is_file()]
+            files += [(p, p.name) for p in sorted(self.state.data_dir.glob("*.json"))
+                      if p.is_file() and p.name != CONSOLE_USERS_FILE]
         if users:
             folder = users.parent / BACKUP_FOLDER
             if folder.is_dir():

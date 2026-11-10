@@ -1,5 +1,6 @@
 """mesh-contingency-console: open the web console in a browser on this
-computer, with the link the running bot wrote to console.url.
+computer, with the link the running bot wrote to console.url; and, as
+mesh-contingency-console user ..., make the console's users (users_cli.py).
 
 It checks the bot answers that link first, so a stopped bot or an old link
 says so here rather than in the browser.
@@ -16,7 +17,7 @@ import webbrowser
 from pathlib import Path
 
 from ..bot import DEFAULT_CONFIG, load_config
-from . import URL_FILE, load_console
+from . import URL_FILE, load_console, users_cli
 
 # What the bot writes: its own address, and a key (secrets.token_urlsafe).
 URL_RE = re.compile(r"http://(127\.0\.0\.1|localhost):(\d+)/\?key=[A-Za-z0-9_-]+")
@@ -68,10 +69,14 @@ def check(url):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="mesh-contingency-console",
-                                     description="Open the web console in a browser on this computer.")
+                                     description="Open the web console in a browser on this computer, or (user) "
+                                                 "make and change the console's users.")
     parser.add_argument("-c", "--config", type=Path, default=DEFAULT_CONFIG,
                         help=f"the bot's config file (default: {DEFAULT_CONFIG})")
+    users_cli.add_parser(parser.add_subparsers(dest="command", metavar="COMMAND"))
     args = parser.parse_args(argv)
+    if args.command == "user":
+        return users_cli.main(args)
 
     if not load_console(load_config(args.config)).enabled:
         raise SystemExit(f"The web console is off: set enabled = true under [console] in {args.config}, then "

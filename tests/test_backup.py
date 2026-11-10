@@ -60,6 +60,7 @@ class BackupsTestCase(unittest.IsolatedAsyncioTestCase):
         (self.data / "status.json").write_text("{}")
         (self.data / "status.json").chmod(0o600)
         (self.data / "history.json.tmp").write_text("{}")  # half written: not backed up
+        (self.data / "console_users.json").write_text("{}")  # its password hashes stay here
         (self.data / "backups").mkdir()
         (self.data / "backups" / "users-20261020-221500.toml").write_text("old")
         self.state = State(self.data)

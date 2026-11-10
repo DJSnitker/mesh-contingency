@@ -7,6 +7,15 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+- **Console users** (roadmap item 20, `docs/plans/remote-console.md`, first
+  part): people who will log in to the web console from other computers on
+  the local network, with a name and password of their own, separate from
+  radio users and admins. Made on the node's computer with
+  `mesh-contingency-console user add|password|remove|list`, kept in
+  `console_users.json` (scrypt hashes, readable only by the bot's account,
+  left out of backups). Nothing listens for them yet.
+
 ## [0.11.0] - 2026-10-25
 
 The app on a computer: a desktop app for Windows, Mac and Linux, with your
