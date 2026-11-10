@@ -25,7 +25,7 @@ import time
 
 from meshcore import EventType
 
-from ..api import CONFIRM_SECONDS, CONSOLE, Command, CommandError, CommandResult, Confirmations
+from ..api import CONFIRM_SECONDS, Command, CommandError, CommandResult, Confirmations, is_console
 from ..radio_presets import PRESETS
 from ..state import duration
 from ..watch import ask_radio
@@ -143,8 +143,8 @@ class RadioCommand(Command):
             return CommandResult(console="", reply="; ".join(await self.describe()))
         if action not in CHANGES:
             raise CommandError(f"usage: {self.usage}")
-        if sender.public_key != CONSOLE.public_key:
-            raise CommandError(f"{self.name}: changes only from the web console on the node's computer")
+        if not is_console(sender):
+            raise CommandError(f"{self.name}: changes only from the web console")
         by = self.ctx.name_of(sender)
         changed = await getattr(self, f"set_{action}")(rest, sender)
         if isinstance(changed, CommandResult):  # a question

@@ -15,7 +15,7 @@ from meshcore import EventType
 
 from mesh_contingency.alerts import message_limit
 from mesh_contingency.api import ADMIN as ADMIN_LEVEL
-from mesh_contingency.api import DISABLED, Command, CommandResult
+from mesh_contingency.api import DISABLED, Command, CommandResult, console_user
 from mesh_contingency.directory import Directory
 from mesh_contingency.output import SafeOutput
 from mesh_contingency.registry import Registry
@@ -62,7 +62,7 @@ class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
     keeps_log = True  # False: the app is given no output, so it has no live log
 
     async def asyncSetUp(self):
-        from aiohttp import CookieJar
+        from aiohttp import CookieJar, web
         from aiohttp.test_utils import TestClient, TestServer
 
         from mesh_contingency.web.server import make_app
@@ -86,11 +86,22 @@ class ConsoleTestCase(unittest.IsolatedAsyncioTestCase):
         self.static = self.folder / "static"  # no app built, unless a test builds one
         self.app = make_app(self.ctx, KEY, self.port, output=self.output if self.keeps_log else None,
                             static=self.static)
+        self.sender = None  # a test sets it to act as someone else past the guard (a console user)
+        self.app.middlewares.append(web.middleware(lambda request, handler: self.act_as(request, handler)))
         server = TestServer(self.app, host="127.0.0.1", port=self.port)
         # A cookie for an IP address needs unsafe=True; browsers keep it anyway.
         self.client = TestClient(server, cookie_jar=CookieJar(unsafe=True))
         await self.client.start_server()
         self.addAsyncCleanup(self.client.close)
+
+    async def act_as(self, request, handler):
+        """After the guard: as self.sender, if a test set one. (Until the
+        remote console's logins, nothing else makes a console user's request.)"""
+        from mesh_contingency.web.api import SENDER
+
+        if self.sender is not None:
+            request[SENDER] = self.sender
+        return await handler(request)
 
     async def log_in(self):
         response = await self.client.get(f"/?key={KEY}", allow_redirects=False)
@@ -590,6 +601,79 @@ class RunTest(ConsoleTestCase):
         self.assertNotIn("kept 28", self.out.getvalue())
         self.assertNotIn(secret, self.out.getvalue())
         self.assertNotIn(secret, json.dumps(list(self.output.lines)))
+
+
+class ConsoleUserTest(ConsoleTestCase):
+    """What the API does as a console user: as themselves, not as "console"."""
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        await self.log_in()
+        self.sender = console_user("sam")
+
+    async def run_command(self, command, text="", status=200):
+        response = await self.client.post("/api/run", json={"command": command, "text": text},
+                                          headers={"Origin": f"http://{self.host}"})
+        found = await response.json()
+        self.assertEqual(response.status, status, found)
+        return found
+
+    def last_by(self):
+        return self.state.store(HISTORY_FILE).data["entries"][-1]["by"]
+
+    async def test_offered_the_same_commands_as_the_console(self):
+        as_sam = await self.get_json("/api/commands")
+        self.sender = None
+        self.assertEqual(as_sam, await self.get_json("/api/commands"))
+
+    async def test_history_says_who(self):
+        carol = "c" * 64
+        self.state.store("requests.json").data[carol] = {"name": "Carol", "time": 1.0}
+        await self.run_command("approve", "Carol")
+        self.assertIn(carol, self.directory.users)
+        self.assertEqual(self.last_by(), "sam (console)")
+        self.assertIn("[sam (console)] approve\n", self.out.getvalue())
+
+    async def test_a_post_says_who(self):
+        from mesh_contingency.channel_log import ChannelLog
+
+        self.state.channel_log = ChannelLog()
+        response = await self.client.post("/api/channels/0/messages", json={"text": "net at 7"},
+                                          headers={"Origin": f"http://{self.host}"})
+        self.assertEqual(response.status, 200, await response.text())
+        self.assertEqual(self.last_by(), "sam (console)")
+        self.assertIn("[sam (console)] posted to", self.out.getvalue())
+
+    async def test_msg_is_from_them(self):
+        await self.run_command("msg", f"{BOB} the road north is open")
+        self.assertEqual(self.state.store("mailbox.json").data[BOB][0]["from"], "sam (console)")
+
+    async def test_rate_limits_are_each_ones_own(self):
+        self.commands["health"].rate = (1, 3600)
+        await self.run_command("health")
+        await self.run_command("health", status=429)
+        self.sender = console_user("alex")
+        await self.run_command("health")
+        self.sender = None  # the console on the node's computer
+        await self.run_command("health")
+
+    async def test_confirmations_are_each_ones_own(self):
+        first = await self.run_command("remove", BOB)
+        self.assertTrue(first["asks"])
+        self.sender = console_user("alex")  # alex can't finish what sam started
+        second = await self.run_command("remove", BOB)
+        self.assertTrue(second["asks"])
+        self.assertIn(BOB, self.directory.users)
+        self.sender = console_user("sam")
+        third = await self.run_command("remove", BOB)
+        self.assertFalse(third["asks"])
+        self.assertNotIn(BOB, self.directory.users)
+        self.assertEqual(self.last_by(), "sam (console)")
+
+    async def test_the_guard_still_comes_first(self):
+        self.client.session.cookie_jar.clear()
+        response = await self.client.get("/api/overview")
+        self.assertEqual(response.status, 401)
 
 
 class LogTest(ConsoleTestCase):

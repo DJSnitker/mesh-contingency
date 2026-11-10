@@ -17,7 +17,9 @@ from mesh_contingency.api import (
     FunctionCommand,
     Sender,
     command,
+    console_user,
     is_authorized,
+    is_console,
     split_reply,
     to_messages,
 )
@@ -144,6 +146,27 @@ class IsAuthorizedTest(unittest.TestCase):
         self.assertTrue(self.check(PUBLIC, CONSOLE.public_key))
         self.assertFalse(self.check(USER, CONSOLE.public_key))
         self.assertFalse(self.check(DISABLED, CONSOLE.public_key))
+
+    def test_a_console_user_is_an_admin_but_not_a_user(self):
+        key = console_user("sam").public_key
+        self.assertTrue(self.check(ADMIN, key))
+        self.assertTrue(self.check(PUBLIC, key))
+        self.assertFalse(self.check(USER, key))
+        self.assertFalse(self.check(DISABLED, key))
+
+
+class ConsoleSenderTest(unittest.TestCase):
+    def test_a_console_user(self):
+        sam = console_user("sam")
+        self.assertEqual((sam.name, sam.public_key), ("sam (console)", "console:sam"))
+        self.assertNotEqual(sam.public_key, console_user("alex").public_key)
+
+    def test_is_console(self):
+        self.assertTrue(is_console(CONSOLE))
+        self.assertTrue(is_console(console_user("sam")))
+        for key in (None, "ad" * 32, "consolex", "Console:sam", "", "con"):
+            with self.subTest(key=key):
+                self.assertFalse(is_console(Sender("x", key)))
 
 
 class ToMessagesTest(unittest.TestCase):

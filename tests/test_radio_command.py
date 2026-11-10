@@ -8,7 +8,7 @@ from unittest import mock
 
 from meshcore import EventType
 
-from mesh_contingency.api import CONSOLE, CommandError, Sender
+from mesh_contingency.api import CONSOLE, CommandError, Sender, console_user
 from mesh_contingency.commands.radio import RadioCommand, matching_presets, parse_freq
 from mesh_contingency.radio_presets import PRESETS
 from mesh_contingency.state import HISTORY_FILE, State
@@ -76,11 +76,22 @@ class RadioCommandTest(unittest.IsolatedAsyncioTestCase):
     async def test_changes_only_from_the_console(self):
         for text in ["name Hilltop", "power 10", "reboot", "freq usa", "clock"]:
             with self.subTest(text=text), self.assertRaisesRegex(
-                    CommandError, "^radio: changes only from the web console on the node's computer$"):
+                    CommandError, "^radio: changes only from the web console$"):
                 await self.cmd.execute(text, ADMIN)
         self.assertEqual(self.radio.settings_calls, [])
         with self.assertRaisesRegex(CommandError, r"^usage: radio \["):
             await self.console("volume 11")
+
+    async def test_a_console_user_may_change_it(self):
+        done = await self.cmd.execute("name Hilltop Relay", console_user("sam"))
+        self.assertTrue(done.reply.startswith("radio: name test-node -> Hilltop Relay"))
+        self.assertEqual(self.state.store(HISTORY_FILE).data["entries"][-1]["by"], "sam (console)")
+
+    async def test_a_key_that_only_looks_like_the_console_may_not(self):
+        for key in ("consolex", "Console:sam", "c0" * 32):
+            with self.subTest(key=key), self.assertRaisesRegex(CommandError, "changes only from the web console"):
+                await self.cmd.execute("power 10", Sender("x", key))
+        self.assertEqual(self.radio.settings_calls, [])
 
     async def test_name(self):
         done = await self.console("name Hilltop Relay")

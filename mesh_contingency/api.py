@@ -55,8 +55,25 @@ class Sender:
 
 
 # The web console's sender: an admin of the node who has no radio. Its key
-# isn't hex, so no radio's key can be it.
+# isn't hex, so no radio's key can be it. It is whoever opens the console on
+# the node's own computer with the console.url link.
 CONSOLE = Sender("console", "console")
+# A console user (web/console_users.py) is a sender of the same kind, one each:
+# console:<name>, also not hex. They log in from another computer (item 20).
+CONSOLE_USER_PREFIX = "console:"
+
+
+def console_user(name):
+    """The sender for console user name: history and messages say who, as
+    "sam (console)", and each has their own rate limits and confirmations."""
+    return Sender(f"{name} (console)", f"{CONSOLE_USER_PREFIX}{name}")
+
+
+def is_console(sender):
+    """True if sender is the web console: on the node's computer (CONSOLE)
+    or a console user. Never a radio, whose key is hex."""
+    key = sender.public_key
+    return key is not None and (key == CONSOLE.public_key or key.startswith(CONSOLE_USER_PREFIX))
 
 
 class CommandError(Exception):
@@ -70,7 +87,7 @@ def is_authorized(command, sender, users, admins):
     if command.permission == USER:
         return sender.public_key in users
     if command.permission == ADMIN:
-        return sender.public_key in admins or sender.public_key == CONSOLE.public_key
+        return sender.public_key in admins or is_console(sender)
     return False
 
 
