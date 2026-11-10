@@ -50,6 +50,19 @@
       <span class="label">Backup</span>
       <span>{{ backup().text }}</span>
     </div>
+    <div class="panel row remote-console">
+      <mc-icon name="lock" />
+      <span class="label">Remote</span>
+      @if (remote(); as r) {
+        <span
+          >On, for console users: {{ r.urls.join(', ') }}. Certificate SHA-256
+          <code class="fingerprint">{{ r.fingerprint }}</code
+          >: a browser's warning should show the same.</span
+        >
+      } @else {
+        <span>Off: this console is for the node's computer only.</span>
+      }
+    </div>
     <div class="panel row" [class.bad]="o.counts.errors">
       <mc-icon name="radio" />
       <span class="label">Since start</span>

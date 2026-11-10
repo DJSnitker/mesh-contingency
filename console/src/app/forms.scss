@@ -1,0 +1,109 @@
+// The console's own forms: logging in, a password, console users.
+
+:host {
+  display: grid;
+  gap: 20px;
+}
+
+form {
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+
+  .label {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--text);
+  font: inherit;
+}
+
+.login {
+  max-width: 420px;
+
+  > mc-icon {
+    color: var(--orange);
+    font-size: 1.6rem;
+  }
+
+  h1 {
+    margin: 12px 0 6px;
+  }
+
+  > p {
+    margin: 0 0 18px;
+  }
+
+  .btn {
+    justify-self: start;
+  }
+}
+
+.narrow {
+  max-width: 520px;
+}
+
+.done {
+  margin: 0;
+  color: var(--sky);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.people {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px 20px;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+  }
+
+  .details {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+  }
+
+  form {
+    grid-column: 1 / -1;
+  }
+}
+
+.fingerprint {
+  word-break: break-all;
+}

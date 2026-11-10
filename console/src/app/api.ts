@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, tap, throwError } from 'rxjs';
 
 /** GET /api/overview (mesh_contingency/web/api.py). Times are seconds since 1970. */
 export interface Overview {
@@ -245,6 +245,29 @@ export interface CommandInfo {
 /** The longest text /api/run takes. */
 export const MAX_TEXT = 500;
 
+/** GET /api/me (mesh_contingency/web/accounts.py): who this browser is. */
+export interface Me {
+  /** As history shows it: "console", or "sam (console)". */
+  name: string;
+  /** The console user logged in, or null for the console on the node's computer. */
+  user: string | null;
+  /** True on the remote console (logged in from the network). */
+  remote: boolean;
+  /** The remote console's addresses and certificate, once it's up; null when it's off. */
+  remote_console: { urls: string[]; fingerprint: string; own_certificate?: boolean } | null;
+}
+
+/** One of GET /api/console-users. Never a password. */
+export interface ConsoleUser {
+  name: string;
+  created: number;
+  /** "node" (made with the command), "console" (the node's own console) or a console user. */
+  created_by: string;
+  /** When the password was last set. */
+  changed: number;
+  last_login: number | null;
+}
+
 /** One line of GET /api/log. */
 export interface LogLine {
   time: number;
@@ -253,16 +276,74 @@ export interface LogLine {
 
 /**
  * The bot's API. The page and the API share one origin, so the cookie the
- * console.url link set goes with every request. Without it (a restart of the
- * bot made a new key) every request is refused with 401, and signedOut says
- * so.
+ * console.url link set (or, on the remote console, the login's) goes with
+ * every request. Without it (a restart of the bot made a new key, or the
+ * login ended) every request is refused with 401, and signedOut says so;
+ * loginNeeded says the remote console wants a name and password.
  */
 @Injectable({ providedIn: 'root' })
 export class Api {
   private readonly http = inject(HttpClient);
 
-  /** True once a request was refused for want of the key. */
+  /** True once a request was refused for want of the key or a login. */
   readonly signedOut = signal(false);
+  /** True if the refusal was the remote console's: log in to go on. */
+  readonly loginNeeded = signal(false);
+  /** Who this browser is, once read (whoAmI). */
+  readonly me = signal<Me | null>(null);
+
+  /** Read who this is into me. */
+  whoAmI(): void {
+    this.get<Me>('/api/me').subscribe({
+      next: (me) => this.me.set(me),
+      error: () => undefined, // signedOut says so if it was a 401
+    });
+  }
+
+  /** Log in to the remote console; then everything is read again. */
+  logIn(name: string, password: string): Observable<{ name: string }> {
+    return this.http.post<{ name: string }>('/api/login', { name, password }).pipe(
+      tap(() => {
+        this.signedOut.set(false);
+        this.loginNeeded.set(false);
+        this.whoAmI();
+      }),
+    );
+  }
+
+  logOut(): Observable<unknown> {
+    return this.http.post('/api/logout', {}).pipe(
+      tap(() => {
+        this.me.set(null);
+        this.loginNeeded.set(true);
+        this.signedOut.set(true);
+      }),
+    );
+  }
+
+  /** A console user's own password: the current one, then the new. */
+  changePassword(current: string, password: string): Observable<unknown> {
+    return this.http.post('/api/me/password', { current, password }).pipe(this.watch());
+  }
+
+  consoleUsers(): Observable<ConsoleUser[]> {
+    return this.get<ConsoleUser[]>('/api/console-users');
+  }
+
+  addConsoleUser(name: string, password: string): Observable<ConsoleUser> {
+    return this.http.post<ConsoleUser>('/api/console-users', { name, password }).pipe(this.watch());
+  }
+
+  /** Someone else's password: they're logged out. */
+  setConsoleUserPassword(name: string, password: string): Observable<unknown> {
+    return this.http
+      .post(`/api/console-users/${encodeURIComponent(name)}/password`, { password })
+      .pipe(this.watch());
+  }
+
+  removeConsoleUser(name: string): Observable<unknown> {
+    return this.http.delete(`/api/console-users/${encodeURIComponent(name)}`).pipe(this.watch());
+  }
 
   overview(): Observable<Overview> {
     return this.get<Overview>('/api/overview');
@@ -319,7 +400,7 @@ export class Api {
     return this.get<CommandInfo[]>('/api/commands');
   }
 
-  /** Run a command as the admin "console", as if sent over the radio. */
+  /** Run a command as this browser's sender (me), as if sent over the radio. */
   run(command: string, text = ''): Observable<Answer> {
     return this.http.post<Answer>('/api/run', { command, text }).pipe(this.watch());
   }
@@ -333,13 +414,20 @@ export class Api {
     return this.http.get<T>(url).pipe(this.watch());
   }
 
-  /** Notes a refused key on the way past. */
+  /** Notes a refused key or login on the way past. */
   private watch<T>() {
     return catchError<T, Observable<T>>((error: HttpErrorResponse) => {
       if (error.status === 401) {
+        this.loginNeeded.set(Boolean(error.error?.login));
         this.signedOut.set(true);
       }
       return throwError(() => error);
     });
   }
+}
+
+/** What the bot said was wrong ({"error": ...}), or fallback if it said nothing. */
+export function apiError(error: unknown, fallback: string): string {
+  const said = (error as HttpErrorResponse | null)?.error?.error;
+  return typeof said === 'string' && said ? said : fallback;
 }

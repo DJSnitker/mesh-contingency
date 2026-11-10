@@ -20,10 +20,22 @@
       </li>
     }
   </ul>
+  @if (me(); as who) {
+    <div class="who">
+      <a routerLink="/account" routerLinkActive="active" title="Account">
+        <mc-icon name="lock" /> {{ who.user ?? 'console' }}
+      </a>
+      @if (who.remote && who.user) {
+        <button class="btn btn-ghost btn-sm" type="button" (click)="logOut()">Log out</button>
+      }
+    </div>
+  }
 </nav>
 
 <main>
-  @if (signedOut()) {
+  @if (signedOut() && loginNeeded()) {
+    <mc-login />
+  } @else if (signedOut()) {
     <section class="panel signed-out" role="alert">
       <mc-icon name="lock" />
       <h1>Open the console's link</h1>

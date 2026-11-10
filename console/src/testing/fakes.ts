@@ -7,11 +7,13 @@ import {
   ChannelMessages,
   Checkins,
   CommandInfo,
+  ConsoleUser,
   Contacts,
   RadioSettings,
   HistoryEntry,
   JoinRequest,
   Mailbox,
+  Me,
   Overview,
   User,
   Weather,
@@ -267,8 +269,63 @@ export class FakeEventSource {
  * Stands in for Api: each call gives what its property returns; run() also
  * records what was run. log() gives a FakeEventSource.
  */
+/** A console user logged in on the remote console. */
+export const SAM: Me = {
+  name: 'sam (console)',
+  user: 'sam',
+  remote: true,
+  remote_console: {
+    urls: ['https://node.local:8738/', 'https://192.168.1.5:8738/'],
+    fingerprint: 'AB:CD:EF',
+  },
+};
+
+/** The console on the node's computer, with the remote console off. */
+export const LOCAL: Me = { name: 'console', user: null, remote: false, remote_console: null };
+
+export const CONSOLE_USERS: ConsoleUser[] = [
+  { name: 'alex', created: 900, created_by: 'sam', changed: 900, last_login: null },
+  { name: 'sam', created: 800, created_by: 'node', changed: 800, last_login: 950 },
+];
+
 export class FakeApi {
   readonly signedOut = signal(false);
+  readonly loginNeeded = signal(false);
+  readonly me = signal<Me | null>(LOCAL);
+  whoAmI(): void {
+    // me is set by the test
+  }
+  readonly calls: unknown[][] = [];
+  logInAnswer: () => Observable<{ name: string }> = () => of({ name: 'sam' });
+  logIn(name: string, password: string): Observable<{ name: string }> {
+    this.calls.push(['logIn', name, password]);
+    return this.logInAnswer();
+  }
+  logOut(): Observable<unknown> {
+    this.calls.push(['logOut']);
+    this.me.set(null);
+    this.loginNeeded.set(true);
+    this.signedOut.set(true);
+    return of({ ok: true });
+  }
+  changeAnswer: () => Observable<unknown> = () => of({ name: 'sam' });
+  changePassword(current: string, password: string): Observable<unknown> {
+    this.calls.push(['changePassword', current, password]);
+    return this.changeAnswer();
+  }
+  consoleUsers: () => Observable<ConsoleUser[]> = () => of(CONSOLE_USERS);
+  addConsoleUser(name: string, password: string): Observable<ConsoleUser> {
+    this.calls.push(['addConsoleUser', name, password]);
+    return of({ name, created: 1000, created_by: 'sam', changed: 1000, last_login: null });
+  }
+  setConsoleUserPassword(name: string, password: string): Observable<unknown> {
+    this.calls.push(['setConsoleUserPassword', name, password]);
+    return of({ name });
+  }
+  removeConsoleUser(name: string): Observable<unknown> {
+    this.calls.push(['removeConsoleUser', name]);
+    return of({ name });
+  }
   overview: () => Observable<Overview> = () => of(OVERVIEW);
   users: () => Observable<User[]> = () => of([ADMIN, ALICE]);
   requests: () => Observable<JoinRequest[]> = () => of([CAROL]);

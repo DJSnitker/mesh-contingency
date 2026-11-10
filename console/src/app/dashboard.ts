@@ -23,6 +23,8 @@ export const REFRESH_MS = 30_000;
 export class Dashboard {
   private readonly api = inject(Api);
   protected readonly overview = signal<Overview | null>(null);
+  /** The remote console's addresses and certificate, or null when it's off. */
+  protected readonly remote = computed(() => this.api.me()?.remote_console ?? null);
   /** Why the last read failed, until one works. */
   protected readonly problem = signal<string | null>(null);
 
