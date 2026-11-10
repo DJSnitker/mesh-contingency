@@ -38,9 +38,25 @@ class LoadConsoleTest(unittest.TestCase):
         self.assertEqual(load_console({"console": {"enabled": True, "port": 9000, "host": "localhost"}}),
                          ConsoleSettings(True, 9000, "localhost"))
 
+    def test_remote_settings(self):
+        found = load_console({"console": {"enabled": True, "remote": True}})
+        self.assertEqual((found.remote, found.remote_port, found.cert, found.key), (True, 8738, None, None))
+        found = load_console({"console": {"remote": True, "remote_port": 9443, "cert": "/c.pem", "key": "/k.pem"}})
+        self.assertEqual((found.remote_port, found.cert, found.key), (9443, "/c.pem", "/k.pem"))
+        # The local console's port and the remote one may be the same only while remote is off.
+        self.assertFalse(load_console({"console": {"remote_port": 8737}}).remote)
+
     def test_mistakes(self):
         for section, message in [
-            ({"listen": "0.0.0.0"}, r"^\[console\] may only set enabled, host, port\.$"),
+            ({"listen": "0.0.0.0"}, r"^\[console\] may only set cert, enabled, host, key, port, remote, "
+                                    r"remote_port\.$"),
+            ({"remote": "yes"}, r"remote must be true or false"),
+            ({"remote_port": 443}, r"remote_port must be a whole number from 1024 to 65535"),
+            ({"remote": True, "remote_port": 8737}, r"remote_port must differ from port"),
+            ({"cert": "/x/cert.pem"}, r"cert and key go together"),
+            ({"key": "/x/key.pem"}, r"cert and key go together"),
+            ({"cert": "", "key": "/x/key.pem"}, r"cert must be the path to a file"),
+            ({"cert": 5, "key": "/x/key.pem"}, r"cert must be the path to a file"),
             ({"enabled": "yes"}, r"enabled must be true or false"),
             ({"port": 80}, r"port must be a whole number from 1024 to 65535"),
             ({"port": True}, r"port must be a whole number"),

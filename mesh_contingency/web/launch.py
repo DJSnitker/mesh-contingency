@@ -1,6 +1,8 @@
 """mesh-contingency-console: open the web console in a browser on this
 computer, with the link the running bot wrote to console.url; and, as
-mesh-contingency-console user ..., make the console's users (users_cli.py).
+mesh-contingency-console user ..., make the console's users (users_cli.py);
+and, as mesh-contingency-console cert show|renew, see or remake the remote
+console's HTTPS certificate (tls.py).
 
 It checks the bot answers that link first, so a stopped bot or an old link
 says so here rather than in the browser.
@@ -17,7 +19,7 @@ import webbrowser
 from pathlib import Path
 
 from ..bot import DEFAULT_CONFIG, load_config
-from . import URL_FILE, load_console, users_cli
+from . import URL_FILE, load_console, tls, users_cli
 
 # What the bot writes: its own address, and a key (secrets.token_urlsafe).
 URL_RE = re.compile(r"http://(127\.0\.0\.1|localhost):(\d+)/\?key=[A-Za-z0-9_-]+")
@@ -73,10 +75,18 @@ def main(argv=None):
                                                  "make and change the console's users.")
     parser.add_argument("-c", "--config", type=Path, default=DEFAULT_CONFIG,
                         help=f"the bot's config file (default: {DEFAULT_CONFIG})")
-    users_cli.add_parser(parser.add_subparsers(dest="command", metavar="COMMAND"))
+    commands = parser.add_subparsers(dest="command", metavar="COMMAND")
+    users_cli.add_parser(commands)
+    cert = commands.add_parser("cert", help="the remote console's HTTPS certificate",
+                               description="See or remake the HTTPS certificate the bot made for the remote "
+                                           "console (console_tls/ next to config.toml).")
+    cert.add_argument("action", choices=["show", "renew"],
+                      help="show: its fingerprint; renew: make a new one (used from the bot's next start)")
     args = parser.parse_args(argv)
     if args.command == "user":
         return users_cli.main(args)
+    if args.command == "cert":
+        return cert_command(args)
 
     if not load_console(load_config(args.config)).enabled:
         raise SystemExit(f"The web console is off: set enabled = true under [console] in {args.config}, then "
@@ -90,6 +100,31 @@ def main(argv=None):
         raise SystemExit(f"No browser to open here. In a browser on this computer, open the link in "
                          f"{Path(args.config).resolve().parent / URL_FILE}.")
     print(f"Opened the web console ({url.split('?', 1)[0]}) in the browser.")
+
+
+def cert_command(args):
+    settings = load_console(load_config(args.config))
+    if settings.cert:
+        if args.action == "renew":
+            raise SystemExit(f"[console] cert names your own certificate ({settings.cert}); renew it where it came "
+                             "from, or remove cert and key to use the bot's.")
+        cert = Path(settings.cert).expanduser()
+    else:
+        folder = tls.tls_folder(Path(args.config).resolve().parent)
+        cert = folder / tls.CERT_FILE
+        if args.action == "renew":
+            if tls.cryptography_missing():
+                raise SystemExit('Making a certificate needs cryptography: pip install -e ".[console]".')
+            tls.make_certificate(folder)
+            print(f"Made a new certificate, {cert}. The bot uses it from its next start "
+                  "(systemctl --user restart mesh-contingency); browsers will warn about it once again.")
+        elif not cert.is_file():
+            raise SystemExit(f"No certificate yet ({cert}): the bot makes one when it starts with [console] "
+                             "remote = true.")
+    try:
+        print(f"Certificate SHA-256 {tls.fingerprint(cert)}")
+    except tls.CertificateError as e:
+        raise SystemExit(f"{e}.") from None
 
 
 def run():
