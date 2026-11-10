@@ -8,9 +8,15 @@ user's sealing key and message text in general never leave the node this
 way: the inbox lists who has mail, from whom and when, as inbox does without
 a passphrase.
 
-Doing: /api/run runs a command as the admin "console" (api.CONSOLE), through
-the same run_command as a direct message, so its checks, confirmations and
-history entries (by console) are the radio's. It offers the admin and public
+Who: each request carries its sender (request[SENDER]), set by the server's
+guard: the admin "console" (api.CONSOLE) for the console.url link on the
+node's computer, or a console user (api.console_user, "sam (console)").
+What it does is theirs: history says by whom, and rate limits and
+confirmations are each sender's own.
+
+Doing: /api/run runs a command as the request's sender, through the same
+run_command as a direct message, so its checks, confirmations and history
+entries are the radio's. It offers the admin and public
 commands that don't act on the sender's own records (Command.own), since the
 console has none, and user commands that only leave something for someone
 else (Command.sends: msg, from "console").
@@ -30,7 +36,7 @@ from aiohttp import web
 from meshcore import EventType
 
 from ..alerts import PUBLIC_SECRET, hashtag_secret, is_empty, message_limit, post, read_channels
-from ..api import ADMIN, CONSOLE, PUBLIC, USER, is_authorized
+from ..api import ADMIN, PUBLIC, USER, is_authorized
 from ..area_weather import EVERY_MINUTES
 from ..commands.health import RADIO_SECONDS, activity_items, people_items, radio_items
 from ..commands.join import FILENAME as REQUESTS
@@ -52,6 +58,9 @@ CTX = web.AppKey("ctx", object)  # the console's Context
 LIMITER = web.AppKey("limiter", object)  # the RateLimiter, shared with the radio
 OUTPUT = web.AppKey("output", object)  # the bot's SafeOutput, or None: no live log
 LOG_STREAMS = web.AppKey("log_streams", set)  # the queues of open live logs
+# Each request's api.Sender, set by the server's guard (a plain key, as
+# aiohttp 3.10 has no typed request keys).
+SENDER = "mesh_console_sender"
 # Settings of a user that are about them, not for the console to show.
 HIDDEN_SETTINGS = {"name", INBOX_KEY}
 # The longest text /api/run takes: more than a direct message can hold.
@@ -62,6 +71,12 @@ KEEPALIVE_SECONDS = 15
 
 def _ctx(request):
     return request.app[CTX]
+
+
+def sender_of(request):
+    """Who sent request: the server's guard always sets it, so a request
+    without one fails rather than act as anyone."""
+    return request[SENDER]
 
 
 @routes.get("/api/overview")
@@ -292,9 +307,9 @@ async def channel_messages(request):
 async def post_to_channel(request):
     """{"text": the message} -> {"channel": its name}: post it to the slot's
     channel as this node. One channel message, at most what fits after the
-    node's name; recorded in history (by console) and kept with the
+    node's name; recorded in history (by the sender) and kept with the
     channel's messages."""
-    ctx = _ctx(request)
+    ctx, sender = _ctx(request), sender_of(request)
     try:
         slot = int(request.match_info["slot"])
         asked = await request.json()
@@ -320,8 +335,8 @@ async def post_to_channel(request):
         await post(ctx.radio, slot, [text], ctx.state.channel_log)
     except RuntimeError as e:
         return _error(502, str(e))
-    print(f"[{CONSOLE.name}] posted to {name} ({len(text)} chars)", flush=True)
-    ctx.state.record(CONSOLE.name, f"posted to {name}: {text}")
+    print(f"[{sender.name}] posted to {name} ({len(text)} chars)", flush=True)
+    ctx.state.record(ctx.name_of(sender), f"posted to {name}: {text}")
     return web.json_response({"channel": name})
 
 
@@ -355,14 +370,14 @@ async def radio(request):
     })
 
 
-def offered(ctx):
-    """{name: command} the console may run."""
+def offered(ctx, sender):
+    """{name: command} the console may run, as sender."""
     def may(command):
         if command.own:
             return False
         if command.permission == USER:
             return command.sends
-        return command.permission in (ADMIN, PUBLIC) and is_authorized(command, CONSOLE, ctx.users, ctx.admins)
+        return command.permission in (ADMIN, PUBLIC) and is_authorized(command, sender, ctx.users, ctx.admins)
     return {name: command for name, command in ctx.commands.items() if may(command)}
 
 
@@ -372,7 +387,7 @@ async def commands(request):
     return web.json_response([
         {"name": name, "permission": command.permission, "usage": command.usage, "summary": command.summary,
          "channel": getattr(command, "channel", None)}
-        for name, command in sorted(offered(_ctx(request)).items())
+        for name, command in sorted(offered(_ctx(request), sender_of(request)).items())
     ])
 
 
@@ -384,8 +399,9 @@ def _error(status, text):
 async def run(request):
     """{"command": name, "text": what follows it} -> {"messages": the reply,
     "asks": whether it only asks to send the same again to confirm, "ok":
-    False if it refused, failed or timed out}."""
-    ctx = _ctx(request)
+    False if it refused, failed or timed out}. It runs as the request's
+    sender."""
+    ctx, sender = _ctx(request), sender_of(request)
     try:
         asked = await request.json()
     except ValueError:
@@ -394,17 +410,17 @@ async def run(request):
             or not isinstance(asked.get("text", ""), str):
         return _error(400, "command and text must be strings")
     name, text = asked["command"].strip().lower(), asked.get("text", "").strip()
-    command = offered(ctx).get(name)
+    command = offered(ctx, sender).get(name)
     if command is None:
         return _error(404, f"no command {name[:30]} for the console")
     if len(text) > MAX_TEXT:
         return _error(400, f"text too long ({len(text)} characters; at most {MAX_TEXT})")
-    print(f"[{CONSOLE.name}] {name}", flush=True)  # as over the radio: never the text
-    wait, _ = request.app[LIMITER].check(CONSOLE.public_key, command.name, command.rate)
+    print(f"[{sender.name}] {name}", flush=True)  # as over the radio: never the text
+    wait, _ = request.app[LIMITER].check(sender.public_key, command.name, command.rate)
     if wait:
         print(f"  -> {command.name} limit reached", flush=True)
         return _error(429, f"{command.name}: limit reached, try again in {wait_text(wait)}")
-    answer = await run_command(command, text, CONSOLE, ctx.state)
+    answer = await run_command(command, text, sender, ctx.state)
     if answer.messages:
         print(f"  -> answered the console ({len(answer.messages)} message(s))", flush=True)
     return web.json_response({"command": command.name, "messages": answer.messages, "asks": answer.asks,

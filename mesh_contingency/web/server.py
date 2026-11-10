@@ -12,6 +12,9 @@ one:
   cookie (HttpOnly, SameSite=Strict) and is sent on to the same address
   without it. After that the cookie is enough.
 
+A request that passes is the admin "console" (api.CONSOLE): request[SENDER]
+says so, and the API acts as it.
+
 Past the checks it serves the API (api.py) and the app: the Angular build in
 static/, made by npm run build in console/ and shipped in the package. Every
 response says the page may load only its own files and not be framed.
@@ -24,9 +27,10 @@ from pathlib import Path
 
 from aiohttp import web
 
+from ..api import CONSOLE
 from ..limits import RateLimiter
 from . import HOSTS, URL_FILE
-from .api import CTX, LIMITER, LOG_STREAMS, OUTPUT, routes
+from .api import CTX, LIMITER, LOG_STREAMS, OUTPUT, SENDER, routes
 
 COOKIE = "mesh_console"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -76,6 +80,7 @@ def make_app(ctx, key, port, limiter=None, output=None, static=STATIC):
             return response
         if not secrets.compare_digest(request.cookies.get(COOKIE, ""), key):
             return web.Response(status=401, text=NOT_LOGGED_IN)
+        request[SENDER] = CONSOLE  # the key is the node's own computer
         return await handler(request)
 
     app = web.Application(middlewares=[guard])

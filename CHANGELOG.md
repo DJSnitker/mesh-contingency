@@ -15,6 +15,11 @@ may change how the bot is configured).
   `mesh-contingency-console user add|password|remove|list`, kept in
   `console_users.json` (scrypt hashes, readable only by the bot's account,
   left out of backups). Nothing listens for them yet.
+- Behind it, the web console now acts as whoever sent each request, ready
+  for console users logging in: one of them will show in `history` and
+  messages as `sam (console)`, with their own rate limits and
+  confirmations, and may change the radio's settings as the console can.
+  The console on the node's own computer is still `console`, as before.
 
 ## [0.11.0] - 2026-10-25
 
