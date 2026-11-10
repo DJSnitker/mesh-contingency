@@ -7,7 +7,8 @@ Kept in console_users.json next to config.toml:
 
     {"users": [
       {"name": "sam", "password": "scrypt$32768$8$1$<salt>$<hash>",
-       "created": 1762790000, "created_by": "node", "changed": 1762790000}
+       "created": 1762790000, "created_by": "node", "changed": 1762790000,
+       "last_login": 1762800000}
     ]}
 
 - A name is lowercase (what's typed is lowered first, so names are compared
@@ -19,6 +20,8 @@ Kept in console_users.json next to config.toml:
 - created_by is "node" for a user made with the command on this computer,
   or the console user who made them; changed is when the password was last
   set, so the bot can end that user's sessions when it changes.
+- last_login, once they have logged in, is when they last did (the bot
+  writes it).
 - The file is readable only by this account, written whole (a temporary
   file, then a rename) and under a lock, as the command and the bot may both
   change it. It is left out of backups (backup.py).
@@ -52,6 +55,7 @@ SCRYPT_N, SCRYPT_R, SCRYPT_P = 2**15, 8, 1
 SALT_BYTES = 16
 HASH_BYTES = 32
 FIELDS = {"name", "password", "created", "created_by", "changed"}
+OPTIONAL_FIELDS = {"last_login"}
 BY_NODE = "node"
 
 
@@ -131,15 +135,18 @@ def set_password(user, password, n=None):
 
 
 def _check_user(entry, where):
-    if not isinstance(entry, dict) or set(entry) != FIELDS:
-        raise ConsoleUsersError(f"{where} must have exactly {', '.join(sorted(FIELDS))}")
+    if not isinstance(entry, dict) or not FIELDS <= set(entry) <= FIELDS | OPTIONAL_FIELDS:
+        raise ConsoleUsersError(f"{where} must have exactly {', '.join(sorted(FIELDS))} (and maybe "
+                                f"{', '.join(sorted(OPTIONAL_FIELDS))})")
     if not isinstance(entry["name"], str) or check_name(entry["name"]):
         raise ConsoleUsersError(f"{where}: name is {NAME_RULE}, in lowercase")
     if _parse_hash(entry["password"]) is None:
         raise ConsoleUsersError(f"{where}: password isn't a kept password; set it again with user password")
     if not isinstance(entry["created_by"], str) or not entry["created_by"]:
         raise ConsoleUsersError(f"{where}: created_by must be who made it")
-    for field in ("created", "changed"):
+    for field in ("created", "changed", "last_login"):
+        if field not in entry:
+            continue
         if isinstance(entry[field], bool) or not isinstance(entry[field], int) or entry[field] < 0:
             raise ConsoleUsersError(f"{where}: {field} must be a whole number")
 

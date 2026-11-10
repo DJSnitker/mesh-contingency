@@ -20,6 +20,18 @@ may change how the bot is configured).
   messages as `sam (console)`, with their own rate limits and
   confirmations, and may change the radio's settings as the console can.
   The console on the node's own computer is still `console`, as before.
+- **The remote console** (`remote = true` under `[console]`): the console on
+  every address of the node's computer, port 8738, over HTTPS, answering
+  only private (local-network) addresses. Console users log in with their
+  name and password; sessions last 30 idle minutes, at most 12 hours, and
+  end at a restart; 5 failed logins for a name, or 10 from an address,
+  wait 15 minutes. The bot makes its own certificate (`console_tls/`) and
+  prints its fingerprint, or uses yours (`cert`, `key`);
+  `mesh-contingency-console cert show|renew`. Console users can also be
+  added, given a new password and removed from the console's API, on
+  either listener; each change is in `history`. The `[console]` extra now
+  needs `cryptography`. The app's login page comes next; until then the
+  remote console's API answers, but its pages don't log in.
 
 ## [0.11.0] - 2026-10-25
 
