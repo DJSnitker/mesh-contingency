@@ -68,6 +68,7 @@ every_minutes = 5        # how often to check; at least 1
 battery_volts = 3.5      # warn below this; 0 for no battery check
 undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
 errors = 3               # commands failed or timed out within 30 min; 0 for no check
+failed_logins = 10       # failed remote console logins within 15 min; 0 for no check
 
 # The web console: the node in a browser on this computer (see "Web console"
 # in the README). Needs aiohttp, pip install -e ".[console]", and its app

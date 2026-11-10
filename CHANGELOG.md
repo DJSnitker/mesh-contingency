@@ -39,6 +39,11 @@ may change how the bot is configured).
   yourself); and the remote console's addresses and certificate
   fingerprint on the Dashboard. README: "Remote console", and its Security
   notes; `config.example.toml`: `remote`, `remote_port`, `cert`, `key`.
+- **The node watch tells the admins about failed console logins:**
+  `failed_logins` (default 10) under `[watch]`, within 15 minutes, from any
+  devices, naming them (`Node problem: 12 failed console logins in 15 min,
+  from 192.168.1.50`); a lockout checks straight away. Only with the remote
+  console on; 0 turns it off.
 
 ## [0.11.0] - 2026-10-25
 

@@ -15,6 +15,7 @@ from mesh_contingency.directory import Directory
 from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event, make_context
 from mesh_contingency.watch import NOTICE_GAP, NodeWatch, WatchSettings, load_watch
+from mesh_contingency.web.remote import Logins
 
 ADMIN = "a1" * 32
 DANA = Sender("Dana", "d0" * 32)
@@ -26,13 +27,15 @@ class LoadWatchTest(unittest.TestCase):
 
     def test_settings(self):
         settings = load_watch({"watch": {"enabled": False, "every_minutes": 2, "battery_volts": 3.4,
-                                         "undelivered_in_row": 0, "errors": 10}})
-        self.assertEqual(settings, WatchSettings(False, 2, 3.4, 0, 10))
+                                         "undelivered_in_row": 0, "errors": 10, "failed_logins": 4}})
+        self.assertEqual(settings, WatchSettings(False, 2, 3.4, 0, 10, 4))
+        self.assertEqual(load_watch({}).failed_logins, 10)
 
     def test_mistakes(self):
         for section, message in [
             ({"battery": 3}, r"^\[watch\] may only set battery_volts, enabled, errors, every_minutes, "
-                             r"undelivered_in_row\.$"),
+                             r"failed_logins, undelivered_in_row\.$"),
+            ({"failed_logins": -1}, r"failed_logins must be a whole number, at least 0\."),
             ({"enabled": "yes"}, r"enabled must be true or false"),
             ({"every_minutes": 0.5}, r"every_minutes must be a number, at least 1\."),
             ({"battery_volts": -1}, r"battery_volts must be a number, at least 0\."),
@@ -316,6 +319,69 @@ class NodeWatchTest(unittest.IsolatedAsyncioTestCase):
                          ["Node problem: users.toml not reloaded: [users]: 'd0d0' is not a full public key"])
         self.directory.problem = None
         self.assertEqual(await self.check(), ["Node ok again: users.toml reloaded"])
+
+    def failed_logins(self, count, address="192.168.1.50"):
+        for _ in range(count):
+            self.logins.failure_log.append((self.now, address))
+
+    def with_logins(self):
+        self.logins = Logins(self.folder / "console_users.json", clock=lambda: self.now)
+        self.state.console_logins = self.logins
+
+    async def test_failed_console_logins(self):
+        self.with_logins()
+        self.failed_logins(9)
+        self.assertEqual(await self.check(1), [])
+        self.failed_logins(2, "192.168.1.51")
+        self.assertEqual(await self.check(1), ["Node problem: 11 failed console logins in 15 min, from "
+                                               "192.168.1.50, 192.168.1.51"])
+        self.failed_logins(5)
+        self.assertEqual(await self.check(5), [])  # once
+        self.assertEqual(await self.check(5), [])  # still within 15 min of the notice
+        self.assertEqual(await self.check(10), ["Node ok again: no more failed console logins"])
+
+    async def test_failed_console_logins_name_up_to_three_devices(self):
+        self.with_logins()
+        for i in range(5):
+            self.failed_logins(2, f"10.0.0.{i + 1}")
+        self.failed_logins(1, "10.0.0.1")
+        self.assertEqual(await self.check(1), ["Node problem: 11 failed console logins in 15 min, from "
+                                               "10.0.0.1, 10.0.0.2, 10.0.0.3 and 2 more"])
+
+    async def test_failed_console_logins_spread_out_arent_a_problem(self):
+        self.with_logins()
+        for _ in range(6):
+            self.failed_logins(3)
+            self.assertEqual(await self.check(6), [])
+
+    async def test_failed_console_logins_off(self):
+        self.watch = self.new_watch(WatchSettings(failed_logins=0))
+        self.with_logins()
+        self.failed_logins(50)
+        self.assertEqual(await self.check(1), [])
+        self.assertNotIn("console logins", self.watch.describe())
+
+    async def test_a_bot_restart_doesnt_end_failed_logins(self):
+        self.with_logins()
+        self.failed_logins(10)
+        self.assertEqual(len(await self.check(1)), 1)
+        self.watch = self.new_watch()
+        self.with_logins()  # a new run: nothing remembered
+        self.assertEqual(await self.check(5), [])
+        self.assertEqual(await self.check(10), ["Node ok again: no more failed console logins"])
+
+    async def test_describe_failed_logins_only_with_the_remote_console(self):
+        self.assertNotIn("console logins", self.watch.describe())
+        self.with_logins()
+        self.assertTrue(self.watch.describe().endswith(", 10 failed console logins in 15 min"))
+
+    async def test_failed_logins_in_health(self):
+        self.state.watch = self.watch
+        self.with_logins()
+        self.failed_logins(10)
+        await self.check(1)
+        health = HealthCommand(make_context("health", radio=self.radio, state=self.state, directory=self.directory))
+        self.assertIn("watch: failed console logins", " ".join((await health.execute("", None)).reply))
 
     async def test_describe(self):
         self.assertEqual(self.watch.describe(), "every 5 min: battery below 3.5V, radio restarts, "
