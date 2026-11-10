@@ -43,12 +43,12 @@
     "@angular/cli": "^22.2.6",
     "@angular/compiler-cli": "^22.2.5",
     "@capacitor/cli": "^8.6.0",
-    "electron": "45.2.1",
+    "electron": "45.2.3",
     "electron-builder": "26.18.0",
-    "jsdom": "^30.0.0",
+    "jsdom": "^31.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.1.0"
   },
   "main": "electron/main.cjs",
   "description": "Mesh Contingency, the app: your MeshCore radio over Bluetooth or USB.",
