@@ -121,15 +121,18 @@ class CommandTest(unittest.TestCase):
         self.config.write_text("")  # no users.toml: console users don't need one
         self.path = self.folder / store.USERS_FILE
         self.passwords = []
-        self.enterContext(mock.patch("getpass.getpass", side_effect=lambda prompt: self.next_password()))
+        self.answers = []
+        self.enterContext(mock.patch("getpass.getpass", side_effect=lambda prompt: self.next(self.passwords)))
+        self.enterContext(mock.patch("builtins.input", side_effect=lambda prompt: self.next(self.answers)))
         self.enterContext(mock.patch.object(store, "SCRYPT_N", FAST_N))
         self.out = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.out))
 
-    def next_password(self):
-        if not self.passwords:
+    @staticmethod
+    def next(typed):
+        if not typed:
             raise EOFError
-        return self.passwords.pop(0)
+        return typed.pop(0)
 
     def run_user(self, *words):
         return main(["-c", str(self.config), "user", *words])
@@ -179,17 +182,38 @@ class CommandTest(unittest.TestCase):
         self.assertTrue(store.verify_password("a whole new password", user["password"]))
         self.assertFalse(store.verify_password(GOOD, user["password"]))
 
-    def test_remove(self):
+    def test_remove_asks_first(self):
         self.add()
         self.add("alex")
+        self.answers.append(" Y ")
         self.run_user("remove", "sam")
         self.assertEqual(list(store.load(self.path)), ["alex"])
+        self.assertIn("Removed console user sam", self.out.getvalue())
         self.fails("No console user called sam", "remove", "sam")
         self.fails("No console user called sam", "password", "sam")
+
+    def test_remove_keeps_them_unless_yes(self):
+        self.add()
+        for answer in ("", "n", "no", "nope", "sure"):
+            self.answers.append(answer)
+            with self.subTest(answer=answer):
+                self.run_user("remove", "sam")
+                self.assertIn("sam", store.load(self.path))
+        self.assertEqual(self.out.getvalue().count("Not removed."), 5)
+
+    def test_remove_stopped_keeps_them(self):
+        self.add()  # then Ctrl+D at the question
+        self.fails("Stopped: nothing changed", "remove", "sam")
+        self.assertIn("sam", store.load(self.path))
+
+    def test_remove_an_unknown_name_asks_nothing(self):
+        self.fails("No console user called sam", "remove", "sam")
+        self.assertFalse(self.path.exists())
 
     def test_the_last_one_can_be_removed_here(self):
         # The browser won't remove the last one; the node's own command can.
         self.add()
+        self.answers.append("yes")
         self.run_user("remove", "sam")
         self.assertEqual(store.load(self.path), {})
 

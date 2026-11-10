@@ -3,7 +3,7 @@ own computer (see console_users.py for what's kept).
 
     mesh-contingency-console user add sam        # asks for the password twice
     mesh-contingency-console user password sam   # a new password
-    mesh-contingency-console user remove sam
+    mesh-contingency-console user remove sam     # asks first
     mesh-contingency-console user list
 
 Console users have nothing to do with radios or users.toml. This command
@@ -25,6 +25,13 @@ class Stopped(Exception):
 def ask_secret(prompt):
     try:
         return getpass.getpass(prompt)
+    except (EOFError, KeyboardInterrupt):
+        raise Stopped from None
+
+
+def ask(prompt):
+    try:
+        return input(prompt)
     except (EOFError, KeyboardInterrupt):
         raise Stopped from None
 
@@ -72,8 +79,13 @@ def change_password(path, name):
 
 
 def remove(path, name):
+    """Remove a console user, after asking: it can't be undone."""
+    known(store.load(path), name)
+    if ask(f"Remove console user {name}? They won't be able to log in. [y/N] ").strip().lower() not in ("y", "yes"):
+        print("Not removed.")
+        return
     with store.changing(path) as users:
-        known(users, name)
+        known(users, name)  # unless removed meanwhile
         del users[name]
     print(f"Removed console user {name}.")
 
