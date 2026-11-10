@@ -1,6 +1,6 @@
 # Plan: console users, logging in from the network
 
-Status: planned, nothing built yet · Requested 2026-11-10 · Redone 2026-11-10
+Status: PR 2 (console users file and command) built; nothing listens yet · Requested 2026-11-10 · Redone 2026-11-10
 
 ## Goal
 
