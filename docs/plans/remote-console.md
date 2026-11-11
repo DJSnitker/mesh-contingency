@@ -1,6 +1,6 @@
 # Plan: console users, logging in from the network
 
-Status: built, PRs 2–6 (#121–#125); left: the wiki Admin Guide, and the checks on the real node below · Requested 2026-11-10 · Redone 2026-11-10
+Status: built, PRs 2–6 (#121–#125); wiki Admin Guide updated; left: the checks on the real node below · Requested 2026-11-10 · Redone 2026-11-10
 
 ## Goal
 
@@ -203,7 +203,7 @@ mesh-contingency-console user add`, and the login page says the same.
    lockout, journal lines. Tests with aiohttp's test client.
 5. **The app:** login page, header, Console users page; README (Web
    console, Security notes), `config.example.toml`, the wiki Admin Guide
-   (held until merged).
+   (after merging: done).
 6. **Node watch:** failed-login bursts as a node problem.
 
 ## To check on the real node
