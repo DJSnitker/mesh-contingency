@@ -7,43 +7,69 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-11
+
+The web console from other computers: console users log in over the local
+network, over HTTPS, from any laptop, tablet or phone, as an operations
+center needs (roadmap item 20, `docs/plans/remote-console.md`). Console
+users are separate from radios: a console user needs no radio, and no radio
+(even an admin's) logs in to the console. The console on the node's own
+computer, and the app, work as before.
+
 ### Added
-- **Console users** (roadmap item 20, `docs/plans/remote-console.md`, first
-  part): people who will log in to the web console from other computers on
-  the local network, with a name and password of their own, separate from
-  radio users and admins. Made on the node's computer with
-  `mesh-contingency-console user add|password|remove|list`, kept in
-  `console_users.json` (scrypt hashes, readable only by the bot's account,
-  left out of backups). Nothing listens for them yet.
-- Behind it, the web console now acts as whoever sent each request, ready
-  for console users logging in: one of them will show in `history` and
-  messages as `sam (console)`, with their own rate limits and
-  confirmations, and may change the radio's settings as the console can.
-  The console on the node's own computer is still `console`, as before.
-- **The remote console** (`remote = true` under `[console]`): the console on
-  every address of the node's computer, port 8738, over HTTPS, answering
-  only private (local-network) addresses. Console users log in with their
-  name and password; sessions last 30 idle minutes, at most 12 hours, and
-  end at a restart; 5 failed logins for a name, or 10 from an address,
-  wait 15 minutes. The bot makes its own certificate (`console_tls/`) and
-  prints its fingerprint, or uses yours (`cert`, `key`);
-  `mesh-contingency-console cert show|renew`. Console users can also be
-  added, given a new password and removed from the console's API, on
-  either listener; each change is in `history`. The `[console]` extra now
-  needs `cryptography`.
-- The console app logs in to the remote console: a **Log in** page (name
-  and password) in place of "Open the console's link"; who's logged in at
-  the foot of the menu, with **Log out**; an **Account** page with
-  **Change password** (the current one first); a **Console users** page to
-  add one, give one a new password or remove one (after asking; not
-  yourself); and the remote console's addresses and certificate
-  fingerprint on the Dashboard. README: "Remote console", and its Security
-  notes; `config.example.toml`: `remote`, `remote_port`, `cert`, `key`.
+- **Console users:** a name and a password (12 characters or more), made
+  on the node's computer with `mesh-contingency-console user add NAME`,
+  and `user password|remove|list`. They work with the bot stopped, so
+  they're the way back in. Kept in `console_users.json` next to
+  `config.toml`: scrypt hashes only, readable only by the bot's account,
+  left out of backups.
+- **The remote console** (`remote = true` under `[console]`): the console
+  on every address of the node's computer, port 8738 (`remote_port`), over
+  HTTPS, answering only local-network addresses; an internet address is
+  refused before the login page, even through a port forward. The bot makes
+  its own certificate the first time (`console_tls/`, no internet needed)
+  and prints its SHA-256 fingerprint at each start, to check against the
+  browser's; or set `cert` and `key` to your own.
+  `mesh-contingency-console cert show|renew`.
+- **Logging in:** a **Log in** page; a login lasts until 30 minutes without
+  being used (a page left open, refreshing itself, doesn't count), 12 hours
+  at most, **Log out**, or a restart of the bot. A wrong name and a wrong
+  password get the same answer; 5 failed logins for a name, or 10 from a
+  device, within 15 minutes, wait 15 minutes (`user password` on the node
+  lets that name in at once). Each login, failure, lockout and logout is in
+  the journal, never a password.
+- **The console's new pages:** **Console users** (add one, give one a new
+  password, remove one after asking; not yourself), **Account** (who you
+  are; **Change password**, the current one first), who's logged in at the
+  foot of the menu with **Log out**, and the remote console's addresses and
+  fingerprint on the Dashboard's **Remote** row.
+- **What console users do is theirs:** `history` says `by sam (console)`, a
+  message left from Mailbox comes from `sam (console)`, and rate limits and
+  **Confirm** questions are each person's own. Adding, changing and
+  removing console users is in `history` too. The console on the node's
+  computer is still `console`.
 - **The node watch tells the admins about failed console logins:**
-  `failed_logins` (default 10) under `[watch]`, within 15 minutes, from any
-  devices, naming them (`Node problem: 12 failed console logins in 15 min,
-  from 192.168.1.50`); a lockout checks straight away. Only with the remote
-  console on; 0 turns it off.
+  `failed_logins` under `[watch]` (default 10, within 15 minutes, from any
+  devices; 0 turns it off): `Node problem: 12 failed console logins in 15
+  min, from 192.168.1.50`, and `Node ok again` once it's quiet. Only with
+  the remote console on.
+- `ENCRYPTION_NOTES.md`: how private messages are, over MeshCore.
+
+### Changed
+- `radio` over the mesh now says `radio: changes only from the web console`
+  (a console user on another computer can change the radio's settings too).
+- The `[console]` extra needs `cryptography` (for the certificate).
+- CI: the Linux desktop build gets `bsdtar` even when the runner can't
+  resolve Ubuntu's mirrors (it asks public resolvers, then retries).
+
+### Upgrading
+- Install the extra again, for `cryptography`, and rebuild the console's
+  app: `.venv/bin/pip install -e ".[console]"`, then
+  `cd console && npm ci && npm run build`. Restart the bot.
+- Nothing changes until you set `remote = true`; then make a console user
+  first (`mesh-contingency-console user add NAME`), and open the port in
+  the node's firewall to the local network if it has one. The wiki's Admin
+  Guide, *Use the console from other computers*, has the steps.
 
 ## [0.11.0] - 2026-10-25
 
@@ -782,6 +808,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[0.12.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.12.0
 [0.11.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.11.0
 [0.10.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.10.0
 [0.9.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.9.0

@@ -1,6 +1,6 @@
 # Plan: console users, logging in from the network
 
-Status: built, PRs 2–6 (#121–#125); wiki Admin Guide updated; left: the checks on the real node below · Requested 2026-11-10 · Redone 2026-11-10
+Status: released in 0.12.0 (#120–#127); wiki Admin Guide updated; left: the checks on the real node below (idle logout checked) · Requested 2026-11-10 · Redone 2026-11-10
 
 ## Goal
 
