@@ -10,8 +10,10 @@
   node also ends that name's lockout.
 - A login is a random session id in a cookie (Secure, HttpOnly,
   SameSite=Strict), kept only in the bot's memory: a restart logs everyone
-  out. It ends after IDLE_SECONDS without a request, MAX_SECONDS after the
-  login, or on logging out.
+  out. It ends after IDLE_SECONDS without being used, MAX_SECONDS after the
+  login, or on logging out. The app marks the reads it makes on its own
+  (refreshing a page, unread counts) with BACKGROUND_HEADER: they need the
+  login but don't count as use, so a console left open logs out too.
 - After NAME_FAILURES failed logins in FAIL_WINDOW for one name, or
   ADDRESS_FAILURES from one address, that name or address waits
   LOCK_SECONDS. A wrong name and a wrong password get the same answer and
@@ -47,6 +49,7 @@ NAME_FAILURES = 5
 ADDRESS_FAILURES = 10
 LOCK_SECONDS = 15 * 60
 WRONG = "Wrong name or password."
+BACKGROUND_HEADER = "X-Console-Background"  # "1": the app refreshing itself (console/src/app/api.ts)
 
 
 def private_address(text):
@@ -241,8 +244,9 @@ class Logins:
         except (OSError, store.ConsoleUsersError) as e:
             print(f"Warning: couldn't note {name}'s login in {self.users.path}: {e}", flush=True)
 
-    def session(self, session_id):
-        """The live Session for session_id, or None (ending it if it's over)."""
+    def session(self, session_id, use=True):
+        """The live Session for session_id, or None (ending it if it's over).
+        use=False checks it without counting as use (a background refresh)."""
         found = self.sessions.get(session_id) if session_id else None
         if found is None:
             return None
@@ -254,14 +258,15 @@ class Logins:
         elif user["changed"] != found.changed:
             why = "a new password"
         elif now - found.last > IDLE_SECONDS:
-            why = f"{minutes(IDLE_SECONDS)} without a request"
+            why = f"{minutes(IDLE_SECONDS)} without being used"
         elif now - found.started > MAX_SECONDS:
             why = f"{MAX_SECONDS // 3600} hours since logging in"
         if why:
             del self.sessions[session_id]
             print(f"Console logout: {found.name} ({why})", flush=True)
             return None
-        found.last = now
+        if use:
+            found.last = now
         return found
 
     def log_out(self, session_id):

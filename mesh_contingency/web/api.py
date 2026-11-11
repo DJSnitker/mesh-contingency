@@ -61,6 +61,9 @@ LOG_STREAMS = web.AppKey("log_streams", set)  # the queues of open live logs
 # Each request's api.Sender, set by the server's guard (a plain key, as
 # aiohttp 3.10 has no typed request keys).
 SENDER = "mesh_console_sender"
+# On the remote console, a function: is this request's login still on? A
+# live log asks it as it goes, and ends when the login does.
+STILL_IN = "mesh_console_still_in"
 # Settings of a user that are about them, not for the console to show.
 HIDDEN_SETTINGS = {"name", INBOX_KEY}
 # The longest text /api/run takes: more than a direct message can hold.
@@ -430,7 +433,9 @@ async def run(request):
 @routes.get("/api/log")
 async def log(request):
     """The lines kept so far, then each new one as it's printed, as
-    server-sent events: data: {"time", "line"}."""
+    server-sent events: data: {"time", "line"}. On the remote console it
+    ends within KEEPALIVE_SECONDS of the login ending (logged out, timed
+    out, removed, a new password)."""
     output = request.app[OUTPUT]
     if output is None:
         return _error(404, "no log kept")
@@ -447,7 +452,13 @@ async def log(request):
     try:
         for when, line in output.listen(listener):
             await response.write(_event(when, line))
+        still_in = request.get(STILL_IN)
+        checked = time.monotonic()
         while True:
+            if still_in and time.monotonic() - checked >= KEEPALIVE_SECONDS:
+                if not still_in():
+                    break
+                checked = time.monotonic()
             try:
                 entry = await asyncio.wait_for(queue.get(), KEEPALIVE_SECONDS)
             except TimeoutError:

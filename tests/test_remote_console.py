@@ -1,6 +1,7 @@
 """The remote console: who may reach it, logging in, sessions and lockout,
 console users from the browser, its certificate, and starting it."""
 
+import asyncio
 import contextlib
 import io
 import stat
@@ -194,7 +195,14 @@ class SessionTest(LoginsTestCase):
         self.assertIsNotNone(self.logins.session(self.session_id))
         self.clock.now += 31 * 60
         self.assertIsNone(self.logins.session(self.session_id))
-        self.assertIn("Console logout: sam (30 minutes without a request)", self.out.getvalue())
+        self.assertIn("Console logout: sam (30 minutes without being used)", self.out.getvalue())
+
+    def test_checking_without_use_doesnt_keep_it(self):
+        for _ in range(29):
+            self.clock.now += 60
+            self.assertIsNotNone(self.logins.session(self.session_id, use=False))
+        self.clock.now += 2 * 60
+        self.assertIsNone(self.logins.session(self.session_id, use=False))
 
     def test_ends_12_hours_after_login_however_busy(self):
         for _ in range(12 * 4):
@@ -313,7 +321,8 @@ class RemoteAppTestCase(unittest.IsolatedAsyncioTestCase):
         self.ctx = make_context("console", directory=self.directory, state=self.state, radio=self.radio,
                                 commands=self.commands)
         self.out = io.StringIO()
-        self.enterContext(contextlib.redirect_stdout(SafeOutput(self.out, keep=50)))
+        self.output = SafeOutput(self.out, keep=50)
+        self.enterContext(contextlib.redirect_stdout(self.output))
         self.path = self.folder / store.USERS_FILE
         for name in ("sam", "alex"):
             with store.changing(self.path) as users:
@@ -324,7 +333,7 @@ class RemoteAppTestCase(unittest.IsolatedAsyncioTestCase):
         cert = tls.make_certificate(self.folder / tls.TLS_FOLDER)
         context = tls.ssl_context(cert, self.folder / tls.TLS_FOLDER / tls.KEY_FILE)
         self.logins = Logins(self.path)
-        self.app = make_remote_app(self.ctx, self.logins, static=self.static,
+        self.app = make_remote_app(self.ctx, self.logins, static=self.static, output=self.output,
                                    remote_info={"urls": ["https://node.local:8738/"], "fingerprint": "AB:CD"})
         server = TestServer(self.app, host="127.0.0.1")
         await server.start_server(ssl=context)
@@ -420,6 +429,34 @@ class RemoteLoginTest(RemoteAppTestCase):
         await self.call("POST", "/api/logout")
         await self.call("GET", "/api/me", status=401)
         self.assertIn("Console logout: sam", self.out.getvalue())
+
+    async def test_the_apps_own_refreshes_dont_keep_it_logged_in(self):
+        clock = Clock()
+        self.logins.clock = clock
+        await self.log_in()
+        background = {remote.BACKGROUND_HEADER: "1"}
+        for _ in range(29):
+            clock.now += 60
+            response = await self.client.get("/api/overview", headers=background)
+            self.assertEqual(response.status, 200)
+        await self.call("GET", "/api/overview")  # someone clicked: that counts
+        clock.now += 29 * 60
+        await self.call("GET", "/api/me")
+        clock.now += 31 * 60
+        response = await self.client.get("/api/overview", headers=background)
+        self.assertEqual(response.status, 401)
+        self.assertIn("Console logout: sam (30 minutes without being used)", self.out.getvalue())
+
+    async def test_the_live_log_ends_with_the_login(self):
+        await self.log_in()
+        with mock.patch("mesh_contingency.web.api.KEEPALIVE_SECONDS", 0.05):
+            response = await self.client.get("/api/log")
+            self.assertEqual(response.status, 200)
+            await asyncio.sleep(0.2)
+            self.assertFalse(response.content.at_eof())  # still logged in: still open
+            self.logins.log_out(next(iter(self.logins.sessions)))
+            await asyncio.wait_for(response.content.read(), 5)  # ends
+        response.close()
 
     async def test_removed_on_the_node_is_logged_out(self):
         await self.log_in()

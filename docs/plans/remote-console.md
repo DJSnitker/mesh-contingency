@@ -137,8 +137,12 @@ make again. In `{"users": [...]}`:
 
 - After a good login: a random 32-byte session id in a cookie,
   `Secure; HttpOnly; SameSite=Strict; Path=/`, kept in the bot's memory
-  only (a restart logs everyone out). It ends after 30 minutes without a
-  request, or 12 hours after login, whichever is first, and on **Log out**.
+  only (a restart logs everyone out). It ends after 30 minutes without being
+  used, or 12 hours after login, whichever is first, and on **Log out**.
+  The app's own refreshes (pages and unread counts every 10–60 s) are
+  marked `X-Console-Background: 1` and don't count as use, so an open
+  console left alone logs out too; a live log ends within 15 s of its
+  login ending.
 - Failed logins: after 5 failures in 15 minutes for a name, or 10 from
   one address, that name or address waits 15 minutes. The answer is the
   same for a wrong name or password (`Wrong name or password.`), and
