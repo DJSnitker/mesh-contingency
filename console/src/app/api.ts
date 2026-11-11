@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { DOCUMENT, Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 
 /** GET /api/overview (mesh_contingency/web/api.py). Times are seconds since 1970. */
@@ -281,9 +281,29 @@ export interface LogLine {
  * login ended) every request is refused with 401, and signedOut says so;
  * loginNeeded says the remote console wants a name and password.
  */
+/**
+ * A read sent more than this long after the last click, key, touch or
+ * scroll is the app refreshing itself, not someone using it: it says so
+ * (BACKGROUND_HEADER), and the remote console doesn't count it as use, so
+ * an open console left alone still logs out after 30 minutes.
+ */
+export const ACTIVE_MS = 15_000;
+export const BACKGROUND_HEADER = 'X-Console-Background';
+const INPUT_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
+
 @Injectable({ providedIn: 'root' })
 export class Api {
   private readonly http = inject(HttpClient);
+  /** When someone last used the page: opening it counts. */
+  private lastInput = Date.now();
+
+  constructor() {
+    const document = inject(DOCUMENT);
+    const used = () => (this.lastInput = Date.now());
+    for (const name of INPUT_EVENTS) {
+      document.addEventListener(name, used, { capture: true, passive: true });
+    }
+  }
 
   /** True once a request was refused for want of the key or a login. */
   readonly signedOut = signal(false);
@@ -411,7 +431,9 @@ export class Api {
   }
 
   private get<T>(url: string): Observable<T> {
-    return this.http.get<T>(url).pipe(this.watch());
+    const background = Date.now() - this.lastInput > ACTIVE_MS;
+    const headers: Record<string, string> = background ? { [BACKGROUND_HEADER]: '1' } : {};
+    return this.http.get<T>(url, { headers }).pipe(this.watch());
   }
 
   /** Notes a refused key or login on the way past. */

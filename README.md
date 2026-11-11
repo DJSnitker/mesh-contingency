@@ -1116,8 +1116,9 @@ users** page; a console user can't remove themselves there, so there's
 always one left, and their own password is on **Account**. Giving someone
 a new password, or removing them, logs them out at their next click.
 
-A login lasts until 30 minutes without using it, 12 hours at most, **Log
-out**, or a restart of the bot. After 5 wrong passwords for one name, or 10
+A login lasts until 30 minutes without using it (a page left open,
+refreshing itself, doesn't count), 12 hours at most, **Log out**, or a
+restart of the bot. After 5 wrong passwords for one name, or 10
 from one device, in 15 minutes, that name or device waits 15 minutes; a new
 password set with `user password` lets them in again at once. Each login,
 failure, lockout and logout is in the bot's journal (never a password),

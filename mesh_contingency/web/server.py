@@ -39,9 +39,9 @@ from ..api import CONSOLE, console_user
 from ..limits import RateLimiter
 from . import HOSTS, URL_FILE, accounts, tls
 from .accounts import LOGINS, REMOTE_INFO, SESSION, USERS_PATH
-from .api import CTX, LIMITER, LOG_STREAMS, OUTPUT, SENDER, routes
+from .api import CTX, LIMITER, LOG_STREAMS, OUTPUT, SENDER, STILL_IN, routes
 from .console_users import USERS_FILE
-from .remote import SESSION_COOKIE, Logins, private_address
+from .remote import BACKGROUND_HEADER, SESSION_COOKIE, Logins, private_address
 
 COOKIE = "mesh_console"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -117,10 +117,11 @@ def make_remote_app(ctx, logins, limiter=None, output=None, static=STATIC, remot
         if path in ("/api/login", "/api/logout"):
             return await handler(request)
         session_id = request.cookies.get(SESSION_COOKIE)
-        session = logins.session(session_id)
+        session = logins.session(session_id, use=request.headers.get(BACKGROUND_HEADER) != "1")
         if session is not None:
             request[SENDER] = console_user(session.name)
             request[SESSION] = session_id
+            request[STILL_IN] = lambda: logins.session(session_id, use=False) is not None
         elif path == "/api" or path.startswith("/api/"):
             return web.json_response({"error": "log in first", "login": True}, status=401)
         return await handler(request)  # the app's files: its login page needs them

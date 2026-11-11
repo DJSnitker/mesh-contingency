@@ -1,8 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
-import { Api, apiError } from './api';
+import { ACTIVE_MS, Api, BACKGROUND_HEADER, apiError } from './api';
 import { OVERVIEW, SAM } from '../testing/fakes';
 
 describe('Api', () => {
@@ -78,6 +79,25 @@ describe('Api', () => {
     const removed = http.expectOne('/api/console-users/a%2Fb');
     expect(removed.request.method).toBe('DELETE');
     removed.flush({ name: 'a/b' });
+  });
+
+  describe('marks its own refreshes', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("as use while someone's using the page", () => {
+      api.overview().subscribe();
+      expect(http.expectOne('/api/overview').request.headers.has(BACKGROUND_HEADER)).toBe(false);
+    });
+
+    it('as background once nobody has for a while, until they do again', () => {
+      vi.useFakeTimers({ now: Date.now() + ACTIVE_MS + 1 });
+      api.overview().subscribe();
+      expect(http.expectOne('/api/overview').request.headers.get(BACKGROUND_HEADER)).toBe('1');
+
+      document.dispatchEvent(new Event('keydown'));
+      api.overview().subscribe();
+      expect(http.expectOne('/api/overview').request.headers.has(BACKGROUND_HEADER)).toBe(false);
+    });
   });
 
   it('says what the bot said was wrong', () => {
