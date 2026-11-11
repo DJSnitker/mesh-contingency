@@ -35,7 +35,7 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 17 | The web console laid out and working like the phone app | feature | large | done: [console-like-app.md](console-like-app.md) (#87–#93, v0.10.0) |
 | 18 | The app on a computer: Electron desktop app, radio over Bluetooth or USB | feature | large | done: [desktop-app.md](desktop-app.md) (#95–#97, v0.11.0); Bluetooth on a computer untried, installers unsigned |
 | 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | feature | medium | planned: [weather-radio.md](weather-radio.md); decisions first |
-| 20 | Console users, separate from radios, logging in from the local network: password, HTTPS | feature | large | done: [remote-console.md](remote-console.md) (#120–#125, unreleased) |
+| 20 | Console users, separate from radios, logging in from the local network: password, HTTPS | feature | large | done: [remote-console.md](remote-console.md) (#120–#127), released in 0.12.0 |
 
 Recommended order: everything but field testing and the phone app's signed release is done and released (0.11.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
@@ -67,6 +67,11 @@ Where things stood on 2026-10-25:
   Electron desktop app, and its installers built by CI, released as
   **0.11.0** (this PR, tag `v0.11.0`) with the installers and the APK
   attached. USB tried with a real radio; Bluetooth on a computer not yet.
+- Then item 20, console users logging in to the web console from the local
+  network over HTTPS (#120–#127, with #128's CI fix), released as
+  **0.12.0** (this PR, tag `v0.12.0`) with the installers and the APK. The
+  wiki's Admin Guide has *Use the console from other computers*. On the
+  node: idle logout checked; the rest of remote-console.md's checks left.
 - **The node** runs `main` with `comm`, `checkins`, `backup`, `contact` and
   `radio` as admin and `area` as public in its `config.toml`; `#contingency-wx` is channel slot 1
   and `#contingency-comm` slot 2. Its console is on (port 8737); the link is
@@ -98,8 +103,8 @@ Steps, in order:
    `[backup] to` to a separate disk (USB stick, second drive) when there is
    one.
 5. Use the web console day to day, and note anything that would make it
-   better; access from other devices is out of scope until it has its own
-   console users and HTTPS (item 20, [remote-console.md](remote-console.md)).
+   better. From other devices, as a console user (item 20,
+   [remote-console.md](remote-console.md)): run its checks on the real node.
 6. The phone app (item 16, `com.meshcontingency`): every screen is built
    and runs on the user's phone with their own radio (see "First phone
    test" in [mobile-app.md](mobile-app.md)). Next: a session with a second
