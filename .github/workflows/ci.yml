@@ -142,9 +142,18 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: app/package-lock.json
-      # The pacman package is made with bsdtar.
+      # The pacman package is made with bsdtar. Ubuntu's mirrors are sometimes
+      # unreachable from the runners: use bsdtar if it's there, else retry.
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+        run: |
+          if command -v bsdtar; then exit 0; fi
+          for try in 1 2 3; do
+            sudo apt-get update -o Acquire::Retries=3 &&
+              sudo apt-get install -y -o Acquire::Retries=3 libarchive-tools && exit 0
+            echo "apt failed (try $try of 3); waiting a minute"
+            sleep 60
+          done
+          exit 1
       - run: npm ci
       - run: npx ng build
       # Unsigned: the Mac build is signed ad hoc only (electron-builder.yml).
