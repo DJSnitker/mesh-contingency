@@ -33,8 +33,7 @@ export const MAX_LINES = 500;
       <div #scroller class="lines" role="log" aria-live="polite" (scroll)="onScroll()">
         @for (entry of lines(); track $index) {
           <div class="line">
-            <time>{{ clock(entry.time) }}</time
-            ><span>{{ entry.line }}</span>
+            <time>{{ clock(entry.time) }}</time><span>{{ entry.line }}</span>
           </div>
         } @empty {
           <p class="muted">Nothing printed yet.</p>

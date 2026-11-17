@@ -210,9 +210,7 @@
         <p class="muted">That's what the radio is on now.</p>
       } @else if (chosen(); as c) {
         <p>
-          Now <strong>{{ four(s) }}</strong
-          >; after, <strong>{{ four(c) }}</strong
-          >.
+          Now <strong>{{ four(s) }}</strong>; after, <strong>{{ four(c) }}</strong>.
         </p>
         <form class="change" (submit)="$event.preventDefault(); setFreq()">
           <label for="radio-confirm-name">Type the node's name, {{ s.name }}, to go on</label>
