@@ -59,8 +59,7 @@ export function passage(answer: Answer): Passage | null {
       <h2 id="today-title"><mc-icon name="book" /> Verse of the day</h2>
       @if (today(); as v) {
         <blockquote class="passage">
-          <strong>{{ v.reference }}</strong
-          >{{ v.text }}
+          <strong>{{ v.reference }}</strong>{{ v.text }}
         </blockquote>
       } @else if (todaySaid(); as said) {
         <p class="problem" role="alert"><mc-icon name="alert" /> {{ said }}</p>
@@ -97,8 +96,7 @@ export function passage(answer: Answer): Passage | null {
       </div>
       @if (found(); as v) {
         <blockquote class="passage found">
-          <strong>{{ v.reference }}</strong
-          >{{ v.text }}
+          <strong>{{ v.reference }}</strong>{{ v.text }}
         </blockquote>
       }
       @if (foundSaid(); as said) {

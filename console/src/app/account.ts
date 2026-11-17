@@ -23,9 +23,8 @@ export const PASSWORD_MIN = 12;
         <h1>Account</h1>
         <p class="muted">
           @if (me()?.user; as user) {
-            Logged in as <strong>{{ user }}</strong
-            >, a console user. What you do shows in History as <code>{{ me()?.name }}</code
-            >.
+            Logged in as <strong>{{ user }}</strong>, a console user. What you do shows in History
+            as <code>{{ me()?.name }}</code>.
           } @else if (me()) {
             The console on the node's own computer, opened with its link. What it does shows in
             History as <code>console</code>.
