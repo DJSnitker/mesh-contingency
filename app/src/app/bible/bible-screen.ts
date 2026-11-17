@@ -67,8 +67,7 @@ function today(): string {
       <h2>Verse of the day</h2>
       @if (verseOfDay(); as v) {
         <blockquote class="passage">
-          <strong>{{ v.reference }}</strong
-          >{{ v.text }}
+          <strong>{{ v.reference }}</strong>{{ v.text }}
         </blockquote>
       } @else {
         <div class="actions">
@@ -106,8 +105,7 @@ function today(): string {
       </div>
       @if (found(); as v) {
         <blockquote class="passage found">
-          <strong>{{ v.reference }}</strong
-          >{{ v.text }}
+          <strong>{{ v.reference }}</strong>{{ v.text }}
         </blockquote>
       }
       @if (lookupSaid(); as said) {
