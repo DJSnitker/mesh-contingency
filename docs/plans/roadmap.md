@@ -1,6 +1,6 @@
 # Roadmap: after the user-management plan
 
-Status: every item but field testing, the phone app's signed release and NOAA Weather Radio alerts (19, planned) done; 0.11.0 released, with the app's debug APK and desktop installers; the App Guide on the wiki; field testing paused · Written 2026-10-21 · Updated 2026-11-07 (item 19 planned)
+Status: every item but field testing, the phone app's signed release and NOAA Weather Radio alerts (19, planned) done; 0.12.0 released (console logins from the local network), with the app's debug APK and desktop installers; the App Guide on the wiki; field testing paused · Written 2026-10-21 · Updated 2026-11-19 (item 19's receiver settled)
 
 Every earlier plan is built (`security-and-live-users.md`,
 `private-mailbox.md`, `user-management-and-robustness.md`; PRs #1–#16), and
@@ -34,15 +34,15 @@ and PR, with tests, README and wiki updates, like the earlier work.
 | 16 | Phone app for users, over their own radio's Bluetooth (Android first) | feature | large | in progress: [mobile-app.md](mobile-app.md); PRs 1–9 merged (#65–#77), then the first phone test's changes (#78–#81); first APK (debug) with 0.9.0; the wiki's App Guide (2026-10-31); left: a signed release APK |
 | 17 | The web console laid out and working like the phone app | feature | large | done: [console-like-app.md](console-like-app.md) (#87–#93, v0.10.0) |
 | 18 | The app on a computer: Electron desktop app, radio over Bluetooth or USB | feature | large | done: [desktop-app.md](desktop-app.md) (#95–#97, v0.11.0); Bluetooth on a computer untried, installers unsigned |
-| 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | feature | medium | planned: [weather-radio.md](weather-radio.md); decisions first |
+| 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | feature | medium | planned: [weather-radio.md](weather-radio.md); the receiver settled (RTL-SDR Blog V4, ordered 2026-11-19), four decisions left |
 | 20 | Console users, separate from radios, logging in from the local network: password, HTTPS | feature | large | done: [remote-console.md](remote-console.md) (#120–#127), released in 0.12.0 |
 
-Recommended order: everything but field testing and the phone app's signed release is done and released (0.11.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
+Recommended order: everything but field testing, the phone app's signed release and item 19 is done and released (0.12.0). The phone app (16) has all its screens and its user guide (the wiki's App Guide); left is a signed release APK, after a session with a second radio, like field testing (9).
 Field testing (9) waits for more radio equipment; it was started 2026-10-21 and its results so far are kept below.
 
 ## Resume here (next session)
 
-Where things stood on 2026-10-25:
+Where things stood on 2026-11-19:
 
 - **Merged and released:** everything but field testing. Since 0.7.0: #53
   (the demo console), #54 (this backlog), #55 (item 11), #56 (item 13), #57
@@ -124,11 +124,14 @@ Steps, in order:
    updates from inside the app. See [desktop-app.md](desktop-app.md).
 
 9. Item 19, alerts from NOAA Weather Radio: the plan is in
-   [weather-radio.md](weather-radio.md). Before building, settle its five
-   decisions (the receiver, always on, which events, how a post reads,
+   [weather-radio.md](weather-radio.md). The receiver is settled: an
+   RTL-SDR Blog V4 kit, ordered 2026-11-19. Before building, settle the
+   other four decisions (always on, which events, how a post reads,
    speech-to-text later), then PR 2 (the SAME parser), which needs no
-   radio. The listener (PR 3) is tried on the node once there's an RTL-SDR
-   dongle and antenna.
+   radio. When the dongle arrives: `rtl_test` to see the driver knows it,
+   look up the local station's frequency, and try `rtl_fm` and
+   `multimon-ng` on the next weekly test; the listener (PR 3) is tried on
+   the node then.
 
 Paused: item 9, field testing, until more radios arrive.
 
@@ -706,7 +709,8 @@ the `[alerts]` counties to the same channel, posted once whichever of NWR
 and the NWS API reports it first. `health` and the watch show whether the
 receiver hears the weekly test. The headers have no details (those are
 spoken); speech-to-text is a later, separate step. The plan, its open
-decisions and its PRs are in [weather-radio.md](weather-radio.md).
+decisions and its PRs are in [weather-radio.md](weather-radio.md). The
+receiver was settled 2026-11-19: an RTL-SDR Blog V4 kit, ordered.
 
 ## Housekeeping to do along the way
 
