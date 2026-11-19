@@ -1,6 +1,6 @@
 # Plan: alerts from NOAA Weather Radio, with no internet
 
-Status: planned, nothing built yet · Requested 2026-11-07
+Status: planned, nothing built yet; the receiver settled (an RTL-SDR Blog V4, ordered 2026-11-19), four decisions left · Requested 2026-11-07
 
 ## Goal
 
@@ -37,14 +37,27 @@ watched counties needs no new lookups and no internet.
 
 ## Decisions to make before building
 
-These are proposals; each needs the user's yes or no.
+These are proposals; each needs the user's yes or no. The first is settled.
 
-1. **The receiver.** Proposed: an RTL-SDR USB dongle (about $30) and a VHF
-   antenna on the node's computer, with `rtl_fm` (from `rtl-sdr`) tuning the
-   station and `multimon-ng -a EAS` decoding the headers. Both are packaged
-   on Arch and Debian. The bot runs a command set in the config and reads
-   its output, so any other decoder that prints `ZCZC-...` lines works too
+1. **The receiver. Settled 2026-11-19:** an RTL-SDR Blog V4 dongle (its kit
+   with the telescoping dipole, mount and USB extension cable; ordered
+   2026-11-19) on the node's computer, with `rtl_fm` (from `rtl-sdr`) tuning
+   the station and `multimon-ng -a EAS` decoding the headers. Both are
+   packaged on Arch and Debian. The V4 was chosen over cheaper dongles for
+   its temperature-compensated oscillator (no drift when always on) and its
+   shielded case (it sits next to the companion radio's 900 MHz
+   transmitter). The bot runs a command set in the config and reads its
+   output, so any other decoder that prints `ZCZC-...` lines works too
    (another SDR program, or a decoder on another machine over `ssh`).
+   - The V4's R828D tuner needs `rtl-sdr` 2.0.2 or later: `rtl_test` should
+     name the tuner when it's plugged in.
+   - The antenna: each arm of the dipole about 46 cm (18 in), a quarter
+     wave at 162.5 MHz, standing vertically (NWR is vertically polarized),
+     high and near a window. The USB extension keeps the dongle and antenna
+     a foot or more from the companion radio and the computer. If an indoor
+     antenna is too weak, a marine VHF antenna (156–162 MHz) is the step up.
+   - The frequency: the local station's, from NOAA's NWR station listing by
+     county. The 162.550 MHz in the example command is only a placeholder.
 2. **Always on, not only when the internet is down.** Proposed: NWR and
    the NWS API both feed the same channel, and the first source to report
    an alert posts it. NWR is often minutes ahead of the API, and running both
