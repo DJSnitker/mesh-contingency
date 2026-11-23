@@ -8,8 +8,9 @@ config.toml posts new weather alerts to the same channel by itself (see
 alerts.py).
 """
 
+from mesh_commands import Command, CommandError, CommandResult
+
 from ..alerts import DEFAULT_CHANNEL, NoChannelSlot, channel_slot, check_channel, message_limit, post
-from ..api import Command, CommandError, CommandResult
 
 
 class AlertCommand(Command):

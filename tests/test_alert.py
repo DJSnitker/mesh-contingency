@@ -1,12 +1,12 @@
 import unittest
 
+from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender
+from mesh_commands.testing import FakeMeshCore, event, make_context
 from meshcore import EventType
 
 from mesh_contingency.alerts import format_alerts, hashtag_secret, short_time
-from mesh_contingency.api import MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.state import State
-from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 ADMIN = Sender("Admin", "ad" * 32)
 FLOOD = {"event": "Flood Warning", "ends": "2026-10-20T18:00:00-05:00", "areaDesc": "Miami-Dade"}
@@ -38,7 +38,7 @@ class AlertCommandTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.radio = FakeMeshCore()
         self.state = State()
-        self.cmd = AlertCommand(make_context("alert", radio=self.radio, state=self.state))
+        self.cmd = AlertCommand(make_context("alert", radio=self.radio, extras={"state": self.state}))
 
     async def test_posts_the_message_to_the_channel(self):
         result = await self.cmd.execute("  Shelter open at the  church on 5th  ", ADMIN)
@@ -72,7 +72,8 @@ class AlertCommandTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.radio.channel_sent, [])
 
     async def test_channel_from_config(self):
-        cmd = AlertCommand(make_context("alert", options={"channel": "#storm"}, radio=self.radio, state=self.state))
+        cmd = AlertCommand(make_context("alert", options={"channel": "#storm"}, radio=self.radio,
+                                        extras={"state": self.state}))
         await cmd.execute("hello", ADMIN)
         self.assertEqual(self.radio.channels[1][0], "#storm")
         for bad in ("storm", "#", "#" + "x" * 31, 5):

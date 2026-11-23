@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from mesh_commands.testing import FakeMeshCore, event
 from meshcore import EventType
 
 from mesh_contingency.alerts import (
@@ -19,7 +20,6 @@ from mesh_contingency.alerts import (
     parse_county,
 )
 from mesh_contingency.state import State
-from mesh_contingency.testing import FakeMeshCore, event
 from mesh_contingency.weather import alert_counties, county_alerts, county_code
 
 

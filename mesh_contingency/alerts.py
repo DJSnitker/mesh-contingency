@@ -27,9 +27,9 @@ import zoneinfo
 from dataclasses import dataclass
 from hashlib import sha256
 
+from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
 from meshcore import EventType
 
-from .api import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
 from .weather import NWS_API, STATE_FIPS, alert_counties, county_alerts, county_code
 
 DEFAULT_CHANNEL = "#contingency-wx"

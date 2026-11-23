@@ -1,7 +1,7 @@
 import threading
 import unittest
 
-from mesh_contingency.api import (
+from mesh_commands import (
     ADMIN,
     DEFAULT_TIMEOUT,
     DISABLED,
@@ -14,13 +14,14 @@ from mesh_contingency.api import (
     CommandResult,
     Context,
     FunctionCommand,
+    KeyRoles,
     Sender,
     command,
     is_authorized,
     split_reply,
     to_messages,
 )
-from mesh_contingency.testing import make_context
+from mesh_commands.testing import make_context
 
 DANA = Sender("Dana", "d0" * 32)
 
@@ -122,9 +123,9 @@ class BaseTypesTest(unittest.TestCase):
 class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         cmd = type("C", (), {"permission": permission})()
-        users, admins = {"d0" * 32: {}}, {"ad" * 32}
-        ctx = Context(name="x", users=users, admins=frozenset(admins))
-        result = is_authorized(cmd, Sender("x", key), users, admins)
+        roles = KeyRoles(users={"d0" * 32}, admins={"ad" * 32})
+        ctx = Context(name="x", roles=roles)
+        result = is_authorized(cmd, Sender("x", key), roles)
         self.assertEqual(ctx.allowed(cmd, Sender("x", key)), result)
         return result
 

@@ -178,7 +178,7 @@ warning to move them.
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -e .           # installs meshcore and the mesh-contingency command
+.venv/bin/pip install -e packages/mesh-commands -e .   # the command library, then the bot
 cp config.example.toml config.toml   # then edit it
 chmod 600 config.toml                # whoever can change it chooses the admins
 ```
@@ -274,41 +274,31 @@ the bot:
 
 ## Writing a command
 
-A command is a Python class or function, named in `config.toml` with
-`handler = "module:attr"` or registered by a package under the
-`mesh_contingency.commands` entry point group.
+The commands run on [`mesh-commands`](packages/mesh-commands/README.md), a
+library in this repo with no imports from Mesh Contingency, so it can be
+lifted into another MeshCore bot. A command of your own is written against
+it. You can name it in `config.toml` with `handler = "module:attr"`, or
+register it from a package under the `mesh_contingency.commands` entry point
+group:
 
 ```python
-from mesh_contingency.api import Command, CommandError, CommandResult, command
+from mesh_commands import command
 
 @command(args="[NdS]", summary="Roll dice, e.g. 2d6")
 def roll(text, sender, ctx):
     ...
     return f"{sender.name} rolled {total}"
-
-class TideCommand(Command):
-    args = "<station>"
-    summary = "Today's tides"
-
-    async def execute(self, text, sender):
-        ...
-        return CommandResult(console=full_report, reply=short_text)
 ```
 
-A command gets the text after its name, the `Sender` (`name`, and
-`public_key`: the full key, or `None` if the sender couldn't be identified)
-and, as `ctx`, its options from the config, the radio, the other commands,
-the admins and shared state. It returns reply text, a list of messages, a
-`CommandResult` or `None`. The bot splits long replies into numbered
-messages (at most 8, of 133 characters each) and enforces a time limit.
-`raise CommandError("...")` sends that message back; any other exception is
-answered with `<name>: failed`. `mesh_contingency.testing` has a fake radio
-(`FakeMeshCore`) and `make_context()` for tests.
+`ctx.extras["state"]` is the bot's saved state (the JSON files next to
+`config.toml`). The library's README covers the rest: classes, replies,
+errors, permissions and testing with its fake radio.
 
 ## Testing
 
 ```sh
-.venv/bin/python -m unittest
+.venv/bin/python -m unittest                                   # the bot
+(cd packages/mesh-commands && ../../.venv/bin/python -m unittest)   # the library
 .venv/bin/pip install -e ".[dev]" && .venv/bin/ruff check .   # lint
 ```
 
@@ -319,7 +309,7 @@ the real `mesh_contingency.bot.main()` with simulated direct messages.
 ## Contributing
 
 Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
-the tests on Python 3.11 to 3.14, lint with
+the tests on Python 3.11 to 3.14, the library's tests on their own, lint with
 [ruff](https://docs.astral.sh/ruff/), a build and clean install of the wheel,
 and the install script (shellcheck, a fresh install and an update). Never
 include real data (your `config.toml`, node keys) in code, tests or issues.
@@ -328,24 +318,22 @@ include real data (your `config.toml`, node keys) in code, tests or issues.
 
 ```
 mesh_contingency/
-  bot.py              entry point: radio connection, permissions, dispatch, replies
-  config.py           reading config.toml: the admins, and settings older versions had
+  bot.py              entry point: the radio, the alert tasks, adverts; DMs go to mesh_commands
+  config.py           reading config.toml: the admins, the commands, settings older versions had
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
   weather.py          api.weather.gov: county codes and active alerts
-  api.py              the interface for commands: Command, Context, CommandResult, reply limits
-  registry.py         finding commands (entry points), checking [commands], loading them
-  running.py          running a command and turning its result into reply messages
-  limits.py           rate limits
   contacts.py         adding the admins' radios; listing contacts
   console.py          commands typed into the bot's terminal, scheduled adverts
   state.py            the JSON files kept next to config.toml
-  output.py           escaping terminal control codes in everything printed
-  testing.py          fake radio and make_context() for testing commands
-  commands/           alert, testalert and help
+  commands/           alert and testalert
+packages/mesh-commands/
+  mesh_commands/      the command library: commands, permissions, rate limits,
+                      the registry, dispatching DMs, the MeshCore link, help, test fakes
+  tests/              its own tests (run from that folder)
 deploy/               the systemd user unit
 install.sh            the one-command installer
 docs/plans/           design plans and what was decided
-tests/                unit tests (python -m unittest)
+tests/                the bot's tests (python -m unittest)
 ```
 
 ## Security notes

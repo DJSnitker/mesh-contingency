@@ -5,8 +5,8 @@
     user_rate = "30/hour"         # default for user commands
     admin_rate = "none"           # default for admin commands
 
-    [commands.alert]
-    permission = "admin"
+    [commands.roll]
+    permission = "public"
     rate = "5/hour"               # this command's own limit
 
 Counts are kept in memory, so they start again when the bot restarts.
@@ -17,14 +17,14 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 
+from .permissions import ADMIN, PUBLIC, USER
+
 UNITS = {"minute": 60, "hour": 3600, "day": 86400}
 RATE_RE = re.compile(r"\s*(\d+)\s*/\s*(minute|hour|day)\s*")
 NO_LIMIT = "none"
-# By permission level (api.PUBLIC, USER and ADMIN; api imports this module).
-DEFAULT_RATES = {"public": "10/hour", "user": "30/hour", "admin": NO_LIMIT}
+# By permission level.
+DEFAULT_RATES = {PUBLIC: "10/hour", USER: "30/hour", ADMIN: NO_LIMIT}
 LIMITS_KEYS = {f"{level}_rate" for level in DEFAULT_RATES}
-# Settings an older version had here; ignored (the bot warns about them).
-OLD_LIMITS_KEYS = {"emails_per_day", "emails_per_day_total"}
 
 
 def parse_rate(value, where):
@@ -54,9 +54,11 @@ class Limits:
     rates: dict = field(default_factory=lambda: {level: parse_rate(rate, "") for level, rate in DEFAULT_RATES.items()})
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config, ignore=()):
+        """The config's [limits] section; keys in `ignore` (ones a project used
+        to have there, say) are allowed and ignored, any other unknown key exits."""
         section = config.get("limits", {})
-        if not isinstance(section, dict) or set(section) - LIMITS_KEYS - OLD_LIMITS_KEYS:
+        if not isinstance(section, dict) or set(section) - LIMITS_KEYS - set(ignore):
             raise SystemExit(f"[limits] may only set {', '.join(sorted(LIMITS_KEYS))}.")
         return cls({level: parse_rate(section.get(f"{level}_rate", default), f"[limits] {level}_rate")
                     for level, default in DEFAULT_RATES.items()})

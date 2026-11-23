@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mesh-commands"
+version = "0.1.0"
+description = "Direct-message commands for MeshCore bots: permissions, rate limits, replies that fit the mesh"
+readme = "README.md"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+authors = [{ name = "Doug Snitker" }]
+requires-python = ">=3.11"
+# Held to the tested minor version, since meshcore's API changes between them.
+dependencies = ["meshcore>=2.3.17,<2.4"]
+
+[tool.setuptools.packages.find]
+include = ["mesh_commands*"]

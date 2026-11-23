@@ -1,6 +1,7 @@
 """help [command]: the commands the sender may run, or how to use one."""
 
-from ..api import Command, CommandError, CommandResult
+from ..command import Command, CommandResult
+from ..errors import CommandError
 
 
 class HelpCommand(Command):

@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
 
-from mesh_contingency.limits import Limits, RateLimiter, describe_rate, parse_rate, wait_text
-from mesh_contingency.registry import Registry
+from mesh_commands.limits import Limits, RateLimiter, describe_rate, parse_rate, wait_text
+from mesh_commands.registry import Registry
 
 
 class ParseRateTest(unittest.TestCase):
@@ -33,8 +33,10 @@ class LimitsConfigTest(unittest.TestCase):
         self.assertEqual(limits.rates["admin"], (100, 86400))
 
     def test_old_email_caps_are_ignored(self):
-        limits = Limits.from_config({"limits": {"emails_per_day": 50, "emails_per_day_total": 200}})
+        limits = Limits.from_config({"limits": {"emails_per_day": 50}}, ignore={"emails_per_day"})
         self.assertEqual(limits, Limits())
+        with self.assertRaisesRegex(SystemExit, r"\[limits\] may only set"):
+            Limits.from_config({"limits": {"emails_per_day": 50}})
 
     def test_mistakes(self):
         with self.assertRaisesRegex(SystemExit, r"\[limits\] may only set"):
@@ -43,24 +45,24 @@ class LimitsConfigTest(unittest.TestCase):
             Limits.from_config({"limits": {"user_rate": "lots"}})
 
     def test_registry_applies_rates(self):
-        help_handler = "mesh_contingency.commands.help:HelpCommand"
+        help_handler = "mesh_commands.builtin.help:HelpCommand"
         available = {name: help_handler for name in ("help", "mine", "alert", "testalert", "other")}
         registry = Registry({"limits": {"user_rate": "2/minute"}, "commands": {
             "help": {"permission": "public"}, "mine": {"permission": "user"},
             "alert": {"permission": "admin", "rate": "1/day"}, "testalert": {"permission": "admin"},
-            "other": {"permission": "public", "rate": "none"}}}, available)
+            "other": {"permission": "public", "rate": "none"}}}, available=available)
         self.assertEqual({name: spec.rate for name, spec in registry.specs.items()},
                          {"help": (10, 3600), "mine": (2, 60), "alert": (1, 86400), "testalert": None,
                           "other": None})
         self.assertNotIn("rate", registry.specs["alert"].options)
         with self.assertRaisesRegex(SystemExit, r"\[commands.alert\] rate must look"):
-            Registry({"commands": {"alert": {"permission": "admin", "rate": "often"}}}, available)
+            Registry({"commands": {"alert": {"permission": "admin", "rate": "often"}}}, available=available)
 
 
 class RateLimiterTest(unittest.TestCase):
     def setUp(self):
         self.clock = 1_000.0
-        self.enterContext(mock.patch("mesh_contingency.limits.time.monotonic", lambda: self.clock))
+        self.enterContext(mock.patch("mesh_commands.limits.time.monotonic", lambda: self.clock))
 
     def test_sliding_window_and_one_notice(self):
         limiter = RateLimiter()

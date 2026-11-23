@@ -1,5 +1,6 @@
-"""MeshCore direct-message bot with pluggable commands.
+"""MeshCore bot that posts National Weather Service alerts, with admin
+commands to post and test.
 
-Command authors only need mesh_contingency.api (and mesh_contingency.testing
-for tests); see "Writing a command" in the README.
+Its commands run on the mesh_commands library (packages/mesh-commands);
+commands of your own are written against that (see its README).
 """

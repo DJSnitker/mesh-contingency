@@ -19,6 +19,8 @@ import re
 import tomllib
 from pathlib import Path
 
+from mesh_commands import Limits, Registry
+
 KEY_RE = re.compile(r"[0-9a-f]{64}")
 ADMINS_KEYS = {"keys"}
 OLD_USERS_FILE = "users.toml"
@@ -26,6 +28,17 @@ OLD_USERS_FILE = "users.toml"
 RETIRED_SECTIONS = ("backup", "console", "contacts", "directory", "watch")
 # Settings removed from sections that are still used.
 RETIRED_SETTINGS = {"limits": ("emails_per_day", "emails_per_day_total")}
+# Commands removed in 1.0 (rename long before): a config that still lists
+# them gets one warning rather than failing to start.
+RETIRED_COMMANDS = frozenset({
+    "addgroup", "advert", "alertmap", "approve", "area", "backup", "checkins", "clearinbox", "cleargroup",
+    "clearstatus", "comm", "contact", "contacts", "deny", "email", "emailall", "health", "history", "inbox",
+    "join", "leave", "msg", "ok", "qm", "quickim", "radio", "reload", "remove", "rename", "resetpass", "roster",
+    "setemail", "setpass", "setqm", "setquickim", "settings", "status", "users", "verse", "whoami", "whois", "wx",
+})
+# Where commands are found: this package registers its own there, and any
+# installed package can add more.
+ENTRY_POINT_GROUP = "mesh_contingency.commands"
 
 
 def load_config(path):
@@ -93,3 +106,14 @@ def retired_settings(config):
         return None
     return (f"config.toml has settings for removed features, ignored: {', '.join(found)}. "
             "Remove them (see config.example.toml).")
+
+
+def load_commands(config, available=None):
+    """The Registry of the commands config.toml enables (installed commands
+    are discovered unless `available` gives them). Exits on a mistake."""
+    if "permissions" in config:
+        raise SystemExit("The [permissions] table is replaced by one [commands.<name>] section "
+                         "per command, e.g. [commands.alert] permission = \"admin\"; "
+                         "see config.example.toml.")
+    limits = Limits.from_config(config, ignore=RETIRED_SETTINGS["limits"])
+    return Registry(config, ENTRY_POINT_GROUP, available=available, limits=limits, retired=RETIRED_COMMANDS)

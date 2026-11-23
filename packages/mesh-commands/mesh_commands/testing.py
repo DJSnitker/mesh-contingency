@@ -1,6 +1,6 @@
-"""Test helpers for commands, built in or third party.
+"""Test helpers for commands.
 
-    from mesh_contingency.testing import FakeMeshCore, make_context
+    from mesh_commands.testing import FakeMeshCore, make_context
 
     cmd = MyCommand(make_context("mine", options={"station": "x"}, radio=FakeMeshCore()))
     result = await cmd.execute("some text", Sender("Dana", "d0" * 32))
@@ -13,27 +13,23 @@ from types import SimpleNamespace
 
 from meshcore import EventType
 
-from .alerts import PUBLIC_SECRET
-from .api import Context
-from .limits import Limits
-from .state import State
+from .command import Context
+from .permissions import KeyRoles
 
 # The well-known key of MeshCore's default Public channel.
-PUBLIC_CHANNEL_SECRET = PUBLIC_SECRET.hex()
+PUBLIC_CHANNEL_SECRET = "8b3387e9c5cdea6ac9e5edbaa115cd72"
 
 
-def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, state=None, sent=None,
-                 limits=None):
-    """A Context like the one the bot creates a command with: admins (and
-    users) are collections of public keys. Commands that share data need the
-    same State; without a data_dir it is kept in memory. Direct messages the
-    command sends with ctx.send are added to the `sent` list as (public key,
-    text). limits replaces the default [limits] settings."""
+def make_context(name, options=None, users=(), admins=(), roles=None, radio=None, commands=None, sent=None,
+                 extras=None):
+    """A Context like the one Registry.build creates a command with. Give
+    the users' and admins' public keys, or any other Roles as roles. Direct
+    messages the command sends with ctx.send are added to the `sent` list as
+    (public key, text)."""
     sent = sent if sent is not None else []
     return Context(name=name, options=options or {}, radio=radio, commands=commands if commands is not None else {},
-                   state=state or State(), send=lambda key, text: sent.append((key, text)), limits=limits or Limits(),
-                   users=dict.fromkeys(users or (), {}) if not isinstance(users, dict) else users,
-                   admins=frozenset(admins or ()))
+                   send=lambda key, text: sent.append((key, text)), roles=roles or KeyRoles(users, admins),
+                   extras=extras if extras is not None else {})
 
 
 def event(event_type, payload=None):

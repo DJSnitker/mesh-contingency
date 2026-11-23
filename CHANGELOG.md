@@ -70,6 +70,14 @@ The first step of cutting the system down to weather alerts
   (`--comm-channel` is ignored), and `--check` notes a node with no admins or
   no counties instead of looking for the example admin key.
 - The README is cut down to what's left.
+- The command machinery is now its own library, `mesh-commands`, in
+  `packages/mesh-commands` (import name `mesh_commands`, version 0.1.0). It has
+  no imports from Mesh Contingency, its own README, CHANGELOG and tests, and
+  CI tests it on its own. `mesh_contingency.api`, `.registry`, `.limits`,
+  `.running`, `.output`, `.testing` and the `help` command moved there;
+  commands of your own import from `mesh_commands` instead. Installing now
+  takes both: `pip install -e packages/mesh-commands -e .` (`install.sh` does
+  it).
 
 ## [0.12.0] - 2026-11-11
 
