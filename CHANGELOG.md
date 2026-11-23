@@ -21,6 +21,13 @@ may change how the bot is configured).
 - The installer asks a new node for its alert and communications channels
   (Enter keeps `#contingency-wx` and `#contingency-comm`) and writes them to
   `config.toml`; `--alert-channel` and `--comm-channel` answer without asking.
+- `install.sh --check`, for after editing the config: it stops at what would
+  keep the node from working (the example admin key, no radio, a port you
+  can't open), then starts the service and waits for the bot to say it's
+  listening, showing its warnings or what it printed when it stopped. The
+  install's to-do list now ends with it.
+- The installer's instructions say plainly that it runs without sudo (and
+  refuses root), and which one-time commands need an admin's sudo.
 
 ## [0.12.0] - 2026-11-11
 

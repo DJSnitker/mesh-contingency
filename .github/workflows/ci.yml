@@ -304,3 +304,9 @@ jobs:
           grep -q '^alert = .*channel = "#district7-wx"' ~/node2/config.toml
           grep -q '^comm = .*channel = "#d7-comm"' ~/node2/config.toml
           ! ./install.sh --dir ~/node3 --alert-channel 'bad name!'
+      # --check stops before starting anything while users.toml has the
+      # example admin key (CI has no user systemd to start the service with).
+      - name: Check mode
+        run: |
+          ! ./install.sh --check --dir ~/node2 | tee out
+          grep -q "example admin key" out

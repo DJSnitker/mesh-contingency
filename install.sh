@@ -8,8 +8,18 @@
 # your own), and sets up the systemd user service. Run it again to update:
 # your config, users and saved data are left alone.
 #
-# It never uses sudo. When something needs it (a missing package, the dialout
-# group), it prints the command for you to run.
+# No sudo: run it as the user the node will run as, never with sudo or as
+# root (it refuses). It never calls sudo itself either. A few one-time steps
+# need an admin of the computer (installing a missing package, joining the
+# dialout group, sometimes lingering), so it prints those commands, with
+# sudo, for you to run.
+#
+# After editing config.toml and users.toml, check the node:
+#
+#   ~/mesh-contingency/install.sh --check
+#
+# starts (or restarts) the service and waits for the bot to say it's
+# listening, reporting any warnings or what stopped it.
 #
 # Options, after "bash -s --" when piped (curl ... | bash -s -- --console):
 #   --dir DIR      install here instead of ~/mesh-contingency
@@ -18,13 +28,16 @@
 #   --no-service   don't install the systemd user service
 #   --alert-channel NAME   the alert channel (weather alerts, alert), e.g. #district7-wx
 #   --comm-channel NAME    the communications channel (comm), e.g. #district7-comm
+#   --check        don't install: start the service and check the node runs
 #
 # A new install asks for the two channels (Enter keeps #contingency-wx and
 # #contingency-comm), unless they're given as options or there's no terminal
 # to ask on. An update never asks: change them in config.toml.
 #
 # MC_REPO overrides the repository to clone (CI uses a local copy), and
-# MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*).
+# MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*); MC_UNIT
+# the service --check starts (default mesh-contingency), and MC_WAIT how many
+# seconds it waits (default 90).
 
 # Everything is inside main, so a download cut short runs nothing.
 main() {
@@ -32,7 +45,7 @@ main() {
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
     local dir="$HOME/mesh-contingency" ref="" console=0 service=1
-    local alert_channel="" comm_channel=""
+    local alert_channel="" comm_channel="" check=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -40,6 +53,7 @@ main() {
             --ref) ref="${2:?--ref needs a tag or branch}"; shift 2 ;;
             --console) console=1; shift ;;
             --no-service) service=0; shift ;;
+            --check) check=1; shift ;;
             --alert-channel) alert_channel="$(channel_name "${2:?--alert-channel needs a name}")" \
                                  || die "--alert-channel: $(channel_rule)"; shift 2 ;;
             --comm-channel) comm_channel="$(channel_name "${2:?--comm-channel needs a name}")" \
@@ -51,7 +65,8 @@ main() {
     done
 
     [ "$(uname -s)" = Linux ] || die "the node runs on Linux only"
-    [ "$(id -u)" -ne 0 ] || die "run this as the user the node will run as, not root"
+    [ "$(id -u)" -ne 0 ] || die "run this as the user the node will run as, not root (no sudo)"
+    if [ "$check" = 1 ]; then check_node "$dir"; return; fi
 
     # What the system needs; one command lists everything missing.
     local missing=() python
@@ -152,9 +167,8 @@ main() {
         say "     $(package_hint mail)"
     fi
     if [ "$service" = 1 ] && [ "$fresh" = 1 ]; then
-        say "$((step++)). Plug in the radio and start the bot:"
-        say "     systemctl --user start mesh-contingency"
-        say "     journalctl --user -u mesh-contingency -f"
+        say "$((step++)). Plug in the radio, then start and check the node:"
+        say "     $dir/install.sh --check"
     elif [ "$service" = 0 ]; then
         say "$((step++)). Run it: $dir/.venv/bin/mesh-contingency"
     fi
@@ -230,9 +244,7 @@ set_channel() {
 # names the group that owns it; without one, it checks the usual groups.
 radio_access() {
     local ports=() p
-    for p in ${MC_PORTS:-/dev/ttyUSB* /dev/ttyACM*}; do
-        if [ -e "$p" ]; then ports+=("$p"); fi
-    done
+    read -r -a ports <<< "$(radio_ports)"
 
     if [ ${#ports[@]} -eq 0 ]; then
         groups | grep -qwE 'dialout|uucp' && return 0
@@ -267,6 +279,105 @@ radio_access() {
         fi
         return 0
     done
+}
+
+# The USB serial ports there are now, on one line.
+radio_ports() {
+    local p found=()
+    for p in ${MC_PORTS:-/dev/ttyUSB* /dev/ttyACM*}; do
+        if [ -e "$p" ]; then found+=("$p"); fi
+    done
+    printf '%s\n' "${found[*]}"
+}
+
+# --check: what would stop the node, then start the service and wait for the
+# bot's "Listening for direct messages", or the error it stopped with.
+check_node() {
+    local dir="$1" unit="${MC_UNIT:-mesh-contingency}" wait="${MC_WAIT:-90}"
+    local blockers=0 notes=0 access
+    [ -f "$dir/config.toml" ] || die "no node in $dir: install it first (or give --dir)"
+    cd "$dir"
+    say "Checking the node in $dir"
+
+    # What would keep it from working: fix these before starting.
+    if grep -q a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2 users.toml 2>/dev/null; then
+        say "- users.toml still has the example admin key: put your radio's key in [admin] keys"
+        say "  (https://github.com/DJSnitker/mesh-contingency/wiki/Set-Up-a-Node#3-make-yourself-the-first-admin)"
+        blockers=$((blockers + 1))
+    fi
+    if [ -z "$(radio_ports)" ]; then
+        say "- No radio on USB (/dev/ttyUSB*, /dev/ttyACM*): plug the node's radio in"
+        blockers=$((blockers + 1))
+    else
+        access="$(radio_access 2>/dev/null)"
+        if [ -n "$access" ]; then say "- $access"; blockers=$((blockers + 1)); fi
+    fi
+    if ! systemctl --user show-environment >/dev/null 2>&1; then
+        say "- No systemd user session here (su or a container?): log in as this user directly"
+        return 1
+    fi
+    if ! systemctl --user cat "$unit" >/dev/null 2>&1; then
+        say "- The $unit service isn't installed: run the installer again (without --no-service)"
+        return 1
+    fi
+    if [ "$blockers" -gt 0 ]; then
+        say "Fix that, then run this again."
+        return 1
+    fi
+
+    # What only matters at boot: worth knowing, not a reason to stop.
+    if ! systemctl --user -q is-enabled "$unit" 2>/dev/null; then
+        say "- It won't start at boot: systemctl --user enable $unit"
+        notes=$((notes + 1))
+    fi
+    if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != yes ]; then
+        say "- It starts at boot only once you log in; to start without: sudo loginctl enable-linger \"\$USER\""
+        notes=$((notes + 1))
+    fi
+
+    # Start it and read what it prints from here on.
+    local cursor log waited=0
+    cursor="$(journalctl --user -u "$unit" -n 0 --show-cursor 2>/dev/null | sed -n 's/^-- cursor: //p')"
+    if systemctl --user -q is-active "$unit"; then say "Restarting the service"; else say "Starting the service"; fi
+    systemctl --user restart "$unit"
+    while true; do
+        if [ -n "$cursor" ]; then
+            log="$(journalctl --user -u "$unit" --after-cursor "$cursor" -o cat --no-pager 2>/dev/null)"
+        else
+            log="$(journalctl --user -u "$unit" -b -o cat --no-pager 2>/dev/null)"
+        fi
+        if grep -q "Listening for direct messages" <<< "$log"; then break; fi
+        if grep -qE "Main process exited|Failed with result" <<< "$log" || [ "$waited" -ge "$wait" ]; then
+            local printed
+            printed="$(grep -vE "^(Starting|Started|Stopping|Stopped) |\.service: " <<< "$log" | tail -n 15 | sed 's/^/  /' || true)"
+            if [ "$waited" -ge "$wait" ]; then
+                say "The bot hasn't said it's listening after ${wait}s. What it printed:"
+                say "${printed:-  (nothing yet)}"
+                say "It may still be starting (a slow radio): watch with"
+                say "  journalctl --user -u $unit -f"
+            else
+                say "The bot stopped. What it printed:"
+                say "${printed:-  (nothing)}"
+                say "It tries again every 30 seconds. Fix the cause, then run this again;"
+                say "the full log: journalctl --user -u $unit -e"
+            fi
+            return 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+
+    local warnings line
+    warnings="$(grep "^Warning:" <<< "$log" || true)"
+    if [ -n "$warnings" ]; then
+        say "Running, with warnings (what each means: https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux#step-6-check-its-working):"
+        while IFS= read -r line; do say "  $line"; done <<< "$warnings"
+    else
+        say "Running, with no warnings."
+    fi
+    say "The node is listening. Next: send it health from your radio, and test a reboot."
+    [ "$notes" = 0 ] || say "(see the notes above about starting at boot)"
+    return 0
 }
 
 # The newest release tag, from the repository itself (no API, no jq).
