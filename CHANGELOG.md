@@ -18,6 +18,9 @@ may change how the bot is configured).
 - The installer checks the radio's USB port: with a radio plugged in, it
   tries to open the port and says what's in the way (the group to join, a
   login that hasn't picked up a new group yet, or a port no group can open).
+- The installer asks a new node for its alert and communications channels
+  (Enter keeps `#contingency-wx` and `#contingency-comm`) and writes them to
+  `config.toml`; `--alert-channel` and `--comm-channel` answer without asking.
 
 ## [0.12.0] - 2026-11-11
 
