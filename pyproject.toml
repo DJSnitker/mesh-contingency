@@ -19,7 +19,7 @@ dependencies = ["meshcore>=2.3.17,<2.4", "pycryptodome>=3.21"]
 [project.optional-dependencies]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
 # can't fail CI unannounced (Dependabot proposes upgrades).
-dev = ["ruff==0.17.5"]
+dev = ["ruff==0.17.6"]
 
 [project.urls]
 Repository = "https://github.com/DJSnitker/mesh-contingency"
