@@ -2,13 +2,17 @@
 # it when it starts, so restart it after a change:
 #   systemctl --user restart mesh-contingency
 #
-# Everything is posted to MeshCore's Public channel, which every radio has.
+# Everything is posted to MeshCore's Public channel, which every radio has,
+# unless [alerts] channel names another.
 
 # Weather alerts from the National Weather Service for these counties, each
 # posted once ("Name, ST"). Empty turns them off.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5
+# Where the alerts, alert and testalert post: "Public", or a hashtag channel
+# (added to the radio if it isn't there), e.g. to try things out first.
+# channel = "#wx-test"
 # Post only some alerts, by the NWS's severity (Extreme, Severe, Moderate,
 # Minor, Unknown) and/or by event name (any case). An alert is posted if it
 # passes every filter set; leave both out to post every alert.

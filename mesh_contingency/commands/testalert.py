@@ -1,4 +1,4 @@
-"""testalert: post the test message to the Public channel now.
+"""testalert: post the test message to the alert channel now.
 
 The message, and a weekly time to post it by itself, are set in [alert_test]
 in config.toml.
@@ -6,11 +6,11 @@ in config.toml.
 
 from mesh_commands import Command, CommandError, CommandResult
 
-from ..alerts import PUBLIC, NoPublicChannel, when_text
+from ..alerts import NoChannel, when_text
 
 
 class TestAlertCommand(Command):
-    summary = "Post the test message to the Public channel"
+    summary = "Post the test message to the alert channel"
 
     async def execute(self, text, sender):
         if text.strip():
@@ -22,9 +22,9 @@ class TestAlertCommand(Command):
             raise CommandError(f"{self.name}: {problem}")
         try:
             slot, messages = await test.send()
-        except NoPublicChannel as e:
+        except NoChannel as e:
             raise CommandError(f"{self.name}: {e}; nothing posted") from None
         nxt = test.next_time()
         later = f"; next weekly test {when_text(nxt, test.settings.zone)}" if nxt else ""
-        console = "\n".join([f"Alert test posted to {PUBLIC} (slot {slot}):"] + [f"  {m}" for m in messages])
-        return CommandResult(console=console, reply=f"{self.name}: posted to {PUBLIC}{later}")
+        console = "\n".join([f"Alert test posted to {test.channel} (slot {slot}):"] + [f"  {m}" for m in messages])
+        return CommandResult(console=console, reply=f"{self.name}: posted to {test.channel}{later}")

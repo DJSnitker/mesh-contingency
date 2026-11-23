@@ -234,8 +234,8 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         radio.channels[0] = ("", bytes(16))
         await self.start(radio=radio)
         out = self.out.getvalue()
-        self.assertIn("Warning: No Public channel on the radio, so no alerts can be posted: add MeshCore's Public "
-                      "channel back in the radio's app.", out)
+        self.assertIn("Warning: No Public channel on the radio; add MeshCore's Public channel back in its app. "
+                      "No alerts can be posted.", out)
         self.assertIn("Listening for direct messages", out)
         self.assertEqual(radio.channels, [("", bytes(16))] * 8)  # nothing added
         await radio.dm(ADMIN_KEY, "alert hi")
@@ -243,14 +243,21 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(radio.sent[-1][1], "alert: no Public channel on the radio; add MeshCore's Public channel "
                                             "back in its app; nothing posted")
 
-    async def test_an_old_channel_setting_is_a_warning(self):
+    async def test_a_channel_of_its_own(self):
         await self.start(CONFIG.replace('alert = { permission = "admin" }',
-                                        'alert = { permission = "admin", channel = "#district7-wx" }')
-                         + '\n[alerts]\nchannel = "#district7-wx"\n')
-        self.assertIn("Warning: config.toml sets [alerts] channel, [commands.alert] channel, which is no longer "
-                      "used: the alerts always go to the Public channel. Remove it.", self.out.getvalue())
+                                        'alert = { permission = "admin", channel = "#old" }')
+                         + '\n[alerts]\nchannel = "wx-test"\n')
+        out = self.out.getvalue()
+        self.assertIn("Warning: config.toml sets [commands.alert] channel, which is no longer used: [alerts] "
+                      "channel picks the channel for the alerts, alert and testalert. Remove it.", out)
+        self.assertIn("Added the #wx-test channel to the radio (slot 1).\n"
+                      "Alerts go to the #wx-test channel (slot 1).", out)
         await self.radio.dm(ADMIN_KEY, "alert hi")
-        self.assertEqual(self.radio.channel_sent, [(0, "hi")])
+        await self.radio.dm(ADMIN_KEY, "testalert")
+        self.assertEqual([slot for slot, _ in self.radio.channel_sent], [1, 1])
+        self.assertEqual(self.radio.sent[-2][1], "alert: posted to #wx-test")
+        self.assertTrue(self.radio.sent[-1][1].startswith("testalert: posted to #wx-test"), self.radio.sent)
+        self.assertNotIn("#old", [name for name, _ in self.radio.channels])
 
     async def test_failed_start_is_a_warning(self):
         await self.start(CONFIG + '[commands.broken]\nhandler = "tests.test_bot:BrokenStart"\npermission = "public"\n')
