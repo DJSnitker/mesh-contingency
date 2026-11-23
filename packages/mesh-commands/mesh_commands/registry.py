@@ -1,15 +1,14 @@
-"""Finding, configuring and loading mesh commands.
+"""Finding, configuring and loading commands.
 
-Commands are found through the "mesh_contingency.commands" entry point group,
-which every installed package can add to (this one registers the built-in
-commands the same way), or named directly in the config:
+Commands are found through an entry point group the project names (any
+installed package can add to it), or named directly in the config:
 
     [commands.alert]
     permission = "admin"
 
     [commands.hello]
     handler = "my_commands:hello"   # module:attr, a Command subclass or function
-    permission = "user"
+    permission = "public"
     greeting = "hi"                 # anything else is the command's own option
 
 Only commands with a section and a permission other than "disabled" are
@@ -22,25 +21,25 @@ import re
 from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 
-from .api import DEFAULT_TIMEOUT, DISABLED, LEVELS, Command, Context, FunctionCommand
+from .command import DEFAULT_TIMEOUT, Command, Context, FunctionCommand
 from .limits import Limits, parse_rate
-from .state import State
+from .permissions import DISABLED, LEVELS, NO_ROLES
 
-ENTRY_POINT_GROUP = "mesh_contingency.commands"
-# Keys of a [commands.<name>] section that are for the bot, not the command.
+# Keys of a [commands.<name>] section that are for the dispatcher, not the command.
 RESERVED_KEYS = {"permission", "handler", "timeout", "rate"}
 NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 HANDLER_RE = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*")
 
 
-def discover():
-    """Return {command name: "module:attr"} for every installed command.
+def discover(group):
+    """Return {command name: "module:attr"} for every command installed under
+    the entry point group.
 
     Exits if two packages offer the same name with different code, since it
     would be unclear which one runs.
     """
     found = {}
-    for ep in entry_points(group=ENTRY_POINT_GROUP):
+    for ep in entry_points(group=group):
         if found.get(ep.name, ep.value) != ep.value:
             raise SystemExit(f"Two installed packages provide the command '{ep.name}': "
                              f"{found[ep.name]} and {ep.value}. Uninstall one, or pick one "
@@ -74,49 +73,41 @@ class CommandSpec:
     options: dict = field(default_factory=dict)
     rate: tuple | None = None  # (count, seconds) per sender, or None for no limit
 
-# Commands that used to exist: a config that still lists them gets one
-# warning rather than failing to start. All but rename went in 1.0, when
-# the node became weather alerts only (they're on the tag archive/full-system).
-RETIRED = frozenset({
-    "addgroup", "advert", "alertmap", "approve", "area", "backup", "checkins", "clearinbox", "cleargroup",
-    "clearstatus", "comm", "contact", "contacts", "deny", "email", "emailall", "health", "history", "inbox",
-    "join", "leave", "msg", "ok", "qm", "quickim", "radio", "reload", "remove", "rename", "resetpass", "roster",
-    "setemail", "setpass", "setqm", "setquickim", "settings", "status", "users", "verse", "whoami", "whois", "wx",
-})
-
 
 class Registry:
     """The commands the config enables, checked before connecting to the radio."""
 
-    def __init__(self, config, available=None):
+    def __init__(self, config, group=None, available=None, limits=None, retired=()):
         """Check the config's [commands] sections against the installed
-        commands (`available`, {name: "module:attr"}; discovered if None) and
-        import the enabled ones.
+        commands and import the enabled ones.
+
+        The installed commands are `available` ({name: "module:attr"}), or
+        those discovered under the entry point `group`. `limits` is the
+        default rate for each level (from the config's [limits] if None).
+        `retired` names commands the project used to have: a config that still
+        lists them gets one warning instead of an error.
 
         Exits on a config mistake (unknown command or level, bad handler or
         timeout) so a typo can't silently leave a command open or shut. A
         command whose code fails to import is skipped with a warning.
         """
-        if "permissions" in config:
-            raise SystemExit("The [permissions] table is replaced by one [commands.<name>] section "
-                             "per command, e.g. [commands.wx] permission = \"public\"; "
-                             "see config.example.toml.")
-        available = discover() if available is None else available
-        self.limits = Limits.from_config(config)
+        if available is None:
+            available = discover(group) if group else {}
+        self.limits = Limits.from_config(config) if limits is None else limits
         sections = dict(config.get("commands", {}))
         self.specs = {}  # name -> CommandSpec, enabled commands only
         self.disabled = []  # names of commands nobody may run
         self.warnings = []  # problems worth printing at startup
         self.factories = {}  # name -> imported Command subclass or function
 
-        retired = [name for name, section in sections.items()
-                   if name in RETIRED and name not in available and not (isinstance(section, dict)
-                                                                         and "handler" in section)]
-        if retired:
-            self.warnings.append(f"[commands] lists commands that no longer exist, ignored: {', '.join(retired)}. "
-                                 "Remove their entries (see config.example.toml).")
+        old = [name for name, section in sections.items()
+               if name in retired and name not in available and not (isinstance(section, dict)
+                                                                     and "handler" in section)]
+        if old:
+            self.warnings.append(f"[commands] lists commands that no longer exist, ignored: {', '.join(old)}. "
+                                 "Remove their entries.")
         for name, section in sections.items():
-            if name in retired:
+            if name in old:
                 continue
             spec = self._check(name, section, available, self.limits)
             if spec is None:
@@ -164,19 +155,20 @@ class Registry:
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
         return CommandSpec(name, handler, permission, timeout, options, rate)
 
-    def build(self, admins, radio, state=None, send=None):
-        """Create the enabled commands, sharing one State, and return them as
-        {name: Command}. admins is the set of admins' public keys;
-        send(public key, text) queues a direct message.
+    def build(self, radio=None, roles=NO_ROLES, send=None, extras=None):
+        """Create the enabled commands and return them as {name: Command}.
 
-        A command that fails to start is skipped and added to warnings.
+        Each gets a Context with the radio, the roles (who are users and
+        admins), send(public key, text) to queue a direct message, and the
+        project's `extras`, one dict shared by all. A command that fails to
+        start is skipped and added to warnings.
         """
         commands = {}
-        state = state or State()
+        extras = {} if extras is None else extras
         for name, spec in self.specs.items():
             factory = self.factories[name]
-            ctx = Context(name=name, options=spec.options, radio=radio, commands=commands, state=state,
-                          limits=self.limits, admins=frozenset(admins), **({"send": send} if send else {}))
+            ctx = Context(name=name, options=spec.options, radio=radio, commands=commands, roles=roles,
+                          extras=extras, **({"send": send} if send else {}))
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:

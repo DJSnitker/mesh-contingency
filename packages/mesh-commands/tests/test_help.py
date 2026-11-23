@@ -1,8 +1,8 @@
 import unittest
 
-from mesh_contingency.api import ADMIN, PUBLIC, USER, Command, CommandError, Sender
-from mesh_contingency.commands.help import HelpCommand
-from mesh_contingency.testing import make_context
+from mesh_commands import ADMIN, PUBLIC, USER, Command, CommandError, Sender
+from mesh_commands.builtin.help import HelpCommand
+from mesh_commands.testing import make_context
 
 USER_KEY, ADMIN_KEY = "d0" * 32, "ad" * 32
 
@@ -18,7 +18,7 @@ class Echo(Command):
 class HelpCommandTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.commands = {}
-        ctx = dict(users={USER_KEY: {}}, admins={ADMIN_KEY}, commands=self.commands)
+        ctx = dict(users={USER_KEY}, admins={ADMIN_KEY}, commands=self.commands)
         for name, cls, level in [("help", HelpCommand, PUBLIC), ("echo", Echo, PUBLIC),
                                  ("mine", Echo, USER), ("alert", Echo, ADMIN)]:
             cmd = cls(make_context(name, **ctx))

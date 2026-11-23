@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from mesh_commands.testing import FakeMeshCore, event
 from meshcore import EventType
 
 from mesh_contingency.console import (
@@ -21,7 +22,6 @@ from mesh_contingency.console import (
     watch_console,
 )
 from mesh_contingency.state import Store
-from mesh_contingency.testing import FakeMeshCore, event
 
 
 class LoadAdvertTest(unittest.TestCase):

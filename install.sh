@@ -119,7 +119,8 @@ main() {
     # Quiets setuptools' warning about editable installs; pip errors still show.
     export PYTHONWARNINGS=ignore
     .venv/bin/python -m pip install -q --upgrade pip
-    .venv/bin/python -m pip install -q -e .
+    # The command library lives in this repo too (packages/mesh-commands).
+    .venv/bin/python -m pip install -q -e packages/mesh-commands -e .
 
     # Your own config, made once from the example and never overwritten.
     local made=()

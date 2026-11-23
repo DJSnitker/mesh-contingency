@@ -11,21 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, Command, CommandError
+from mesh_commands.dispatch import UNRECOGNIZED_COOLDOWN, UNRECOGNIZED_REPLY
+from mesh_commands.testing import FakeMeshCore, event, full_key, make_contact
 from meshcore import EventType
 
 from mesh_contingency import bot
-from mesh_contingency.api import (
-    ADMIN,
-    DISABLED,
-    MAX_PARTS,
-    MAX_REPLY_LEN,
-    PUBLIC,
-    USER,
-    Command,
-    CommandError,
-    Sender,
-)
-from mesh_contingency.testing import FakeMeshCore, event, full_key, make_contact
 
 
 async def echo(text, sender, ctx):
@@ -81,20 +72,6 @@ class FindSerialPortTest(unittest.TestCase):
             self.assertIsNone(bot.find_serial_port())
 
 
-class IsAuthorizedTest(unittest.TestCase):
-    def check(self, permission, key):
-        command = SimpleNamespace(permission=permission)
-        return bot.is_authorized(command, Sender("x", full_key(key)), users={}, admins={full_key(ADMIN_KEY)})
-
-    def test_matrix(self):
-        self.assertTrue(self.check(PUBLIC, STRANGER))
-        self.assertTrue(self.check(ADMIN, ADMIN_KEY))
-        self.assertFalse(self.check(ADMIN, DANA))
-        self.assertFalse(self.check(USER, ADMIN_KEY))  # there are no users
-        self.assertFalse(self.check(DISABLED, ADMIN_KEY))
-        self.assertFalse(self.check("unknown-level", ADMIN_KEY))
-
-
 class RunTest(unittest.TestCase):
     def test_runs_main(self):
         with mock.patch("mesh_contingency.bot.main", mock.AsyncMock(return_value=0)) as main:
@@ -120,44 +97,6 @@ class RunTest(unittest.TestCase):
                 bot.run()
 
 
-class ParseCommandTest(unittest.TestCase):
-    COMMANDS = {"alert": "AL", "testalert": "TA"}
-
-    def parse(self, text):
-        return bot.parse_command({"text": text}, self.COMMANDS)
-
-    def test_name_and_text(self):
-        self.assertEqual(self.parse("alert shelter open"), ("AL", "shelter open"))
-        self.assertEqual(self.parse("  ALERT   shelter  "), ("AL", "shelter"))
-        self.assertEqual(self.parse("testalert"), ("TA", ""))
-
-    def test_text_keeps_inner_spacing(self):
-        self.assertEqual(self.parse("alert a  two  spaces"), ("AL", "a  two  spaces"))
-        self.assertEqual(self.parse("alert line1\nline2"), ("AL", "line1\nline2"))
-
-    def test_not_a_command(self):
-        for text in ("", "   ", "hello", "alerts now", "wx 10001"):
-            self.assertIsNone(self.parse(text), text)
-        self.assertIsNone(bot.parse_command({}, self.COMMANDS))
-
-
-class NearestCommandTest(unittest.TestCase):
-    NAMES = ["help", "alert", "testalert"]
-
-    def test_close(self):
-        for word, expected in [("hlep", "help"), ("ALRET", "alert"), ("testalret", "testalert"),
-                               ("hello", None), ("test", None), ("x", None)]:
-            self.assertEqual(bot.nearest_command(word, self.NAMES), expected, word)
-
-    def test_a_disabled_command_is_not_a_typo(self):
-        self.assertIsNone(bot.nearest_command("alerts", ["alert"], disabled=["alerts"]))
-
-    def test_our_own_reply_is_not_a_command(self):
-        # A node that echoes our replies back can't start a loop.
-        self.assertIsNone(bot.nearest_command("unknown", self.NAMES))
-        self.assertIsNone(bot.nearest_command(bot.UNRECOGNIZED_REPLY.split()[0], self.NAMES))
-
-
 class MainTest(unittest.IsolatedAsyncioTestCase):
     """Runs bot.main() against a fake radio and drives it with messages."""
 
@@ -171,8 +110,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.clock = 1000.0
         self.out = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.out))
-        self.enterContext(mock.patch("mesh_contingency.bot.time",
-                                     SimpleNamespace(monotonic=lambda: self.clock, time=time.time)))
+        clock = SimpleNamespace(monotonic=lambda: self.clock, time=time.time)
+        self.enterContext(mock.patch("mesh_contingency.bot.time", clock))
+        self.enterContext(mock.patch("mesh_commands.dispatch.time", clock))
         self.enterContext(mock.patch("mesh_contingency.bot.MeshCore.create_serial",
                                      mock.AsyncMock(return_value=self.radio)))
         self.enterContext(mock.patch("sys.argv", ["mesh-contingency", "-p", "/dev/fake", "-c", str(config_file)]))
@@ -314,7 +254,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Warning: testalert has no [commands.testalert] section; disabled.", out)
         await self.radio.dm(ADMIN_KEY, "testalert")
         self.assertEqual(self.radio.channel_sent, [])
-        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+        self.assertEqual(self.replies(), [UNRECOGNIZED_REPLY])
 
     async def test_bad_permissions_stop_startup_before_connecting(self):
         await self.main_exits(CONFIG.replace('alert = { permission = "admin" }', 'alert = { permission = "boss" }'),
@@ -485,7 +425,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_unrecognized_message_gets_reply(self):
         await self.start()
         await self.radio.dm(STRANGER, "hello")
-        self.assertEqual(self.radio.sent, [("Stranger", bot.UNRECOGNIZED_REPLY)])
+        self.assertEqual(self.radio.sent, [("Stranger", UNRECOGNIZED_REPLY)])
 
     async def test_blank_message_gets_no_reply(self):
         await self.start()
@@ -498,13 +438,13 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(STRANGER, "anyone?")
         await self.radio.dm(STRANGER, "alert hi")  # denials share the same cooldown
         await self.radio.dm(DANA, "foo")  # a different sender is unaffected
-        self.assertEqual(self.radio.sent, [("Stranger", bot.UNRECOGNIZED_REPLY),
-                                           ("Dana", bot.UNRECOGNIZED_REPLY)])
+        self.assertEqual(self.radio.sent, [("Stranger", UNRECOGNIZED_REPLY),
+                                           ("Dana", UNRECOGNIZED_REPLY)])
         self.assertIn("not replying (replied within 300s)", self.out.getvalue())
 
-        self.clock += bot.UNRECOGNIZED_COOLDOWN
+        self.clock += UNRECOGNIZED_COOLDOWN
         await self.radio.dm(STRANGER, "hello again")
-        self.assertEqual(self.radio.sent[-1], ("Stranger", bot.UNRECOGNIZED_REPLY))
+        self.assertEqual(self.radio.sent[-1], ("Stranger", UNRECOGNIZED_REPLY))
 
     # --- suggestions for mistyped commands
 
@@ -520,12 +460,12 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_others_get_no_suggestion(self):
         await self.start()
         await self.radio.dm(STRANGER, "hepl")
-        self.assertEqual(self.radio.sent, [("Stranger", bot.UNRECOGNIZED_REPLY)])
+        self.assertEqual(self.radio.sent, [("Stranger", UNRECOGNIZED_REPLY)])
 
     async def test_nothing_close_gets_the_usual_reply(self):
         await self.start()
         await self.radio.dm(ADMIN_KEY, "good morning everyone")
-        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+        self.assertEqual(self.replies(), [UNRECOGNIZED_REPLY])
 
     # --- permissions
 
@@ -533,7 +473,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start()
         await self.radio.dm(STRANGER, "alert hi")
         self.assertEqual(self.radio.channel_sent, [])
-        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+        self.assertEqual(self.replies(), [UNRECOGNIZED_REPLY])
         self.assertIn("alert denied: sender not approved", self.out.getvalue())
         await self.radio.dm(ADMIN_KEY, "alert Shelter open")
         self.assertEqual(self.radio.channel_sent, [(1, "Shelter open")])
@@ -552,7 +492,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start(contacts={lookalike: "Admin"})
         await self.radio.dm(ADMIN_KEY, "alert hi")
         self.assertEqual(self.radio.channel_sent, [])
-        self.assertEqual(self.replies(), [bot.UNRECOGNIZED_REPLY])
+        self.assertEqual(self.replies(), [UNRECOGNIZED_REPLY])
 
     async def test_shared_prefix_identifies_nobody(self):
         # An impostor with the admin's prefix: neither contact gets rights,
@@ -703,7 +643,7 @@ permission = "public"
         self.radio.stored["c0ffeec0ffee"] = "LateNode"  # radio learned it after startup
         await self.radio.dm("c0ffeec0ffee", "hello")
         self.assertEqual(self.radio.get_contacts_calls, 1)
-        self.assertEqual(self.radio.sent, [("LateNode", bot.UNRECOGNIZED_REPLY)])
+        self.assertEqual(self.radio.sent, [("LateNode", UNRECOGNIZED_REPLY)])
 
     async def test_no_contact_to_reply_to(self):
         await self.start()

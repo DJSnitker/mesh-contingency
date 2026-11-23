@@ -2,10 +2,10 @@ import contextlib
 import io
 import unittest
 
+from mesh_commands.testing import FakeMeshCore, event, full_key, make_contact
 from meshcore import EventType
 
 from mesh_contingency.contacts import add_admins, contact_rows
-from mesh_contingency.testing import FakeMeshCore, event, full_key, make_contact
 
 ADMIN = "ad" * 32
 LOOKALIKE = "ad" * 6 + "11" * 26  # the admin's key prefix, another key

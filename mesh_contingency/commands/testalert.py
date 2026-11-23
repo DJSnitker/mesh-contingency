@@ -4,8 +4,9 @@ The message, and a weekly time to post it by itself, are set in [alert_test]
 in config.toml.
 """
 
+from mesh_commands import Command, CommandError, CommandResult
+
 from ..alerts import NoChannelSlot, when_text
-from ..api import Command, CommandError, CommandResult
 
 
 class TestAlertCommand(Command):
@@ -14,7 +15,7 @@ class TestAlertCommand(Command):
     async def execute(self, text, sender):
         if text.strip():
             raise CommandError(f"usage: {self.usage}")
-        test = self.ctx.state.alert_test
+        test = self.ctx.extras["state"].alert_test
         if test is None:
             raise CommandError(f"{self.name}: the alert test isn't set up yet")
         if problem := test.problem():

@@ -31,11 +31,39 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: "**/pyproject.toml"
       # Installing registers the built-in commands' entry points, which the
       # tests rely on.
-      - run: python -m pip install -e .
+      - run: python -m pip install -e packages/mesh-commands -e .
       - run: python -m unittest -v
+
+  library:
+    name: mesh-commands on its own (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: "**/pyproject.toml"
+      # Installed from its folder alone (not editable), with Mesh Contingency
+      # nowhere on the path, so it can be lifted into another project as is.
+      - run: python -m pip install ./packages/mesh-commands
+      # From the library's folder: at the repo root, mesh_contingency/ would
+      # be importable from the current directory.
+      - name: Never imports Mesh Contingency
+        working-directory: packages/mesh-commands
+        run: |
+          ! grep -rnE '(^|[^a-z_])mesh_contingency' . --include='*.py'
+          python -c "import importlib.util as u; assert u.find_spec('mesh_contingency') is None"
+      - name: Tests
+        working-directory: packages/mesh-commands
+        run: python -m unittest -v
 
   lint:
     name: Lint
@@ -46,8 +74,8 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: python -m pip install -e ".[dev]"
+          cache-dependency-path: "**/pyproject.toml"
+      - run: python -m pip install -e packages/mesh-commands -e ".[dev]"
       - run: ruff check --output-format=github .
 
   package:
@@ -61,20 +89,25 @@ jobs:
       - name: Build sdist and wheel
         run: |
           python -m pip install build
+          python -m build packages/mesh-commands --outdir dist
           python -m build
       - name: Check the wheel contents
         run: |
           python - <<'EOF'
           import glob, zipfile
-          wheel = zipfile.ZipFile(glob.glob("dist/*.whl")[0])
+          wheel = zipfile.ZipFile(glob.glob("dist/mesh_contingency-*.whl")[0])
           names = wheel.namelist()
           for gone in ("web/", "bible/", "commands/wx.py"):
               assert not any(n.startswith(f"mesh_contingency/{gone}") for n in names), f"{gone} was removed"
           for secret in ("config.toml", "users.toml"):
               assert not any(n.endswith(secret) for n in names), f"{secret} must never be packaged"
+          for moved in ("api.py", "registry.py", "commands/help.py"):
+              assert f"mesh_contingency/{moved}" not in names, f"{moved} moved to mesh_commands"
           entry_points = wheel.read(next(n for n in names if n.endswith("entry_points.txt"))).decode()
           assert "[mesh_contingency.commands]" in entry_points, entry_points
           print(entry_points)
+          library = zipfile.ZipFile(glob.glob("dist/mesh_commands-*.whl")[0]).namelist()
+          assert "mesh_commands/builtin/help.py" in library, library
           EOF
       # A clean install from the wheel (not the source tree), to prove the
       # commands are discovered and run.
@@ -91,21 +124,22 @@ jobs:
           import os
           import tomllib
           from pathlib import Path
-          from mesh_contingency.api import Sender
-          from mesh_contingency.registry import Registry, discover
+          from mesh_commands import KeyRoles, Sender
+          from mesh_commands.registry import discover
+          from mesh_contingency.config import ENTRY_POINT_GROUP, load_commands
 
           # Every command the bot declares, so a new one can't be left out of this check.
           source = Path(os.environ["GITHUB_WORKSPACE"])
           project = tomllib.loads((source / "pyproject.toml").read_text())["project"]
           declared = set(project["entry-points"]["mesh_contingency.commands"])
           assert declared == {"help", "alert", "testalert"}, declared
-          found = discover()
+          found = discover(ENTRY_POINT_GROUP)
           assert set(found) == declared, f"discovered: {set(found)}"
           print(f"{len(declared)} commands discovered")
 
           admin = Sender("Admin", "ad" * 32)
           config = {"commands": {name: {"permission": "admin"} for name in ("help", "alert", "testalert")}}
-          commands = Registry(config).build({admin.public_key}, None)
+          commands = load_commands(config).build(None, KeyRoles(admins={admin.public_key}))
           reply = asyncio.run(commands["help"].execute("", admin)).reply
           print(reply)
           assert reply == "commands: help, alert, testalert. Send help <command> for usage", reply

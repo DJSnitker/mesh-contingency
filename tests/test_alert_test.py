@@ -9,6 +9,8 @@ import zoneinfo
 from pathlib import Path
 from unittest import mock
 
+from mesh_commands import MAX_REPLY_LEN, CommandError, Sender
+from mesh_commands.testing import FakeMeshCore, event, make_context
 from meshcore import EventType
 
 from mesh_contingency.alerts import (
@@ -20,10 +22,8 @@ from mesh_contingency.alerts import (
     parse_weekly,
     when_text,
 )
-from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.testalert import TestAlertCommand
 from mesh_contingency.state import State
-from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 CHICAGO = zoneinfo.ZoneInfo("America/Chicago")
 ADMIN = Sender("Admin", "ad" * 32)
@@ -106,7 +106,7 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
         self.state = State(self.folder)
         self.test = self.state.alert_test = AlertTest(
             self.radio, TestSettings("#contingency-wx", "Weekly test", WED_5PM, CHICAGO), self.state)
-        self.cmd = TestAlertCommand(make_context("testalert", radio=self.radio, state=self.state))
+        self.cmd = TestAlertCommand(make_context("testalert", radio=self.radio, extras={"state": self.state}))
 
     async def test_command_posts_the_test_now(self):
         with mock.patch("mesh_contingency.alerts.time.time", return_value=chicago(2026, 10, 20, 9, 0)):

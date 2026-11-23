@@ -6,7 +6,9 @@ messages of its reply.
 import asyncio
 from dataclasses import dataclass, field
 
-from .api import CommandError, CommandResult, to_messages
+from .command import CommandResult
+from .errors import CommandError
+from .replies import to_messages
 
 
 @dataclass

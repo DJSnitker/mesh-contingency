@@ -79,7 +79,7 @@ It holds what any MeshCore bot needs to answer direct-message commands, taken fr
 | `limits.py` | `parse_rate`, `RateLimiter`, `describe_rate`, `wait_text` | `limits.py` (without `EmailLog`) |
 | `running.py` | Running a command with a timeout, with the answer and its timing | `running.py` |
 | `dispatch.py` | `Dispatcher`: parse a DM, suggest the nearest command name, check permission and rate, run, split the reply and send it. It takes a `send(key, text)` callable, so it doesn't depend on the radio. | `bot.py` (`parse_command`, `nearest_command`, `on_message`, `reply_unrecognized`) |
-| `meshcore.py` | `attach(mc, dispatcher)`: subscribes to direct messages, works out who sent each one from the radio's contacts, and sends replies. This is the only module that imports `meshcore`. | `bot.py` (`get_sender`, `send_dm`) |
+| `radio.py` | `MeshLink(mc, roles)`: `listen(dispatcher)` subscribes to direct messages, `sender_of` works out who sent each one from the radio's contacts, and `send` sends replies one at a time. Apart from the test fakes, this is the only module that imports `meshcore`. (Named `radio.py`, not `meshcore.py`, so it doesn't shadow the `meshcore` package.) | `bot.py` (`get_sender`, `send_dm`) |
 | `output.py` | `SafeOutput`/`printable`, which keeps senders' text from adding terminal escapes to the log | `output.py` |
 | `builtin/help.py` | `help`, which lists the commands the sender may use | `commands/help.py` |
 | `testing.py` | `FakeMeshCore`, `make_context`, `make_contact`, `event` | `testing.py` |
@@ -177,6 +177,7 @@ Each step is its own PR. Tests and lint must pass after each one.
    - `alert`, `testalert` and `bot.py` import from `mesh_commands`. Nothing about the commands changes.
    - CI runs the library's tests on their own, in a fresh environment without `mesh_contingency` installed, and fails if `mesh_commands` imports it.
    - The library README and its own CHANGELOG start at 0.1.0.
+   - Done: `CommandError` is in its own `errors.py` (shared by `command.py` and `replies.py`), `Context` has `roles` and `extras`, and the bot's state reaches its commands as `ctx.extras["state"]`. `config.load_commands` holds the bot's entry point group, its retired command names and the old `[limits]` keys.
 4. **Post to Public, and add the filter.**
    - Remove `channel` from `[alerts]` and `[commands.alert]`, and the hashtag-channel code. An old `channel` setting gets a warning and is ignored.
    - Add the Public-slot lookup, the "no Public channel" error and the filter.

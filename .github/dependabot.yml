@@ -18,3 +18,11 @@ updates:
       python:
         patterns: ["*"]
 
+
+  - package-ecosystem: pip
+    directory: /packages/mesh-commands
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]

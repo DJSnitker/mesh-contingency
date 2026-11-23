@@ -12,8 +12,10 @@ license-files = ["LICENSE"]
 authors = [{ name = "Doug Snitker" }]
 requires-python = ">=3.11"
 # meshcore is held to the tested minor version, since its API changes between
-# them; Dependabot proposes a new range when one is released.
-dependencies = ["meshcore>=2.3.17,<2.4"]
+# them; Dependabot proposes a new range when one is released. mesh-commands is
+# in packages/mesh-commands, installed alongside:
+#   pip install -e packages/mesh-commands -e .
+dependencies = ["meshcore>=2.3.17,<2.4", "mesh-commands>=0.1,<0.2"]
 
 [project.optional-dependencies]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
@@ -28,7 +30,7 @@ mesh-contingency = "mesh_contingency.bot:run"
 
 # Built-in commands, registered the same way a third-party package would.
 [project.entry-points."mesh_contingency.commands"]
-help = "mesh_contingency.commands.help:HelpCommand"
+help = "mesh_commands.builtin.help:HelpCommand"
 alert = "mesh_contingency.commands.alert:AlertCommand"
 testalert = "mesh_contingency.commands.testalert:TestAlertCommand"
 
