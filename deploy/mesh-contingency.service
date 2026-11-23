@@ -15,7 +15,7 @@
 
 [Unit]
 Description=mesh-contingency MeshCore bot
-Documentation=https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux
+Documentation=https://github.com/DJSnitker/mesh-contingency/wiki/Set-Up-a-Node#running-it-day-to-day
 # Keep retrying while the radio is unplugged, however long that takes.
 StartLimitIntervalSec=0
 

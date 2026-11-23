@@ -402,7 +402,7 @@ PY
     fi
     warnings="$(grep "^Warning:" <<< "$log" || true)"
     if [ -n "$warnings" ]; then
-        say "Running, with warnings (what each means: https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux#step-6-check-its-working):"
+        say "Running, with warnings (what each means: https://github.com/DJSnitker/mesh-contingency/wiki/Troubleshooting#the-log):"
         while IFS= read -r line; do say "  $line"; done <<< "$warnings"
     else
         say "Running, with no warnings."
@@ -452,7 +452,7 @@ install_service() {
     local dir="$1" new_files="$2" unit="$HOME/.config/systemd/user/mesh-contingency.service"
     if ! systemctl --user show-environment >/dev/null 2>&1; then
         say "No systemd user session here, so the service wasn't set up;"
-        say "see https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux"
+        say "see https://github.com/DJSnitker/mesh-contingency/wiki/Troubleshooting#the-installer"
         return 0
     fi
     mkdir -p "$(dirname "$unit")"
