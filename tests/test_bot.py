@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import io
+import json
 import os
 import signal
 import tempfile
@@ -52,6 +53,7 @@ COMMANDS = """
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
+advert = { permission = "admin" }
 """
 CONFIG = ADMINS + COMMANDS
 
@@ -168,7 +170,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV, EventType.DISCONNECTED})
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("  admin commands (1 admin(s)): help, alert, testalert\n", out)
+        self.assertIn("  admin commands (1 admin(s)): help, alert, testalert, advert\n", out)
         self.assertIn("  disabled commands (nobody): none\n", out)
         self.assertNotIn("public commands", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
@@ -265,6 +267,16 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.radio.dm(STRANGER, "broken")
         self.assertEqual(self.replies(), ["still works"])
 
+    async def test_an_admin_sends_a_flood_advert(self):
+        await self.start()
+        before = len(self.radio.adverts)
+        await self.radio.dm(ADMIN_KEY, "advert")
+        self.assertEqual(self.radio.adverts[before:], [True])
+        self.assertEqual(self.replies()[-1], "advert: sent a flood advert")
+        await self.radio.dm(STRANGER, "advert")
+        self.assertEqual(self.radio.adverts[before:], [True])  # a stranger can't
+        self.assertEqual(self.replies()[-1], UNRECOGNIZED_REPLY)
+
     async def test_commands_missing_from_config_are_disabled(self):
         await self.start(CONFIG.replace('testalert = { permission = "admin" }\n', ""))
         out = self.out.getvalue()
@@ -343,7 +355,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start()
         os.kill(os.getpid(), signal.SIGUSR1)
         await self.wait_for_output("Sent flood advert (SIGUSR1)")
-        self.assertEqual(self.radio.adverts, [True])
+        self.assertEqual(self.radio.adverts, [True, True])  # at startup, then the signal
 
     async def test_advert_at_startup_counts_toward_the_schedule(self):
         await self.start(CONFIG + "\n[advert]\nat_startup = true\nevery_hours = 12\nflood = false\n")
@@ -354,13 +366,32 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("last_zero_hop", (self.folder / "adverts.json").read_text())
 
     async def test_first_scheduled_advert_goes_out_at_once(self):
-        await self.start(CONFIG + "\n[advert]\nevery_hours = 12\n")
+        await self.start(CONFIG + "\n[advert]\nevery_hours = 12\nat_startup = false\n")
         self.assertIn("Sending a flood advert every 12 hour(s); next now.", self.out.getvalue())
         await self.wait_for_output("Sent flood advert (scheduled)")
         self.assertEqual(self.radio.adverts, [True])
 
-    async def test_no_adverts_unless_configured(self):
+    async def test_a_flood_advert_at_startup_by_default(self):
         await self.start()
+        self.assertEqual(self.radio.adverts, [True])
+        self.assertIn("Sent flood advert (at startup)", self.out.getvalue())
+        self.assertNotIn("advert every", self.out.getvalue())
+
+    async def test_no_startup_advert_soon_after_another(self):
+        config_file = self.write_files(CONFIG)
+        (self.folder / "adverts.json").write_text(json.dumps({"last_flood": time.time() - 10 * 60}))
+        await self.start(config_file=config_file)
+        self.assertEqual(self.radio.adverts, [])  # a restart 10 minutes after the last one
+        self.assertIn("No flood advert at startup: one went out 10 min ago.", self.out.getvalue())
+
+    async def test_a_startup_advert_after_the_gap(self):
+        config_file = self.write_files(CONFIG)
+        (self.folder / "adverts.json").write_text(json.dumps({"last_flood": time.time() - 31 * 60}))
+        await self.start(config_file=config_file)
+        self.assertEqual(self.radio.adverts, [True])
+
+    async def test_no_adverts_when_turned_off(self):
+        await self.start(CONFIG + "\n[advert]\nat_startup = false\n")
         self.assertEqual(self.radio.adverts, [])
         self.assertNotIn("advert every", self.out.getvalue())
 
@@ -372,7 +403,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_no_admins(self):
         await self.start(COMMANDS)
         out = self.out.getvalue()
-        self.assertIn("  admin commands (0 admin(s)): help, alert, testalert\n", out)
+        self.assertIn("  admin commands (0 admin(s)): help, alert, testalert, advert\n", out)
         self.assertIn("Note: no admins in [admins] keys in config.toml, so nobody can use the admin commands.", out)
         await self.radio.dm(ADMIN_KEY, "alert hello")
         self.assertEqual(self.radio.channel_sent, [])
@@ -386,7 +417,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Warning: admins read from users.toml, which is otherwise no longer used: move them to "
                       "[admins] keys in config.toml.", self.out.getvalue())
         await self.radio.dm(ADMIN_KEY, "help")
-        self.assertEqual(self.replies(), ["commands: help, alert, testalert. Send help <command> for usage"])
+        self.assertEqual(self.replies(), ["commands: help, alert, testalert, advert. Send help <command> for usage"])
 
     async def test_an_old_users_file_beside_admins(self):
         await self.start(users='[admin]\nkeys = []\n')
@@ -542,7 +573,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start(contacts={})
         self.radio.stored[full_key(ADMIN_KEY)] = "Admin"
         await self.radio.dm(ADMIN_KEY, "help")
-        self.assertEqual(self.replies(), ["commands: help, alert, testalert. Send help <command> for usage"])
+        self.assertEqual(self.replies(), ["commands: help, alert, testalert, advert. Send help <command> for usage"])
 
     async def test_rate_limit_replies_once_then_stays_silent(self):
         await self.start(CONFIG + '\n[limits]\nadmin_rate = "2/hour"\n')
@@ -615,7 +646,7 @@ permission = "public"
         await self.radio.dm(STRANGER, "help alert")
         self.assertEqual(self.replies(), [
             "commands: help, echo, slow, long_error. Send help <command> for usage",
-            "commands: help, alert, testalert, echo, slow, long_error. Send help <command> for usage",
+            "commands: help, alert, testalert, advert, echo, slow, long_error. Send help <command> for usage",
             "help: no command alert"])
 
     # --- command failures

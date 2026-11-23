@@ -26,8 +26,8 @@ weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty f
 # timezone = "America/Chicago" # defaults to the computer's
 # message = "TEST: this is a test of the weather alerts on this channel. No action needed."
 
-# The radios that may send alert and testalert: each one's full public key (64
-# hex digits; in the MeshCore app, share your contact to see it).
+# The radios that may send alert, testalert and advert: each one's full public
+# key (64 hex digits; in the MeshCore app, share your contact to see it).
 [admins]
 keys = []                      # e.g. ["a1b2...", "c3d4..."]
 
@@ -36,7 +36,7 @@ keys = []                      # e.g. ["a1b2...", "c3d4..."]
 [advert]
 every_hours = 0      # 0 for never; 12 is a good choice
 flood = true         # flood (across the mesh) or zero-hop (in direct range)
-at_startup = false   # also advert every time the bot starts
+at_startup = true    # also advert when the bot starts (not again within 30 min)
 
 # Who may use each command: "admin" (the radios above), "public" (anyone who
 # can message the node) or "disabled".
@@ -44,3 +44,4 @@ at_startup = false   # also advert every time the bot starts
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
+advert = { permission = "admin" }

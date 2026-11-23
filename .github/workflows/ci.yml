@@ -132,17 +132,17 @@ jobs:
           source = Path(os.environ["GITHUB_WORKSPACE"])
           project = tomllib.loads((source / "pyproject.toml").read_text())["project"]
           declared = set(project["entry-points"]["mesh_contingency.commands"])
-          assert declared == {"help", "alert", "testalert"}, declared
+          assert declared == {"help", "alert", "testalert", "advert"}, declared
           found = discover(ENTRY_POINT_GROUP)
           assert set(found) == declared, f"discovered: {set(found)}"
           print(f"{len(declared)} commands discovered")
 
           admin = Sender("Admin", "ad" * 32)
-          config = {"commands": {name: {"permission": "admin"} for name in ("help", "alert", "testalert")}}
+          config = {"commands": {name: {"permission": "admin"} for name in ("help", "alert", "testalert", "advert")}}
           commands = load_commands(config).build(None, KeyRoles(admins={admin.public_key}))
           reply = asyncio.run(commands["help"].execute("", admin)).reply
           print(reply)
-          assert reply == "commands: help, alert, testalert. Send help <command> for usage", reply
+          assert reply == "commands: help, alert, testalert, advert. Send help <command> for usage", reply
           EOF
 
   install:

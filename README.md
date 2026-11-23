@@ -121,6 +121,7 @@ keys = ["<64-hex public key>"]
 
 [advert]
 every_hours = 12                    # so radios can find the node
+# at_startup = false               # it also adverts when it starts
 ```
 
 **Alerts.**
@@ -163,6 +164,7 @@ The node answers direct messages from its admins. Anyone else gets
 
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
+| `advert [zero]` | admins | Send a flood advert now, so radios can find the node (`zero`: only to radios in direct range) |
 | `alert <message>` | admins | Post a message to the alert channel (Public unless set) |
 | `help [command]` | admins | List the commands you can use, or show how to use one |
 | `testalert` | admins | Post the test message to the alert channel now |
@@ -178,6 +180,7 @@ in `[commands]`, as `admin`, `public` or `disabled`, with an optional
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
+advert = { permission = "admin" }
 ```
 
 ## Update
@@ -209,8 +212,9 @@ journalctl --user -u mesh-contingency -f
 | `couldn't check for alerts (...)` | No internet, or api.weather.gov is down. It tries again each round. |
 | `N new alert(s) not posted (filtered out ...)` | That's the filter in `[alerts]` at work. |
 
-To make the node advert now:
-`systemctl --user kill --kill-whom=main -s USR1 mesh-contingency`.
+To make the node advert now: send it `advert` from an admin radio, or run
+`systemctl --user kill --kill-whom=main -s USR1 mesh-contingency` on its
+computer.
 
 To run it by hand instead of as a service, stop the service first:
 `.venv/bin/mesh-contingency` finds the radio by itself; `-p /dev/ttyUSB0`,
