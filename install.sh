@@ -17,7 +17,8 @@
 #   --console      also install and build the web console (needs Node.js)
 #   --no-service   don't install the systemd user service
 #
-# MC_REPO overrides the repository to clone (CI uses a local copy).
+# MC_REPO overrides the repository to clone (CI uses a local copy), and
+# MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*).
 
 # Everything is inside main, so a download cut short runs nothing.
 main() {
@@ -120,13 +121,10 @@ main() {
         say "$((step++)). Edit $(printf '%s and ' "${made[@]}" | sed 's/ and $//')"
         say "   (see https://github.com/DJSnitker/mesh-contingency#configuration)"
     fi
-    if ! groups | grep -qwE 'dialout|uucp'; then
-        say "$((step++)). Let your user reach the radio's USB port, then log out and back in:"
-        if [ -e /etc/arch-release ]; then
-            say "     sudo usermod -aG uucp \"\$USER\""
-        else
-            say "     sudo usermod -aG dialout \"\$USER\""
-        fi
+    local access
+    access="$(radio_access)"
+    if [ -n "$access" ]; then
+        say "$((step++)). $access"
     fi
     if ! command -v mail >/dev/null; then
         say "$((step++)). For the email commands, install mail and set it up to send:"
@@ -165,6 +163,50 @@ node_ok() {
         const [a, b] = process.versions.node.split(".").map(Number);
         process.exit((a === 22 && b >= 22) || (a === 24 && b >= 15) || a > 24 ? 0 : 1);
     '
+}
+
+# Whether this account can open the radio's USB port: nothing when it can,
+# otherwise what to do. With a radio plugged in, it tries the port itself and
+# names the group that owns it; without one, it checks the usual groups.
+radio_access() {
+    local ports=() p
+    for p in ${MC_PORTS:-/dev/ttyUSB* /dev/ttyACM*}; do
+        if [ -e "$p" ]; then ports+=("$p"); fi
+    done
+
+    if [ ${#ports[@]} -eq 0 ]; then
+        groups | grep -qwE 'dialout|uucp' && return 0
+        say "Let your user reach the radio's USB port, then log out and back in:"
+        if [ -e /etc/arch-release ]; then
+            say "     sudo usermod -aG uucp \"\$USER\""
+        else
+            say "     sudo usermod -aG dialout \"\$USER\""
+        fi
+        say "   (no radio is plugged in now; plug it in and run this again to check)"
+        return 0
+    fi
+
+    local group mode
+    for p in "${ports[@]}"; do
+        if [ -r "$p" ] && [ -w "$p" ]; then
+            say "Radio port $p: you can use it." >&2
+            continue
+        fi
+        group="$(stat -c %G "$p")"
+        mode="$(stat -c %A "$p")"
+        if [ "$group" = root ] || [ "${mode:4:2}" != rw ]; then
+            say "Your user can't open $p ($mode, group $group), and no group can:"
+            say "   a udev rule or another program set it that way; see"
+            say "   https://github.com/DJSnitker/mesh-contingency/wiki/Set-Up-a-Node#2-let-your-account-use-the-radio"
+        elif id -nG "$USER" | grep -qw "$group"; then
+            say "You're in $group, which can open $p, but not yet in this login:"
+            say "   log out and back in (or reboot), then run this again to check"
+        else
+            say "Let your user open $p (group $group), then log out and back in:"
+            say "     sudo usermod -aG $group \"\$USER\""
+        fi
+        return 0
+    done
 }
 
 # The newest release tag, from the repository itself (no API, no jq).

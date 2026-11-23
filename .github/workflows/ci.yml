@@ -285,3 +285,13 @@ jobs:
           echo "# kept" >> ~/node/config.toml
           ./install.sh --dir ~/node --ref ci-install --console --no-service
           grep -q "# kept" ~/node/config.toml
+      # The radio check, with stand-ins for the port: one no group can open,
+      # and one the runner's user can.
+      - name: Radio port check
+        run: |
+          export MC_REPO="file://$PWD"
+          touch locked ok && chmod 000 locked && chmod 600 ok
+          MC_PORTS="$PWD/locked" ./install.sh --dir ~/node --ref ci-install --no-service | tee out
+          grep -q "and no group can" out
+          MC_PORTS="$PWD/ok" ./install.sh --dir ~/node --ref ci-install --no-service 2>&1 | tee out
+          grep -q "you can use it" out
