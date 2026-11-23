@@ -5,7 +5,7 @@ Admins are listed in config.toml:
     [admins]
     keys = ["<64 hex digits>", ...]   # each admin radio's full public key
 
-They may send the admin commands (alert, testalert, help). Editing the list
+They may send the admin commands (alert, testalert, advert, help). Editing the list
 takes effect when the bot restarts.
 
 Before 1.0 the admins were in users.toml ([admin] keys). If config.toml has
@@ -31,7 +31,7 @@ RETIRED_SETTINGS = {"limits": ("emails_per_day", "emails_per_day_total")}
 # Commands removed in 1.0 (rename long before): a config that still lists
 # them gets one warning rather than failing to start.
 RETIRED_COMMANDS = frozenset({
-    "addgroup", "advert", "alertmap", "approve", "area", "backup", "checkins", "clearinbox", "cleargroup",
+    "addgroup", "alertmap", "approve", "area", "backup", "checkins", "clearinbox", "cleargroup",
     "clearstatus", "comm", "contact", "contacts", "deny", "email", "emailall", "health", "history", "inbox",
     "join", "leave", "msg", "ok", "qm", "quickim", "radio", "reload", "remove", "rename", "resetpass", "roster",
     "setemail", "setpass", "setqm", "setquickim", "settings", "status", "users", "verse", "whoami", "whois", "wx",

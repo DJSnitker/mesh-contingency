@@ -5,6 +5,15 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (before 1.0, a minor version could
 change how the bot is configured).
 
+## [Unreleased]
+
+### Added
+- The `advert` admin command: `advert` makes the node send a flood advert
+  now, so radios across the mesh can find it, and `advert zero` a zero-hop
+  one. It counts towards `[advert] every_hours`, like an advert sent with
+  SIGUSR1. Like any new command it starts disabled until `config.toml` has
+  `advert = { permission = "admin" }` in `[commands]`.
+
 ## [1.0.0] - 2026-11-23
 
 Mesh Contingency is cut down to one job: National Weather Service alerts for

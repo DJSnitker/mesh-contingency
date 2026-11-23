@@ -52,6 +52,7 @@ COMMANDS = """
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
+advert = { permission = "admin" }
 """
 CONFIG = ADMINS + COMMANDS
 
@@ -168,7 +169,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV, EventType.DISCONNECTED})
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("  admin commands (1 admin(s)): help, alert, testalert\n", out)
+        self.assertIn("  admin commands (1 admin(s)): help, alert, testalert, advert\n", out)
         self.assertIn("  disabled commands (nobody): none\n", out)
         self.assertNotIn("public commands", out)
         self.assertIn("Rate limits per sender and command: public 10/hour, user 30/hour, admin none", out)
@@ -264,6 +265,16 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Warning: broken could not get ready: radio said no", self.out.getvalue())
         await self.radio.dm(STRANGER, "broken")
         self.assertEqual(self.replies(), ["still works"])
+
+    async def test_an_admin_sends_a_flood_advert(self):
+        await self.start()
+        before = len(self.radio.adverts)
+        await self.radio.dm(ADMIN_KEY, "advert")
+        self.assertEqual(self.radio.adverts[before:], [True])
+        self.assertEqual(self.replies()[-1], "advert: sent a flood advert")
+        await self.radio.dm(STRANGER, "advert")
+        self.assertEqual(self.radio.adverts[before:], [True])  # a stranger can't
+        self.assertEqual(self.replies()[-1], UNRECOGNIZED_REPLY)
 
     async def test_commands_missing_from_config_are_disabled(self):
         await self.start(CONFIG.replace('testalert = { permission = "admin" }\n', ""))
@@ -372,7 +383,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_no_admins(self):
         await self.start(COMMANDS)
         out = self.out.getvalue()
-        self.assertIn("  admin commands (0 admin(s)): help, alert, testalert\n", out)
+        self.assertIn("  admin commands (0 admin(s)): help, alert, testalert, advert\n", out)
         self.assertIn("Note: no admins in [admins] keys in config.toml, so nobody can use the admin commands.", out)
         await self.radio.dm(ADMIN_KEY, "alert hello")
         self.assertEqual(self.radio.channel_sent, [])
@@ -386,7 +397,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Warning: admins read from users.toml, which is otherwise no longer used: move them to "
                       "[admins] keys in config.toml.", self.out.getvalue())
         await self.radio.dm(ADMIN_KEY, "help")
-        self.assertEqual(self.replies(), ["commands: help, alert, testalert. Send help <command> for usage"])
+        self.assertEqual(self.replies(), ["commands: help, alert, testalert, advert. Send help <command> for usage"])
 
     async def test_an_old_users_file_beside_admins(self):
         await self.start(users='[admin]\nkeys = []\n')
@@ -542,7 +553,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start(contacts={})
         self.radio.stored[full_key(ADMIN_KEY)] = "Admin"
         await self.radio.dm(ADMIN_KEY, "help")
-        self.assertEqual(self.replies(), ["commands: help, alert, testalert. Send help <command> for usage"])
+        self.assertEqual(self.replies(), ["commands: help, alert, testalert, advert. Send help <command> for usage"])
 
     async def test_rate_limit_replies_once_then_stays_silent(self):
         await self.start(CONFIG + '\n[limits]\nadmin_rate = "2/hour"\n')
@@ -615,7 +626,7 @@ permission = "public"
         await self.radio.dm(STRANGER, "help alert")
         self.assertEqual(self.replies(), [
             "commands: help, echo, slow, long_error. Send help <command> for usage",
-            "commands: help, alert, testalert, echo, slow, long_error. Send help <command> for usage",
+            "commands: help, alert, testalert, advert, echo, slow, long_error. Send help <command> for usage",
             "help: no command alert"])
 
     # --- command failures

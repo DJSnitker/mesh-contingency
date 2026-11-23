@@ -10,12 +10,13 @@ from mesh_commands import KeyRoles, Sender
 from mesh_commands.builtin.help import HelpCommand
 from mesh_commands.registry import discover, resolve
 
+from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.commands.testalert import TestAlertCommand
 from mesh_contingency.config import ENTRY_POINT_GROUP, RETIRED_COMMANDS, load_commands
 
 ADMIN_KEY = "ad" * 32
-BUILT_IN = {"help": HelpCommand, "alert": AlertCommand, "testalert": TestAlertCommand}
+BUILT_IN = {"help": HelpCommand, "alert": AlertCommand, "testalert": TestAlertCommand, "advert": AdvertCommand}
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -46,7 +47,7 @@ class BuiltInTest(unittest.TestCase):
         self.assertIs(commands["alert"].radio, radio)
         self.assertIs(commands["testalert"].ctx.extras["state"], state)
         reply = asyncio.run(commands["help"].execute("", Sender("Admin", ADMIN_KEY))).reply
-        self.assertEqual(reply, "commands: help, alert, testalert. Send help <command> for usage")
+        self.assertEqual(reply, "commands: help, alert, testalert, advert. Send help <command> for usage")
 
 
 class OldConfigTest(unittest.TestCase):

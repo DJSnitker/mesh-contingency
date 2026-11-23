@@ -33,6 +33,7 @@ mesh-contingency = "mesh_contingency.bot:run"
 help = "mesh_commands.builtin.help:HelpCommand"
 alert = "mesh_contingency.commands.alert:AlertCommand"
 testalert = "mesh_contingency.commands.testalert:TestAlertCommand"
+advert = "mesh_contingency.commands.advert:AdvertCommand"
 
 [tool.setuptools.packages.find]
 include = ["mesh_contingency*"]
