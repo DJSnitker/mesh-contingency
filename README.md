@@ -510,7 +510,9 @@ them automatically.
 
 ### One command
 
-On Linux, as the user the node will run as (not root):
+On Linux, as the user the node will run as. **Don't use sudo**: run it as
+that user, not as root (`curl … | sudo bash` is refused), since the node, its
+files and its service all belong to that user.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
@@ -525,8 +527,29 @@ and sets up the [systemd user service](#as-a-service) without starting it.
 Then it lists what's left: editing those two files, letting your user open the
 radio's USB port (with the radio plugged in, it tries the port itself and names
 the group to join), installing `mail`, and starting the service.
-It never uses sudo; if a package is missing (git, Python 3.11+ with venv) it
-prints the command to install it and stops.
+
+The script never runs sudo itself. A few one-time steps need an admin of the
+computer, so it prints those commands, with `sudo`, for you (or the computer's
+admin) to run:
+
+| When | Command it prints |
+|---|---|
+| git or Python 3.11+ with venv is missing (it stops) | e.g. `sudo apt-get install git python3 python3-venv` |
+| Your user can't open the radio's USB port | `sudo usermod -aG dialout "$USER"` (the port's group), then log out and back in |
+| `mail` isn't installed (for email) | e.g. `sudo apt-get install s-nail` |
+| The computer doesn't let users turn on lingering | `sudo loginctl enable-linger "$USER"`, so the node starts at boot with nobody logged in |
+
+Once you've edited the two files and plugged in the radio, check the node:
+
+```sh
+~/mesh-contingency/install.sh --check
+```
+
+It stops first if something would keep the node from working (the example
+admin key still in `users.toml`, no radio, a port you can't open), then starts
+the service, or restarts it, and waits up to 90 seconds for the bot's
+`Listening for direct messages`. It shows any `Warning:` lines, or what the bot
+printed if it stopped, and notes if the node won't start at boot.
 
 Run it again to update: it moves to the newest release, reinstalls, and
 restarts the service if it's running. Your config, users and saved data are
@@ -562,7 +585,7 @@ keys = ["<your 64-character key>"]
 name = "Sam T-Deck"
 ```
 
-Then advert from your radio, advert the node
+Then run `~/mesh-contingency/install.sh --check`, advert from your radio, advert the node
 (`systemctl --user kill --kill-whom=main -s USR1 mesh-contingency`), and send
 it `health`: an admin gets the node's state back. Other admins are more keys
 in the list; everyone else joins over the mesh with `join` and an admin's
