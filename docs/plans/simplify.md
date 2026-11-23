@@ -1,6 +1,6 @@
 # Plan: weather alerts on the Public channel, plus a reusable command library
 
-Status: planned, nothing changed yet · Requested 2026-11-23 · Decisions settled 2026-11-23
+Status: steps 0–5 done (#144–#150), step 6 (docs) in review; the wiki (7) and the 1.0.0 release (8) left · Requested 2026-11-23 · Decisions settled 2026-11-23
 
 ## Goal
 
@@ -206,6 +206,7 @@ Each step is its own PR. Tests and lint must pass after each one.
    - Make `docs/plans/roadmap.md` short: what's done, and NWR (item 19) next. Its plan, `weather-radio.md`, changes to post to Public.
    - The other plans live only on the archive branch.
    - Cut `config.example.toml` to the sections above.
+   - Done: README 255 lines (the tables and examples take the rest); CHANGELOG `[1.0.0] - Unreleased` replaces the step-by-step Unreleased notes, and step 8 dates it; eight finished plans removed; the NWR plan's `health`, watch and Dashboard parts replaced by log lines (one open question: a line in the weekly test).
 7. **Wiki** (after step 6 merges):
    - Home.
    - Set Up a Node, with the systemd page folded in.

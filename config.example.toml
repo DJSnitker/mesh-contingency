@@ -1,73 +1,42 @@
-# Copy to config.toml and fill in. The bot reads it when it starts, so restart
-# it after a change (systemctl --user restart mesh-contingency).
+# Copy to config.toml and fill in (install.sh does it for you). The bot reads
+# it when it starts, so restart it after a change:
+#   systemctl --user restart mesh-contingency
+#
+# Everything is posted to MeshCore's Public channel, which every radio has.
 
-# Everything goes to MeshCore's Public channel, which every radio has (the bot
-# finds it by its key, whatever slot it's in, and never adds a channel).
-
-# Automatic weather alerts: the bot checks the National Weather Service for
-# these counties ("Name, ST") and posts each new alert once, with no admin
-# needed. An alert several counties share is posted once. It looks up each
-# county's NWS code once, then checks every county in one request. Empty, the
-# default, turns it off.
+# Weather alerts from the National Weather Service for these counties, each
+# posted once ("Name, ST"). Empty turns them off.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5
-# Post only some alerts: by the NWS's severity (Extreme, Severe, Moderate,
+# Post only some alerts, by the NWS's severity (Extreme, Severe, Moderate,
 # Minor, Unknown) and/or by event name (any case). An alert is posted if it
-# passes every filter set; leave both out to post every alert. An alert
-# filtered out isn't posted later if you change the filter.
+# passes every filter set; leave both out to post every alert.
 # severity = ["Extreme", "Severe"]
 # events = ["Tornado Warning", "Severe Thunderstorm Warning", "Flash Flood Warning"]
 
-# A test message (testalert sends it on request), and a weekly time to send it
-# by itself, so people know the alerts get through.
+# A weekly test message, followed by the counties, so people know the alerts
+# get through. testalert posts it on request.
 [alert_test]
-weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty for never
-# timezone = "America/Chicago" # for weekly; defaults to the computer's
+weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty for none
+# timezone = "America/Chicago" # defaults to the computer's
 # message = "TEST: this is a test of the weather alerts on this channel. No action needed."
 
-# Who may send the admin commands: each admin radio's full public key (64 hex
-# digits; in the MeshCore app, share your contact to see it). The bot replies
-# only to contacts in its radio; if the radio adds new contacts only when told
-# (manual-add mode), the bot adds the admins' radios when they advert.
+# The radios that may send alert and testalert: each one's full public key (64
+# hex digits; in the MeshCore app, share your contact to see it).
 [admins]
 keys = []                      # e.g. ["a1b2...", "c3d4..."]
 
-# Adverts tell other radios about this node, so admins can message it. They
-# can also be sent while the bot runs: type "advert" or "advert flood" in its
-# terminal, or kill -USR1 <pid> for a flood advert. A scheduled advert goes out
-# every_hours after the last one of its kind (by hand or not), even across
-# restarts, so a restart only adverts if one is due.
+# Adverts let other radios find the node, so admins can message it. The next
+# one goes out every_hours after the last, even across restarts.
 [advert]
-every_hours = 0      # advert this often; 0 for never
-flood = true         # flood (across the mesh) or zero-hop (direct range)
+every_hours = 0      # 0 for never; 12 is a good choice
+flood = true         # flood (across the mesh) or zero-hop (in direct range)
 at_startup = false   # also advert every time the bot starts
 
-# How often each sender may use each command (per minute, hour or day, or
-# "none"), unless the command's entry sets rate = "...". These are the
-# defaults.
-[limits]
-public_rate = "10/hour"
-user_rate = "30/hour"
-admin_rate = "none"
-
-# Which commands run, and who may use each:
-#   "public"   anyone who can direct-message the node
-#   "admin"    the radios in [admins] keys
-#   "disabled" nobody
-# An installed command with no entry here is disabled (with a warning at
-# startup). An unknown command or level stops startup. Optional per command:
-# timeout = <seconds> (default 60), rate = "5/hour"; any other key is passed
-# to the command.
+# Who may use each command: "admin" (the radios above), "public" (anyone who
+# can message the node) or "disabled".
 [commands]
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
-
-# Your own code can be a command too, named with handler = "module:attr" (the
-# module must be importable, e.g. on PYTHONPATH):
-#
-# [commands.roll]
-# handler = "my_dice:roll"
-# permission = "public"
-# max_dice = 10        # an option for the command itself

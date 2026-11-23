@@ -148,7 +148,7 @@ main() {
         [ -n "$admin_key" ] || todo+=("your radio's public key in [admins]")
         if [ ${#todo[@]} -gt 0 ]; then
             say "$((step++)). Edit ${made[0]}: $(IFS=,; printf '%s' "${todo[*]}" | sed 's/,/ and /')"
-            say "   (see https://github.com/DJSnitker/mesh-contingency#configuration)"
+            say "   (see https://github.com/DJSnitker/mesh-contingency#configure)"
         fi
     fi
     local access

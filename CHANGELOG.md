@@ -5,103 +5,82 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (while below 1.0, a minor version
 may change how the bot is configured).
 
-## [Unreleased]
+## [1.0.0] - Unreleased
 
-### Added
-- **One-command install** for a node on Linux:
-  `curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash`
-  checks out the latest release into `~/mesh-contingency`, installs the bot,
-  makes the config and users files from the examples, and sets up the
-  systemd user service; run again, it updates without touching your files.
-  CI lints it with shellcheck and
-  runs a fresh install and an update.
-- The installer checks the radio's USB port: with a radio plugged in, it
-  tries to open the port and says what's in the way (the group to join, a
-  login that hasn't picked up a new group yet, or a port no group can open).
-- The installer asks a new node for its alert and communications channels
-  (Enter keeps `#contingency-wx` and `#contingency-comm`) and writes them to
-  `config.toml`; `--alert-channel` and `--comm-channel` answer without asking.
-- `install.sh --check`, for after editing the config: it stops at what would
-  keep the node from working (the example admin key, no radio, a port you
-  can't open), then starts the service and waits for the bot to say it's
-  listening, showing its warnings or what it printed when it stopped. The
-  install's to-do list now ends with it.
-- The installer's instructions say plainly that it runs without sudo (and
-  refuses root), and which one-time commands need an admin's sudo.
-- A filter for the automatic alerts: `[alerts] severity` (Extreme, Severe,
-  Moderate, Minor, Unknown) and `[alerts] events` (event names, any case). An
-  alert is posted if it passes every filter set; with neither, everything is.
-  An alert filtered out is remembered as seen, so changing the filter later
-  doesn't post old alerts.
+Mesh Contingency is cut down to one job: National Weather Service alerts for
+your counties, posted to MeshCore's Public channel, with `alert`,
+`testalert` and `help` for its admins ([plan](docs/plans/simplify.md)).
+Everything removed is kept on the tag `archive/full-system` (and the branch
+`archive/full`); the phone app's APK and the desktop installers stay on the
+v0.12.0 and earlier GitHub releases. A 0.x config still starts: what no
+longer exists is ignored, with one warning naming it.
 
 ### Removed
-The first step of cutting the system down to weather alerts
-([plan](docs/plans/simplify.md)); everything removed is kept on the tag
-`archive/full-system`.
-- The web console and the remote console: `mesh-contingency-console`, the
-  `[console]` section (now ignored) and the `console` extra (aiohttp,
-  cryptography). The node watch's failed-logins check went with it, so
-  `[watch] failed_logins` no longer does anything.
-- The phone app and the desktop app (`app/`). Their APK and installers stay
-  on the v0.12.0 and earlier GitHub releases.
-- The `area` command, which reported the weather the console kept for each
-  watched county. The automatic alerts are unchanged.
-- `install.sh --console`, which now just says the console is gone.
-- CI's web console, phone app, Android and desktop builds.
-- Every command but `alert`, `testalert` and `help`: users and joining
-  (`join`, `approve`, `users`, ...), the mailbox (`msg`, `inbox`, sealing),
-  email (`qm`, `email`, `emailall`), check-ins (`ok`, `status`, `checkins`,
-  `roster`), `wx`, `alertmap`, `comm`, `verse` and the Bible, `health`,
-  `history`, `backup`, `radio`, `advert`, `contact`, `contacts` and `reload`.
-  A config that still lists them starts with one warning naming them.
-- `users.toml` and its reloading, radio names synced into it, and the
-  users-file backups. Admins are now `[admins] keys` in `config.toml` (see
-  Changed).
-- The node watch (`[watch]`, admins told about problems), backups
+- The web console and the remote console: `mesh-contingency-console`,
+  `[console]`, and the `console` extra (aiohttp, cryptography).
+- The phone app and the desktop app (`app/`), and CI's builds of them.
+- Every command but `alert`, `testalert` and `help`:
+  - users and joining: `join`, `approve`, `users`, `remove`, `whois`, ...
+  - the mailbox: `msg`, `inbox`, `setpass`, `clearinbox`, sealing
+  - email: `qm`, `setqm`, `email`, `emailall`, `setemail`
+  - check-ins: `ok`, `status`, `checkins`, `roster`
+  - weather on request: `wx`, `area`, `alertmap`
+  - the rest: `comm`, `verse` and the Bible, `health`, `history`, `backup`,
+    `radio`, `advert`, `contact`, `contacts`, `reload`
+- `users.toml`, its reloading, and radio names synced into it.
+- The node watch (`[watch]`: admins told about problems), backups
   (`[backup]`), new-contact notices and auto-adding by node type
-  (`[contacts]`), and the email caps in `[limits]`. These settings are
-  ignored, with one warning listing them.
-- `examples/mesh-dice` and `ENCRYPTION_NOTES.md`; pycryptodome is no longer
-  a dependency.
-- `requirements.txt`, left over from before `pyproject.toml` (nothing read it).
+  (`[contacts]`), and the email caps in `[limits]`.
+- The `#contingency-wx` and `#contingency-comm` channels: the bot no longer
+  adds or renames any channel.
+- The installer's `--console`, `--alert-channel` and `--comm-channel`.
+- `examples/mesh-dice`, `ENCRYPTION_NOTES.md`, `requirements.txt`, and
+  pycryptodome as a dependency.
+- The finished plans in `docs/plans` (on the archive branch); the roadmap is
+  now short.
 
 ### Changed
-- Admins are listed in `config.toml`:
-  `[admins] keys = ["<64-hex public key>", ...]`. If there's no `[admins]`,
-  the bot still reads `[admin] keys` from an old `users.toml`, with a warning
-  to move them. Editing the list takes effect when the bot restarts.
+- **Alerts go to the Public channel**, found by its key in whatever slot
+  it's in. A radio without Public posts nothing: the bot warns at startup,
+  `alert` and `testalert` say so, and `install.sh --check` stops on it. A
+  `channel` left in `[alerts]` or `[commands.alert]` is ignored with a
+  warning. The default test message no longer names a channel.
+- **Admins are in `config.toml`:** `[admins] keys = ["<64-hex key>", ...]`.
+  With no `[admins]`, the bot still reads `[admin] keys` from an old
+  `users.toml`, with a warning to move them.
 - On a radio in manual-add mode, the bot adds only the admins' radios when
   they advert, and never changes that setting itself.
-- `install.sh` no longer makes `users.toml` or asks for the comm channel
-  (`--comm-channel` is ignored), and `--check` notes a node with no admins or
-  no counties instead of looking for the example admin key.
-- The README is cut down to what's left.
-- The command machinery is now its own library, `mesh-commands`, in
-  `packages/mesh-commands` (import name `mesh_commands`, version 0.1.0). It has
-  no imports from Mesh Contingency, its own README, CHANGELOG and tests, and
-  CI tests it on its own. `mesh_contingency.api`, `.registry`, `.limits`,
+- **The command machinery is its own library**, `mesh-commands` 0.1.0 in
+  `packages/mesh-commands` (import name `mesh_commands`), with no imports
+  from Mesh Contingency and its own README, CHANGELOG and tests, which CI
+  runs on their own. `mesh_contingency.api`, `.registry`, `.limits`,
   `.running`, `.output`, `.testing` and the `help` command moved there;
-  commands of your own import from `mesh_commands` instead. Installing now
-  takes both: `pip install -e packages/mesh-commands -e .` (`install.sh` does
-  it).
-- The alerts, `alert` and `testalert` post to MeshCore's Public channel,
-  found by its key in whatever slot it's in, instead of a hashtag channel
-  (`#contingency-wx`). The bot no longer adds or renames channels. A radio
-  without Public posts nothing: the bot warns at startup, the commands say
-  so, and `install.sh --check` stops on it. A `channel` setting left in
-  `[alerts]` or `[commands.alert]` is ignored with a warning, and
-  `--alert-channel` is ignored by the installer, which no longer asks for a
-  channel. The default test message no longer names a channel.
-- The installer asks a new node for its counties (`Taylor, TX; Jones, TX`)
-  and, optionally, its first admin's public key, and writes them into
-  `config.toml` (`--counties` and `--admin-key` answer without asking; a
-  skipped answer stays on the to-do list). `--console`, `--alert-channel`
-  and `--comm-channel` are gone.
-- `install.sh --check` reads the config as the bot does (a counties list
-  over several lines counts, and a config mistake is shown). No counties is
-  now a reason to stop, as is a bot that listens but doesn't start watching
-  for alerts; no admins is a note. Its version line names the release
-  (`git describe --match 'v*'`), not the archive tag.
+  commands of your own import from `mesh_commands`. Installing takes both:
+  `pip install -e packages/mesh-commands -e .`.
+- **The installer** asks a new node for its counties
+  (`Taylor, TX; Jones, TX`) and, optionally, its first admin's key, and
+  writes them into `config.toml`; `--counties` and `--admin-key` answer
+  without asking, and a skipped answer stays on the to-do list. It no
+  longer makes `users.toml`, and an update asks nothing. Its version line
+  names the release (`git describe --match 'v*'`).
+- **`install.sh --check`** reads the config as the bot does. It stops on a
+  config mistake or no counties before starting, and on no Public channel
+  or an alert watcher that didn't start after; no admins is a note.
+- `config.example.toml` and the README are cut down to what's left.
+
+### Added
+- A filter for the automatic alerts: `[alerts] severity` (Extreme, Severe,
+  Moderate, Minor, Unknown) and `[alerts] events` (event names, any case).
+  An alert is posted if it passes every filter set; with neither, all are.
+  A filtered-out alert is remembered as seen, so changing the filter later
+  doesn't post old alerts.
+- The one-command install
+  (`curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash`),
+  with `--check`, and the USB port check: with a radio plugged in, it says
+  what keeps you from opening it (the group to join, a login that hasn't
+  picked up a new group yet). It runs without sudo and refuses root, and
+  prints the one-time commands that need an admin's sudo. CI lints it with
+  shellcheck and runs a fresh install and an update.
 
 ## [0.12.0] - 2026-11-11
 
