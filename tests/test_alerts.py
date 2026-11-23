@@ -13,9 +13,9 @@ from meshcore import EventType
 from mesh_contingency.alerts import (
     ALERTS_FILE,
     KEEP_AFTER_END_SECONDS,
+    PUBLIC_SECRET,
     AlertSettings,
     AlertWatcher,
-    hashtag_secret,
     load_alerts,
     parse_county,
 )
@@ -28,19 +28,20 @@ def iso(seconds_from_now):
     return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + seconds_from_now))
 
 
-def alert(id, name="Flood Warning", ends=3600, area="Taylor, TX", same=("048441",), ugc=("TXZ127",)):
+def alert(id, name="Flood Warning", ends=3600, area="Taylor, TX", same=("048441",), ugc=("TXZ127",),
+          severity="Severe"):
     return {"id": id, "event": name, "ends": iso(ends), "expires": iso(ends), "areaDesc": area,
-            "geocode": {"SAME": list(same), "UGC": list(ugc)}}
+            "severity": severity, "geocode": {"SAME": list(same), "UGC": list(ugc)}}
 
 
 class LoadAlertsTest(unittest.TestCase):
     def test_defaults_turn_it_off(self):
-        self.assertEqual(load_alerts({}), AlertSettings((), 10, "#contingency-wx"))
+        self.assertEqual(load_alerts({}), AlertSettings((), 10, None, None))
 
     def test_counties_and_settings(self):
         settings = load_alerts({"alerts": {"counties": ["Taylor, TX", "Jones TX", "taylor county, tx"],
-                                           "every_minutes": 15, "channel": "#abilene-wx"}})
-        self.assertEqual(settings, AlertSettings(("Taylor, TX", "Jones, TX"), 15, "#abilene-wx"))
+                                           "every_minutes": 15}})
+        self.assertEqual(settings, AlertSettings(("Taylor, TX", "Jones, TX"), 15))
         self.assertEqual(load_alerts({"alerts": {"counties": "Palo Pinto, tx"}}).counties, ("Palo Pinto, TX",))
 
     def test_parse_county(self):
@@ -52,19 +53,49 @@ class LoadAlertsTest(unittest.TestCase):
             with self.subTest(text=text), self.assertRaisesRegex(ValueError, "isn't a county and state"):
                 parse_county(text)
 
-    def test_channel_defaults_to_the_alert_commands(self):
-        config = {"alerts": {"counties": ["Taylor, TX"]}, "commands": {"alert": {"permission": "admin",
-                                                                                 "channel": "#local-wx"}}}
-        self.assertEqual(load_alerts(config).channel, "#local-wx")
+    def test_an_old_channel_is_accepted_and_ignored(self):
+        self.assertEqual(load_alerts({"alerts": {"counties": ["Taylor, TX"], "channel": "#abilene-wx"}}),
+                         AlertSettings(("Taylor, TX",)))
+
+    def test_the_filter(self):
+        settings = load_alerts({"alerts": {"severity": ["extreme", "Severe"],
+                                           "events": ["Tornado Warning", "  flash flood  warning"]}})
+        self.assertEqual(settings.severity, {"extreme", "severe"})
+        self.assertEqual(settings.events, {"tornado warning", "flash flood warning"})
+        self.assertEqual(settings.describe_filter(), "Extreme or Severe, and flash flood warning; tornado warning")
+        self.assertEqual(load_alerts({"alerts": {"severity": "Extreme"}}).severity, {"extreme"})
+        self.assertEqual(AlertSettings().describe_filter(), "")
+
+    def test_wanted(self):
+        both = AlertSettings(severity=frozenset({"extreme", "severe"}), events=frozenset({"tornado warning"}))
+        severe = AlertSettings(severity=frozenset({"extreme", "severe"}))
+        events = AlertSettings(events=frozenset({"tornado warning", "flood warning"}))
+        cases = [
+            ({"event": "Tornado Warning", "severity": "Extreme"}, True, True, True),
+            ({"event": "Flood Warning", "severity": "Severe"}, False, True, True),
+            ({"event": "TORNADO WARNING", "severity": "Moderate"}, False, False, True),
+            ({"event": "Frost Advisory", "severity": "Minor"}, False, False, False),
+            ({"event": "Special Weather Statement"}, False, False, False),  # no severity: Unknown
+        ]
+        for a, with_both, with_severity, with_events in cases:
+            with self.subTest(alert=a):
+                self.assertIs(both.wanted(a), with_both)
+                self.assertIs(severe.wanted(a), with_severity)
+                self.assertIs(events.wanted(a), with_events)
+                self.assertTrue(AlertSettings().wanted(a))  # no filter: everything
+        self.assertTrue(AlertSettings(severity=frozenset({"unknown"})).wanted({"event": "x"}))
 
     def test_mistakes_stop_startup(self):
         for section, problem in [
-            ({"zipcodes": ["79601"]}, "may only set channel, counties, every_minutes"),
+            ({"zipcodes": ["79601"]}, "may only set counties, events, every_minutes, severity"),
             ({"counties": [441]}, "must be a list of counties"),
             ({"counties": ["Taylor"]}, "isn't a county and state"),
             ({"counties": ["Taylor, TX"], "every_minutes": 2}, "at least 5"),
             ({"counties": ["Taylor, TX"], "every_minutes": True}, "at least 5"),
-            ({"counties": ["Taylor, TX"], "channel": "contingency-wx"}, "hashtag channel"),
+            ({"severity": ["Bad"]}, "severity: unknown bad; use Extreme, Severe, Moderate, Minor, Unknown"),
+            ({"severity": []}, "severity must be a list"),
+            ({"events": [5]}, "events must be a list"),
+            ({"events": [""]}, "events must be a list"),
         ]:
             with self.subTest(section=section), self.assertRaisesRegex(SystemExit, problem):
                 load_alerts({"alerts": section})
@@ -99,8 +130,8 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
             raise self.feed
         return self.feed
 
-    def make_watcher(self, counties, state=None):
-        return AlertWatcher(self.radio, AlertSettings(counties, 10, "#contingency-wx"),
+    def make_watcher(self, counties, state=None, **filters):
+        return AlertWatcher(self.radio, AlertSettings(counties, 10, **filters),
                             state or State(self.folder), lookup=self.lookup, fetch=self.fetch,
                             reachable=self.reachable)
 
@@ -124,7 +155,7 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.posted()[0].startswith("Taylor, TX ALERT: Flood Warning | until "), self.posted())
         self.assertEqual(await self.watcher.check(), 0)
         self.assertEqual(len(self.posted()), 1)
-        self.assertIn("Auto alerts: posted 1 new alert message(s) for Taylor, TX to #contingency-wx:",
+        self.assertIn("Auto alerts: posted 1 new alert message(s) for Taylor, TX to Public:",
                       self.out.getvalue())
 
     async def test_an_alert_is_named_by_the_first_county_it_covers(self):
@@ -140,11 +171,46 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         await self.watcher.check()
         self.assertTrue(self.posted()[0].startswith("Taylor, TX ALERT:"))
 
-    async def test_the_channel_is_added_to_the_radio_if_missing(self):
+    async def test_posts_to_public_in_slot_0(self):
         self.feed = [alert("a1")]
         await self.watcher.check()
-        self.assertEqual(self.radio.channels[1], ("#contingency-wx", hashtag_secret("#contingency-wx")))
-        self.assertEqual(self.radio.channel_sent[0][0], 1)
+        self.assertEqual(self.radio.channel_sent[0][0], 0)
+        self.assertEqual(self.radio.channels[1], ("", bytes(16)))  # nothing added
+
+    async def test_posts_to_public_in_another_slot(self):
+        self.radio.channels[0] = ("#local", bytes(range(16)))
+        self.radio.channels[2] = ("Public", PUBLIC_SECRET)
+        self.feed = [alert("a1")]
+        await self.watcher.check()
+        self.assertEqual(self.radio.channel_sent[0][0], 2)
+
+    async def test_the_filter_posts_only_what_it_lets_through(self):
+        watcher = self.make_watcher(("Taylor, TX",), severity=frozenset({"extreme", "severe"}),
+                                    events=frozenset({"tornado warning", "flood warning"}))
+        self.feed = [alert("a1", "Tornado Warning", severity="Extreme"),
+                     alert("a2", "Flood Warning", severity="Moderate"),
+                     alert("a3", "Wind Advisory", severity="Severe")]
+        self.assertEqual(await watcher.check(), 1)
+        self.assertEqual([p.split(" | ")[0] for p in self.posted()], ["Taylor, TX ALERT: Tornado Warning"])
+        self.assertIn("Auto alerts: 2 new alert(s) not posted (filtered out by [alerts])", self.out.getvalue())
+        self.assertEqual(set(watcher.posted), {"a1", "a2", "a3"})  # all seen
+
+    async def test_a_filtered_alert_isnt_posted_after_the_filter_changes(self):
+        strict = self.make_watcher(("Taylor, TX",), severity=frozenset({"extreme"}))
+        self.feed = [alert("a1", severity="Severe")]
+        self.assertEqual(await strict.check(), 0)
+        self.assertEqual(self.posted(), [])
+        # The admin loosens the filter and restarts: the alert from before isn't posted now.
+        loose = self.make_watcher(("Taylor, TX",), State(self.folder))
+        self.feed = [alert("a1", severity="Severe"), alert("a2", "Tornado Warning", severity="Extreme")]
+        self.assertEqual(await loose.check(), 1)
+        self.assertEqual([p.split(" | ")[0] for p in self.posted()], ["Taylor, TX ALERT: Tornado Warning"])
+
+    def test_describe(self):
+        self.assertEqual(self.watcher.describe(), "2 counties (Taylor, TX; Jones, TX) every 10 min to Public")
+        watcher = self.make_watcher(("Taylor, TX",), severity=frozenset({"severe", "extreme"}))
+        self.assertEqual(watcher.describe(), "1 county (Taylor, TX) every 10 min to Public, posting only "
+                                             "Extreme or Severe")
 
     async def test_nothing_is_looked_up_or_posted_again_after_a_restart(self):
         self.feed = [alert("a1")]
@@ -245,12 +311,16 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.radio.channel_result = event(EventType.OK)
         self.assertEqual(await self.watcher.check(), 1)
 
-    async def test_no_free_channel_slot(self):
+    async def test_no_public_channel(self):
         self.radio.channels = [(f"ch{i}", bytes([i + 1]) * 16) for i in range(8)]
         self.feed = [alert("a1")]
-        with self.assertRaisesRegex(Exception, "no free channel slot on the radio for #contingency-wx"):
-            await self.watcher.check()
-        self.assertEqual(self.watcher.posted, {})
+        self.assertEqual(await self.watcher.check(), 0)
+        self.assertEqual(self.posted(), [])
+        self.assertEqual(self.watcher.posted, {})  # tried again once Public is back
+        self.assertIn("Auto alerts: No Public channel on the radio; nothing posted.", self.out.getvalue())
+        self.assertEqual(self.radio.channels[0][0], "ch0")  # nothing changed
+        self.radio.channels[5] = ("Public", PUBLIC_SECRET)
+        self.assertEqual(await self.watcher.check(), 1)
 
     async def test_a_failed_round_doesnt_stop_the_watcher(self):
         self.feed = [alert("a1")]

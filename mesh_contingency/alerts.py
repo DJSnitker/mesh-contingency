@@ -1,21 +1,24 @@
-"""Weather alerts on a public channel: shared by the alert command and the
-automatic alert watcher.
+"""Weather alerts on MeshCore's Public channel: shared by the alert command,
+the automatic alert watcher and the weekly test.
 
-The bot takes no commands from channels; it only sends to one. The channel is a
-hashtag channel (#name), which anyone can join by adding the same name. If the radio
-doesn't have it, it is added to the first empty channel slot.
+The bot takes no commands from channels; it only sends to one. Public has a
+fixed key, the same on every radio, so the bot posts to whichever slot holds
+that key (usually slot 0). It never adds or renames a channel: a radio
+without Public gets nothing posted, and says so.
 
 The watcher ([alerts] in config.toml) watches counties. It looks up each
-county's NWS code once (kept until an admin sends alertmap), then every few
-minutes asks the National Weather Service for the alerts in all the counties
-in a single request, and posts each alert it hasn't posted before, once, even
-if several counties share it. The codes and what it has posted are kept in
-alerts.json next to config.toml, so a restart doesn't post anything again.
+county's NWS code once, then every few minutes asks the National Weather
+Service for the alerts in all the counties in a single request, and posts
+each alert it hasn't posted before, once, even if several counties share it.
+[alerts] severity and events filter what's posted; an alert filtered out is
+still remembered, so changing the filter later doesn't post old alerts. The
+codes and the alerts seen are kept in alerts.json next to config.toml, so a
+restart doesn't post anything again.
 Right after the computer starts the network may not be up yet, so the first
 round waits (up to NETWORK_WAIT) until the NWS's name can be looked up.
 
-[alert_test] posts a test message to the same channel every week, and the
-testalert command posts it on request, so people know the channel works.
+[alert_test] posts a test message to Public every week, and the testalert
+command posts it on request, so people know the alerts get through.
 """
 
 import asyncio
@@ -25,20 +28,24 @@ import time
 import urllib.parse
 import zoneinfo
 from dataclasses import dataclass
-from hashlib import sha256
 
 from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
 from meshcore import EventType
 
 from .weather import NWS_API, STATE_FIPS, alert_counties, county_alerts, county_code
 
-DEFAULT_CHANNEL = "#contingency-wx"
+# What the alerts are posted to, as printed and replied.
+PUBLIC = "Public"
 # Channel slots to look through if the radio doesn't say how many it has.
 DEFAULT_SLOTS = 8
 # The key of MeshCore's usual Public channel, the same on every radio.
 PUBLIC_SECRET = bytes.fromhex("8b3387e9c5cdea6ac9e5edbaa115cd72")
 ALERTS_FILE = "alerts.json"
-ALERTS_KEYS = {"counties", "every_minutes", "channel"}
+ALERTS_KEYS = {"counties", "every_minutes", "severity", "events"}
+# An older version's setting: ignored, with a warning (see config.retired_settings).
+OLD_ALERTS_KEYS = {"channel"}
+# The NWS's severity levels, most severe first.
+SEVERITIES = ("Extreme", "Severe", "Moderate", "Minor", "Unknown")
 DEFAULT_EVERY_MINUTES = 10
 # api.weather.gov asks clients not to poll too often.
 MIN_EVERY_MINUTES = 5
@@ -54,22 +61,11 @@ NETWORK_WAIT = 120
 NETWORK_POLL = 5
 
 
-class NoChannelSlot(Exception):
-    """The radio has no empty channel slot for the alert channel."""
+class NoPublicChannel(Exception):
+    """No channel slot on the radio has the Public channel's key."""
 
-
-def check_channel(channel):
-    """The channel name if it is a usable hashtag channel; raises ValueError."""
-    if not (isinstance(channel, str) and channel.startswith("#") and len(channel) > 1
-            and len(channel.encode("utf-8")) <= 31):
-        raise ValueError(f"channel must be a hashtag channel name such as {DEFAULT_CHANNEL!r}, "
-                         f"up to 31 bytes, not {channel!r}")
-    return channel
-
-
-def hashtag_secret(name):
-    """The key of a hashtag channel, which anyone can work out from its name."""
-    return sha256(name.encode("utf-8")).digest()[:16]
+    def __str__(self):
+        return "no Public channel on the radio; add MeshCore's Public channel back in its app"
 
 
 def short_time(iso):
@@ -123,26 +119,12 @@ async def read_channels(radio):
     return found
 
 
-def is_empty(name, secret):
-    return not name and not any(secret)
-
-
-async def channel_slot(radio, channel):
-    """Return (slot, added): the radio's slot for the channel, adding it to
-    the first empty slot if it isn't there. Raises NoChannelSlot if there is
-    no room, or RuntimeError if the radio refuses."""
-    secret = hashtag_secret(channel)
-    slots = await read_channels(radio)
-    for slot, (_, key) in enumerate(slots):
-        if key == secret:
-            return slot, False
-    empty = next((slot for slot, (name, key) in enumerate(slots) if is_empty(name, key)), None)
-    if empty is None:
-        raise NoChannelSlot(f"no free channel slot on the radio for {channel}")
-    res = await radio.commands.set_channel(empty, channel)
-    if res.type == EventType.ERROR:
-        raise RuntimeError(f"radio rejected adding {channel} to slot {empty}: {res.payload}")
-    return empty, True
+async def public_slot(radio):
+    """The radio's channel slot for Public. Raises NoPublicChannel."""
+    for slot, (_, key) in enumerate(await read_channels(radio)):
+        if key == PUBLIC_SECRET:
+            return slot
+    raise NoPublicChannel()
 
 
 async def post(radio, slot, messages):
@@ -193,14 +175,48 @@ def plural_counties(n):
 class AlertSettings:
     counties: tuple = ()  # "Taylor, TX", ...
     every_minutes: float = DEFAULT_EVERY_MINUTES
-    channel: str = DEFAULT_CHANNEL
+    severity: frozenset = None  # lowercase severities to post, or None for any
+    events: frozenset = None  # lowercase event names to post, or None for any
+
+    def wanted(self, alert):
+        """True if the alert passes every filter that's set."""
+        if self.severity is not None and (alert.get("severity") or "Unknown").lower() not in self.severity:
+            return False
+        return self.events is None or (alert.get("event") or "").lower() in self.events
+
+    def describe_filter(self):
+        """"Extreme or Severe", "Tornado Warning", ..., or "" with no filter."""
+        parts = []
+        if self.severity is not None:
+            parts.append(" or ".join(s for s in SEVERITIES if s.lower() in self.severity))
+        if self.events is not None:
+            parts.append("; ".join(sorted(self.events)))
+        return ", and ".join(parts)
+
+
+def _names(section, key, allowed=None):
+    """A [alerts] list of names as a lowercase frozenset, or None if not set.
+    Exits on a mistake."""
+    if key not in section:
+        return None
+    value = section[key]
+    if isinstance(value, str):
+        value = [value]
+    example = '["Extreme", "Severe"]' if allowed else '["Tornado Warning", "Flash Flood Warning"]'
+    if not isinstance(value, list) or not value or not all(isinstance(v, str) and v.strip() for v in value):
+        raise SystemExit(f"[alerts] {key} must be a list, e.g. {example}; leave it out to post every alert.")
+    names = frozenset(" ".join(v.split()).lower() for v in value)
+    if allowed:
+        unknown = sorted(names - {a.lower() for a in allowed})
+        if unknown:
+            raise SystemExit(f"[alerts] {key}: unknown {', '.join(unknown)}; use {', '.join(allowed)}.")
+    return names
 
 
 def load_alerts(config):
-    """AlertSettings from [alerts] in config.toml. The channel defaults to the
-    alert command's. Exits on a mistake."""
+    """AlertSettings from [alerts] in config.toml. Exits on a mistake."""
     section = config.get("alerts", {})
-    if not isinstance(section, dict) or set(section) - ALERTS_KEYS:
+    if not isinstance(section, dict) or set(section) - ALERTS_KEYS - OLD_ALERTS_KEYS:
         raise SystemExit(f"[alerts] may only set {', '.join(sorted(ALERTS_KEYS))}.")
     counties = section.get("counties", [])
     if isinstance(counties, str):
@@ -218,13 +234,7 @@ def load_alerts(config):
     every = section.get("every_minutes", DEFAULT_EVERY_MINUTES)
     if isinstance(every, bool) or not isinstance(every, (int, float)) or every < MIN_EVERY_MINUTES:
         raise SystemExit(f"[alerts] every_minutes must be a number of minutes, at least {MIN_EVERY_MINUTES}.")
-    alert_command = config.get("commands", {}).get("alert", {})
-    default = alert_command.get("channel", DEFAULT_CHANNEL) if isinstance(alert_command, dict) else DEFAULT_CHANNEL
-    try:
-        channel = check_channel(section.get("channel", default))
-    except ValueError as e:
-        raise SystemExit(f"[alerts] {e}.") from None
-    return AlertSettings(counties, every, channel)
+    return AlertSettings(counties, every, _names(section, "severity", SEVERITIES), _names(section, "events"))
 
 
 def _timestamp(iso):
@@ -250,7 +260,7 @@ def nws_reachable():
 
 
 class AlertWatcher:
-    """Posts new NWS alerts for the watched counties to the alert channel."""
+    """Posts new NWS alerts for the watched counties to Public."""
 
     def __init__(self, radio, settings, state, lookup=None, fetch=None, reachable=None):
         self.radio = radio
@@ -259,7 +269,8 @@ class AlertWatcher:
         self.lookup = lookup or county_code  # (name, state) -> NWS code, e.g. "TXC441"
         self.fetch = fetch or county_alerts  # [NWS codes] -> active alerts
         self.reachable = reachable or nws_reachable  # () -> True once there's a network
-        # {"counties": {"Taylor, TX": {"code", "time"}}, "posted": {key: time to forget it}}
+        # {"counties": {"Taylor, TX": {"code", "time"}}, "posted": {key: time to forget it}}; "posted"
+        # holds every alert seen, filtered out or not.
         self.store = state.store(ALERTS_FILE)
         self.store.data.pop("zones", None)  # from a test version that watched zipcodes
         self.unmapped = {}  # county -> why its code couldn't be looked up
@@ -278,8 +289,9 @@ class AlertWatcher:
 
     def describe(self):
         """For startup."""
+        only = self.settings.describe_filter()
         return (f"{plural_counties(len(self.settings.counties))} ({'; '.join(self.settings.counties)}) every "
-                f"{self.settings.every_minutes:g} min to {self.settings.channel}")
+                f"{self.settings.every_minutes:g} min to {PUBLIC}{f', posting only {only}' if only else ''}")
 
     async def map_counties(self, counties=None):
         """Look up and keep the NWS codes of these counties (all the watched
@@ -341,8 +353,9 @@ class AlertWatcher:
             self.problem = None
         now = time.time()
         self.last_check = now
-        new = {}  # county -> [(key, until, alert)] not posted before
+        new = {}  # county -> [(key, until, alert)] not seen before
         active = set()
+        filtered = 0
         for alert in alerts:
             key = _key(alert)
             if key in active:
@@ -351,22 +364,31 @@ class AlertWatcher:
             until = self.remember_until(alert, now)
             if key in self.posted:
                 self.posted[key] = max(self.posted[key], until)
+            elif not self.settings.wanted(alert):
+                self.posted[key] = until  # seen, so a later filter change doesn't post it
+                filtered += 1
             else:
                 new.setdefault(self.county_for(alert, mapped), []).append((key, until, alert))
+        if filtered:
+            print(f"Auto alerts: {filtered} new alert(s) not posted (filtered out by [alerts])", flush=True)
         sent = 0
         try:
             if new:
-                slot, added = await channel_slot(self.radio, self.settings.channel)
-                if added:
-                    print(f"Auto alerts: added {self.settings.channel} to channel slot {slot}", flush=True)
+                try:
+                    slot = await public_slot(self.radio)
+                except NoPublicChannel:
+                    print("Auto alerts: No Public channel on the radio; nothing posted. Add MeshCore's Public "
+                          f"channel back in the radio's app (trying again in {self.settings.every_minutes:g} min)",
+                          flush=True)
+                    return 0
             for county, entries in new.items():
                 messages = format_alerts(county, [alert for _, _, alert in entries], message_limit(self.radio))
                 await post(self.radio, slot, messages)
                 # Only now, so alerts that couldn't be posted are tried again next round.
                 self.posted.update((key, until) for key, until, _ in entries)
                 sent += len(messages)
-                print(f"Auto alerts: posted {len(messages)} new alert message(s) for {county} to "
-                      f"{self.settings.channel}:", flush=True)
+                print(f"Auto alerts: posted {len(messages)} new alert message(s) for {county} to {PUBLIC}:",
+                      flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
         finally:
@@ -404,13 +426,13 @@ class AlertWatcher:
                 await self.check()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:  # e.g. no free channel slot, or the radio refused a message
+            except Exception as e:  # e.g. the radio refused a message
                 print(f"Auto alerts: {e}; trying again in {self.settings.every_minutes:g} min", flush=True)
             await asyncio.sleep(self.settings.every_minutes * 60)
 
 
 TEST_KEYS = {"weekly", "timezone", "message"}
-DEFAULT_TEST_MESSAGE = "TEST: this is a test of the {channel} alert channel. No action needed."
+DEFAULT_TEST_MESSAGE = "TEST: this is a test of the weather alerts on this channel. No action needed."
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 # The longest a scheduled task sleeps before looking at the clock again, so a
 # clock change or a suspended computer doesn't throw the time off (seconds).
@@ -447,19 +469,17 @@ def parse_weekly(text):
 
 @dataclass(frozen=True)
 class TestSettings:
-    channel: str = DEFAULT_CHANNEL
-    message: str = DEFAULT_TEST_MESSAGE.format(channel=DEFAULT_CHANNEL)
+    message: str = DEFAULT_TEST_MESSAGE
     weekly: tuple = None  # (weekday, hour, minute), or None for no weekly test
     zone: zoneinfo.ZoneInfo = None  # None for the computer's own time zone
 
 
-def load_alert_test(config, channel):
-    """TestSettings from [alert_test] in config.toml, posting to channel (the
-    alerts' channel). Exits on a mistake."""
+def load_alert_test(config):
+    """TestSettings from [alert_test] in config.toml. Exits on a mistake."""
     section = config.get("alert_test", {})
     if not isinstance(section, dict) or set(section) - TEST_KEYS:
         raise SystemExit(f"[alert_test] may only set {', '.join(sorted(TEST_KEYS))}.")
-    message = section.get("message", DEFAULT_TEST_MESSAGE.format(channel=channel))
+    message = section.get("message", DEFAULT_TEST_MESSAGE)
     if not isinstance(message, str) or not message.strip() or len(message.strip()) > MAX_REPLY_LEN:
         raise SystemExit(f"[alert_test] message must be some text, at most {MAX_REPLY_LEN} characters.")
     weekly = section.get("weekly", "")
@@ -476,7 +496,7 @@ def load_alert_test(config, channel):
         except (zoneinfo.ZoneInfoNotFoundError, ValueError, TypeError):
             raise SystemExit(f"[alert_test] timezone {zone!r} isn't a time zone, e.g. \"America/Chicago\" "
                              "(on Windows, also pip install tzdata).") from None
-    return TestSettings(channel, message.strip(), weekly, zone)
+    return TestSettings(message.strip(), weekly, zone)
 
 
 def next_weekly(weekly, zone=None, now=None):
@@ -502,7 +522,7 @@ def when_text(timestamp, zone=None):
 
 
 class AlertTest:
-    """Posts the test message to the alert channel: on request, and weekly if set."""
+    """Posts the test message to Public: on request, and weekly if set."""
 
     def __init__(self, radio, settings, state, counties=()):
         self.radio = radio
@@ -530,17 +550,18 @@ class AlertTest:
     def describe(self):
         day, hour, minute = self.settings.weekly
         zone = f" {self.settings.zone.key}" if self.settings.zone else ""
-        return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {self.settings.channel}; "
+        return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {PUBLIC}; "
                 f"next {when_text(self.next_time(), self.settings.zone)}")
 
     async def send(self):
-        """Post the test message now. Returns (slot, added, the messages posted)."""
-        slot, added = await channel_slot(self.radio, self.settings.channel)
+        """Post the test message now. Returns (slot, the messages posted).
+        Raises NoPublicChannel."""
+        slot = await public_slot(self.radio)
         messages = self.messages()
         await post(self.radio, slot, messages)
         self.store.data["last_test"] = time.time()
         self.store.save()
-        return slot, added, messages
+        return slot, messages
 
     async def run(self):
         """Post the test every week until cancelled; a failure is logged and
@@ -550,11 +571,11 @@ class AlertTest:
             while (wait := due - time.time()) > 0:
                 await asyncio.sleep(min(wait, MAX_SLEEP))
             try:
-                _, _, messages = await self.send()
-                print(f"Weekly alert test posted to {self.settings.channel}:", flush=True)
+                _, messages = await self.send()
+                print(f"Weekly alert test posted to {PUBLIC}:", flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
             except asyncio.CancelledError:
                 raise
-            except Exception as e:  # e.g. no free channel slot, or the radio refused the message
+            except Exception as e:  # e.g. no Public channel, or the radio refused the message
                 print(f"Weekly alert test failed: {e}", flush=True)

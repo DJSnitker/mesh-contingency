@@ -25,12 +25,7 @@
 #   --dir DIR      install here instead of ~/mesh-contingency
 #   --ref REF      a tag or branch instead of the latest release (e.g. main)
 #   --no-service   don't install the systemd user service
-#   --alert-channel NAME   the alert channel (weather alerts, alert), e.g. #district7-wx
 #   --check        don't install: start the service and check the node runs
-#
-# A new install asks for the alert channel (Enter keeps #contingency-wx),
-# unless it's given as an option or there's no terminal to ask on. An update
-# never asks: change it in config.toml.
 #
 # MC_REPO overrides the repository to clone (CI uses a local copy), and
 # MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*); MC_UNIT
@@ -43,7 +38,7 @@ main() {
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
     local dir="$HOME/mesh-contingency" ref="" service=1
-    local alert_channel="" check=0
+    local check=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -52,8 +47,7 @@ main() {
             --console) say "The web console has been removed; ignoring --console."; shift ;;
             --no-service) service=0; shift ;;
             --check) check=1; shift ;;
-            --alert-channel) alert_channel="$(channel_name "${2:?--alert-channel needs a name}")" \
-                                 || die "--alert-channel: $(channel_rule)"; shift 2 ;;
+            --alert-channel) say "The alerts now go to the Public channel; ignoring --alert-channel."; shift 2 ;;
             --comm-channel) say "The comm command has been removed; ignoring --comm-channel."; shift 2 ;;
             -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0" 2>/dev/null \
                            || echo "See the comments at the top of install.sh"; return 0 ;;
@@ -73,11 +67,6 @@ main() {
         say "Missing: ${missing[*]}. Install it, then run this again:"
         say "  $(package_hint "${missing[@]}")"
         exit 1
-    fi
-
-    # A new node's alert channel, asked now so the install runs on without you.
-    if [ ! -e "$dir/config.toml" ]; then
-        alert_channel="${alert_channel:-$(ask_channel "Alert channel, for weather alerts and the alert command" "#contingency-wx")}"
     fi
 
     # Get the code: a fresh checkout, or an update of the one already there.
@@ -127,7 +116,6 @@ main() {
     if [ ! -e config.toml ]; then
         cp config.example.toml config.toml
         made+=("$dir/config.toml")
-        set_channel alert "$alert_channel" "#contingency-wx"
     fi
     chmod 600 config.toml
 
@@ -169,45 +157,6 @@ find_python() {
         fi
     done
     return 1
-}
-
-# A channel name as the bot takes it: "#" and then letters, digits, - or _,
-# up to 31 characters. A name without the "#" gets one. Fails on anything else.
-channel_name() {
-    local name="$1"
-    case "$name" in "#"*) ;; *) name="#$name" ;; esac
-    [[ "$name" =~ ^#[A-Za-z0-9_-]+$ ]] && [ ${#name} -le 31 ] || return 1
-    printf '%s\n' "$name"
-}
-channel_rule() { printf '%s\n' 'a channel is # and up to 30 letters, digits, - or _, e.g. #district7-wx'; }
-
-# Asks on the terminal (stdin is the script itself under curl | bash); with
-# no terminal, or Enter, it's the default.
-ask_channel() {
-    local prompt="$1" default="$2" answer name
-    if ! { exec 3</dev/tty; } 2>/dev/null; then
-        printf '%s\n' "$default"
-        return 0
-    fi
-    while true; do
-        printf '%s [%s]: ' "$prompt" "$default" >/dev/tty
-        IFS= read -r answer <&3 || answer=""
-        if [ -z "$answer" ]; then name="$default"; break; fi
-        if name="$(channel_name "$answer")"; then break; fi
-        printf '  %s\n' "$(channel_rule)" >/dev/tty
-    done
-    exec 3<&-
-    printf '%s\n' "$name"
-}
-
-# Writes a command's channel into the new config.toml, when it isn't the default.
-set_channel() {
-    local command="$1" channel="$2" default="$3"
-    [ -n "$channel" ] && [ "$channel" != "$default" ] || return 0
-    sed -i "s|^$command = { permission = \"admin\" }|$command = { permission = \"admin\", channel = \"$channel\" }|" config.toml
-    grep -q "^$command = .*channel = \"$channel\"" config.toml \
-        || say "Couldn't set the $command channel in config.toml; set channel = \"$channel\" under [commands] yourself."
-    say "Channel for $command: $channel"
 }
 
 # Whether this account can open the radio's USB port: nothing when it can,
@@ -345,6 +294,12 @@ check_node() {
     done
 
     local warnings line
+    # A radio without Public runs, but posts nothing: that's no node at all.
+    if grep -q "No Public channel on the radio" <<< "$log"; then
+        say "- The radio has no Public channel, so no alerts can be posted: add MeshCore's Public channel"
+        say "  back in the radio's app, then run this again."
+        return 1
+    fi
     warnings="$(grep "^Warning:" <<< "$log" || true)"
     if [ -n "$warnings" ]; then
         say "Running, with warnings (what each means: https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux#step-6-check-its-working):"
@@ -352,7 +307,7 @@ check_node() {
     else
         say "Running, with no warnings."
     fi
-    say "The node is listening. Next: send it health from your radio, and test a reboot."
+    say "The node is listening. Next: send it help from an admin radio, and test a reboot."
     [ "$notes" = 0 ] || say "(see the notes above about starting at boot)"
     return 0
 }

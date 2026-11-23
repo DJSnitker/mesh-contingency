@@ -28,6 +28,11 @@ may change how the bot is configured).
   install's to-do list now ends with it.
 - The installer's instructions say plainly that it runs without sudo (and
   refuses root), and which one-time commands need an admin's sudo.
+- A filter for the automatic alerts: `[alerts] severity` (Extreme, Severe,
+  Moderate, Minor, Unknown) and `[alerts] events` (event names, any case). An
+  alert is posted if it passes every filter set; with neither, everything is.
+  An alert filtered out is remembered as seen, so changing the filter later
+  doesn't post old alerts.
 
 ### Removed
 The first step of cutting the system down to weather alerts
@@ -78,6 +83,14 @@ The first step of cutting the system down to weather alerts
   commands of your own import from `mesh_commands` instead. Installing now
   takes both: `pip install -e packages/mesh-commands -e .` (`install.sh` does
   it).
+- The alerts, `alert` and `testalert` post to MeshCore's Public channel,
+  found by its key in whatever slot it's in, instead of a hashtag channel
+  (`#contingency-wx`). The bot no longer adds or renames channels. A radio
+  without Public posts nothing: the bot warns at startup, the commands say
+  so, and `install.sh --check` stops on it. A `channel` setting left in
+  `[alerts]` or `[commands.alert]` is ignored with a warning, and
+  `--alert-channel` is ignored by the installer, which no longer asks for a
+  channel. The default test message no longer names a channel.
 
 ## [0.12.0] - 2026-11-11
 

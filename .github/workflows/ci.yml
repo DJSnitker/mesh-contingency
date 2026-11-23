@@ -172,14 +172,15 @@ jobs:
           grep -q "and no group can" out
           MC_PORTS="$PWD/ok" ./install.sh --dir ~/node --ref ci-install --no-service 2>&1 | tee out
           grep -q "you can use it" out
-      # A new install's alert channel, from the option (CI has no terminal to ask on).
+      # The alerts go to Public: an old --alert-channel is ignored, and a new
+      # config sets no channel.
       - name: Channels
         run: |
           export MC_REPO="file://$PWD"
-          ./install.sh --dir ~/node2 --ref ci-install --no-service --alert-channel district7-wx
-          grep -q '^alert = .*channel = "#district7-wx"' ~/node2/config.toml
+          ./install.sh --dir ~/node2 --ref ci-install --no-service --alert-channel district7-wx | tee out
+          grep -q "ignoring --alert-channel" out
+          ! grep -q 'channel = ' ~/node2/config.toml
           test ! -e ~/node2/users.toml
-          ! ./install.sh --dir ~/node3 --alert-channel 'bad name!'
       # --check stops before starting anything with no radio plugged in (CI
       # has no radio, nor a user systemd to start the service with).
       - name: Check mode

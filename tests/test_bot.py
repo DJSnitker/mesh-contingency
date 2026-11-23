@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import hashlib
 import io
 import os
 import signal
@@ -183,13 +182,13 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.enterContext(mock.patch("mesh_contingency.bot.AlertWatcher.run", mock.AsyncMock()))
         await self.start(CONFIG + '\n[alerts]\ncounties = ["Taylor, TX"]\n')
         out = self.out.getvalue()
-        self.assertIn("Watching NWS alerts for 1 county (Taylor, TX) every 10 min to #contingency-wx.", out)
+        self.assertIn("Watching NWS alerts for 1 county (Taylor, TX) every 10 min to Public.", out)
         self.assertNotIn("no counties", out)
 
     async def test_weekly_test_is_scheduled(self):
         self.enterContext(mock.patch("mesh_contingency.bot.AlertTest.run", mock.AsyncMock()))
         await self.start(CONFIG + '\n[alert_test]\nweekly = "Wed 17:00"\ntimezone = "America/Chicago"\n')
-        self.assertIn("Weekly alert test: Wednesday 17:00 America/Chicago to #contingency-wx", self.out.getvalue())
+        self.assertIn("Weekly alert test: Wednesday 17:00 America/Chicago to Public", self.out.getvalue())
 
     async def test_channel_messages_are_ignored(self):
         await self.start()
@@ -217,29 +216,41 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Warning: couldn't set the radio's clock.\n", self.out.getvalue())
         self.assertFalse(self.task.done())  # it runs on
 
-    async def test_alert_channel_added_at_startup(self):
+    async def test_public_is_found_at_startup(self):
         await self.start()
-        self.assertEqual(self.radio.channels[1][0], "#contingency-wx")
-        self.assertIn("alert: #contingency-wx is channel slot 1 (added to the radio).", self.out.getvalue())
+        self.assertIn("Alerts go to the Public channel (slot 0).", self.out.getvalue())
+        self.assertEqual(self.radio.channels[1:], [("", bytes(16))] * 7)  # nothing added
 
-    async def test_alert_channel_already_on_the_radio(self):
+    async def test_public_in_another_slot(self):
         radio = FakeMeshCore({ADMIN_KEY: "Admin"})
-        radio.channels[3] = ("#contingency-wx", hashlib.sha256(b"#contingency-wx").digest()[:16])
+        radio.channels[0], radio.channels[3] = radio.channels[3], radio.channels[0]
         await self.start(radio=radio)
-        self.assertIn("alert: #contingency-wx is channel slot 3.", self.out.getvalue())
-        self.assertEqual([name for name, _ in radio.channels].count("#contingency-wx"), 1)
+        self.assertIn("Alerts go to the Public channel (slot 3).", self.out.getvalue())
+        await radio.dm(ADMIN_KEY, "alert hi")
+        self.assertEqual(radio.channel_sent, [(3, "hi")])
 
-    async def test_no_channel_slot_is_a_warning_not_a_stop(self):
+    async def test_no_public_channel_is_a_warning_not_a_stop(self):
         radio = FakeMeshCore({ADMIN_KEY: "Admin"})
-        radio.channels[1:] = [(f"ch{i}", bytes([i]) * 16) for i in range(1, 8)]
+        radio.channels[0] = ("", bytes(16))
         await self.start(radio=radio)
-        self.assertIn("Warning: alert: no free channel slot on the radio for #contingency-wx", self.out.getvalue())
-        self.assertIn("Listening for direct messages", self.out.getvalue())
+        out = self.out.getvalue()
+        self.assertIn("Warning: No Public channel on the radio, so no alerts can be posted: add MeshCore's Public "
+                      "channel back in the radio's app.", out)
+        self.assertIn("Listening for direct messages", out)
+        self.assertEqual(radio.channels, [("", bytes(16))] * 8)  # nothing added
+        await radio.dm(ADMIN_KEY, "alert hi")
+        self.assertEqual(radio.channel_sent, [])
+        self.assertEqual(radio.sent[-1][1], "alert: no Public channel on the radio; add MeshCore's Public channel "
+                                            "back in its app; nothing posted")
 
-    async def test_alert_disabled_leaves_channels_alone(self):
-        await self.start(CONFIG.replace('alert = { permission = "admin" }', 'alert = { permission = "disabled" }'))
-        self.assertNotIn("#contingency-wx", [name for name, _ in self.radio.channels])
-        self.assertIn("disabled commands (nobody): alert", self.out.getvalue())
+    async def test_an_old_channel_setting_is_a_warning(self):
+        await self.start(CONFIG.replace('alert = { permission = "admin" }',
+                                        'alert = { permission = "admin", channel = "#district7-wx" }')
+                         + '\n[alerts]\nchannel = "#district7-wx"\n')
+        self.assertIn("Warning: config.toml sets [alerts] channel, [commands.alert] channel, which is no longer "
+                      "used: the alerts always go to the Public channel. Remove it.", self.out.getvalue())
+        await self.radio.dm(ADMIN_KEY, "alert hi")
+        self.assertEqual(self.radio.channel_sent, [(0, "hi")])
 
     async def test_failed_start_is_a_warning(self):
         await self.start(CONFIG + '[commands.broken]\nhandler = "tests.test_bot:BrokenStart"\npermission = "public"\n')
@@ -414,7 +425,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
     async def test_an_alerts_text_is_not_printed(self):
         await self.start()
         await self.radio.dm(ADMIN_KEY, "alert Shelter open at the school")
-        self.assertEqual(self.replies(), ["alert: posted to #contingency-wx"])
+        self.assertEqual(self.replies(), ["alert: posted to Public"])
         out = self.out.getvalue()
         self.assertIn(f"[{ADMIN_KEY} Admin] alert\n  -> running alert\n", out)
         self.assertNotIn("Shelter", out)
@@ -476,15 +487,15 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.replies(), [UNRECOGNIZED_REPLY])
         self.assertIn("alert denied: sender not approved", self.out.getvalue())
         await self.radio.dm(ADMIN_KEY, "alert Shelter open")
-        self.assertEqual(self.radio.channel_sent, [(1, "Shelter open")])
-        self.assertEqual(self.radio.sent[-1], ("Admin", "alert: posted to #contingency-wx"))
+        self.assertEqual(self.radio.channel_sent, [(0, "Shelter open")])
+        self.assertEqual(self.radio.sent[-1], ("Admin", "alert: posted to Public"))
 
     async def test_testalert_posts_the_test_message(self):
         await self.start()
         await self.radio.dm(ADMIN_KEY, "testalert")
         self.assertEqual(self.radio.channel_sent,
-                         [(1, "TEST: this is a test of the #contingency-wx alert channel. No action needed.")])
-        self.assertEqual(self.replies(), ["testalert: posted to #contingency-wx"])
+                         [(0, "TEST: this is a test of the weather alerts on this channel. No action needed.")])
+        self.assertEqual(self.replies(), ["testalert: posted to Public"])
 
     async def test_rights_need_the_full_key_in_the_config(self):
         # A contact whose key shares the admin's prefix but differs after it.
