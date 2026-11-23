@@ -16,6 +16,12 @@
 #   --ref REF      a tag or branch instead of the latest release (e.g. main)
 #   --console      also install and build the web console (needs Node.js)
 #   --no-service   don't install the systemd user service
+#   --alert-channel NAME   the alert channel (weather alerts, alert), e.g. #district7-wx
+#   --comm-channel NAME    the communications channel (comm), e.g. #district7-comm
+#
+# A new install asks for the two channels (Enter keeps #contingency-wx and
+# #contingency-comm), unless they're given as options or there's no terminal
+# to ask on. An update never asks: change them in config.toml.
 #
 # MC_REPO overrides the repository to clone (CI uses a local copy), and
 # MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*).
@@ -26,6 +32,7 @@ main() {
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
     local dir="$HOME/mesh-contingency" ref="" console=0 service=1
+    local alert_channel="" comm_channel=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -33,6 +40,10 @@ main() {
             --ref) ref="${2:?--ref needs a tag or branch}"; shift 2 ;;
             --console) console=1; shift ;;
             --no-service) service=0; shift ;;
+            --alert-channel) alert_channel="$(channel_name "${2:?--alert-channel needs a name}")" \
+                                 || die "--alert-channel: $(channel_rule)"; shift 2 ;;
+            --comm-channel) comm_channel="$(channel_name "${2:?--comm-channel needs a name}")" \
+                                || die "--comm-channel: $(channel_rule)"; shift 2 ;;
             -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0" 2>/dev/null \
                            || echo "See the comments at the top of install.sh"; return 0 ;;
             *) die "unknown option: $1 (try --help)" ;;
@@ -52,6 +63,12 @@ main() {
         say "  $(package_hint "${missing[@]}")"
         [ "$console" = 0 ] || say "  (the web console needs Node.js 22.22+ or 24.15+, with npm)"
         exit 1
+    fi
+
+    # A new node's channels, asked now so the install runs on without you.
+    if [ ! -e "$dir/config.toml" ]; then
+        alert_channel="${alert_channel:-$(ask_channel "Alert channel, for weather alerts and the alert command" "#contingency-wx")}"
+        comm_channel="${comm_channel:-$(ask_channel "Communications channel, for the comm command" "#contingency-comm")}"
     fi
 
     # Get the code: a fresh checkout, or an update of the one already there.
@@ -107,6 +124,10 @@ main() {
         if [ ! -e "$f.toml" ]; then
             cp "$f.example.toml" "$f.toml"
             made+=("$dir/$f.toml")
+            if [ "$f" = config ]; then
+                set_channel alert "$alert_channel" "#contingency-wx"
+                set_channel comm "$comm_channel" "#contingency-comm"
+            fi
         fi
         chmod 600 "$f.toml"
     done
@@ -163,6 +184,45 @@ node_ok() {
         const [a, b] = process.versions.node.split(".").map(Number);
         process.exit((a === 22 && b >= 22) || (a === 24 && b >= 15) || a > 24 ? 0 : 1);
     '
+}
+
+# A channel name as the bot takes it: "#" and then letters, digits, - or _,
+# up to 31 characters. A name without the "#" gets one. Fails on anything else.
+channel_name() {
+    local name="$1"
+    case "$name" in "#"*) ;; *) name="#$name" ;; esac
+    [[ "$name" =~ ^#[A-Za-z0-9_-]+$ ]] && [ ${#name} -le 31 ] || return 1
+    printf '%s\n' "$name"
+}
+channel_rule() { printf '%s\n' 'a channel is # and up to 30 letters, digits, - or _, e.g. #district7-wx'; }
+
+# Asks on the terminal (stdin is the script itself under curl | bash); with
+# no terminal, or Enter, it's the default.
+ask_channel() {
+    local prompt="$1" default="$2" answer name
+    if ! { exec 3</dev/tty; } 2>/dev/null; then
+        printf '%s\n' "$default"
+        return 0
+    fi
+    while true; do
+        printf '%s [%s]: ' "$prompt" "$default" >/dev/tty
+        IFS= read -r answer <&3 || answer=""
+        if [ -z "$answer" ]; then name="$default"; break; fi
+        if name="$(channel_name "$answer")"; then break; fi
+        printf '  %s\n' "$(channel_rule)" >/dev/tty
+    done
+    exec 3<&-
+    printf '%s\n' "$name"
+}
+
+# Writes a command's channel into the new config.toml, when it isn't the default.
+set_channel() {
+    local command="$1" channel="$2" default="$3"
+    [ -n "$channel" ] && [ "$channel" != "$default" ] || return 0
+    sed -i "s|^$command = { permission = \"admin\" }|$command = { permission = \"admin\", channel = \"$channel\" }|" config.toml
+    grep -q "^$command = .*channel = \"$channel\"" config.toml \
+        || say "Couldn't set the $command channel in config.toml; set channel = \"$channel\" under [commands] yourself."
+    say "Channel for $command: $channel"
 }
 
 # Whether this account can open the radio's USB port: nothing when it can,

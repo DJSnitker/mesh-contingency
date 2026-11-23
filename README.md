@@ -516,8 +516,11 @@ On Linux, as the user the node will run as (not root):
 curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
 ```
 
-It checks out the latest release into `~/mesh-contingency`, installs the bot
-into a `.venv` there, makes `config.toml` and `users.toml` from the examples,
+First it asks for the node's two channels: the alert channel, for weather
+alerts and `alert` (Enter keeps `#contingency-wx`), and the communications
+channel, for `comm` (`#contingency-comm`). Then it checks out the latest
+release into `~/mesh-contingency`, installs the bot into a `.venv` there,
+makes `config.toml` (with those channels) and `users.toml` from the examples,
 and sets up the [systemd user service](#as-a-service) without starting it.
 Then it lists what's left: editing those two files, letting your user open the
 radio's USB port (with the radio plugged in, it tries the port itself and names
@@ -534,6 +537,9 @@ curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/ins
     | bash -s -- --console              # also build the web console (needs Node.js)
 ```
 
+`--alert-channel NAME` and `--comm-channel NAME` answer the channel questions
+(needed to change them without a terminal, as in a script); an update never
+asks, so change them in `config.toml` (see [Automatic weather alerts](#automatic-weather-alerts)).
 `--dir DIR` installs somewhere else, `--ref main` follows `main` instead of the
 releases, and `--no-service` skips the service. To read the script before
 running it, download it first: `curl -fsSLO …/install.sh`, then `bash install.sh`.

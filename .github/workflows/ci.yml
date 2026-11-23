@@ -295,3 +295,12 @@ jobs:
           grep -q "and no group can" out
           MC_PORTS="$PWD/ok" ./install.sh --dir ~/node --ref ci-install --no-service 2>&1 | tee out
           grep -q "you can use it" out
+      # A new install's channels, from the options (CI has no terminal to ask on).
+      - name: Channels
+        run: |
+          export MC_REPO="file://$PWD"
+          ./install.sh --dir ~/node2 --ref ci-install --no-service \
+              --alert-channel district7-wx --comm-channel '#d7-comm'
+          grep -q '^alert = .*channel = "#district7-wx"' ~/node2/config.toml
+          grep -q '^comm = .*channel = "#d7-comm"' ~/node2/config.toml
+          ! ./install.sh --dir ~/node3 --alert-channel 'bad name!'
