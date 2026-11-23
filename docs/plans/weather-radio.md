@@ -73,7 +73,7 @@ These are proposals; each needs the user's yes or no. The first is settled.
    e.g. `TOR` is `Tornado Warning`. A SAME header has no severity, so
    proposed: with `severity` set, each event code is given the severity the
    NWS usually gives it (warnings Severe or Extreme, watches and advisories
-   Moderate or Minor), from a table in `same.py`.
+   Moderate or Minor), from a table in `same.py`. **Accepted 2026-11-23.**
 4. **How a post reads.** Proposed: the same format as the API's posts,
    with `(NWR)` after `ALERT` so people know where it came from and that
    it has no details:
@@ -133,9 +133,10 @@ api.weather.gov ──> AlertWatcher.check ─────────┤ (the p
     week, and the antenna and dongle are the thing most likely to fail
     quietly.
 
-  Proposed, to decide: the weekly alert test (`[alert_test]`) adds a line
-  such as `NWR: last weekly test heard 3d ago`, so people on the mesh see
-  that the receiver works too. An admin DM instead would need the node watch
+  **Accepted 2026-11-23:** with `[nwr]` set, the weekly alert test
+  (`[alert_test]`) adds a line such as `NWR: last weekly test heard 3d ago`
+  (or `NWR: no weekly test heard yet`), so people on the mesh see that the
+  receiver works too. An admin DM instead would have needed the node watch
   back.
 
 ## Config
@@ -163,7 +164,8 @@ serves).
    Nothing runs yet.
 3. **The listener:** `[nwr]` in the config, `NwrListener`, the posting half
    of `AlertWatcher.check` split out and shared, the de-duplication against
-   the API, the filter, and the log lines and warnings. Tests use a
+   the API, the filter (with `same.py`'s severity table), the log lines and
+   warnings, and the NWR line in the weekly test. Tests use a
    fake command (`printf` of recorded lines, one that exits, one that
    hangs) in CI, so no radio is needed.
 4. **Docs:** the README (*Automatic weather alerts*, *Requirements*,
