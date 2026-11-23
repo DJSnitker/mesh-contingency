@@ -2,10 +2,10 @@
 
 What changed in each release of mesh-contingency. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
-[Semantic Versioning](https://semver.org/) (while below 1.0, a minor version
-may change how the bot is configured).
+[Semantic Versioning](https://semver.org/) (before 1.0, a minor version could
+change how the bot is configured).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-11-23
 
 Mesh Contingency is cut down to one job: National Weather Service alerts for
 your counties, posted to MeshCore's Public channel, with `alert`,
@@ -887,6 +887,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[1.0.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v1.0.0
 [0.12.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.12.0
 [0.11.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.11.0
 [0.10.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.10.0

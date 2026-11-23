@@ -1,8 +1,8 @@
 # Roadmap
 
-Status: the system is cut down to weather alerts on the Public channel
-([simplify.md](simplify.md), steps 0–6 done; the wiki and the 1.0.0 release
-left); next, NOAA Weather Radio (item 19) · Updated 2026-11-23
+Status: 1.0.0 released (2026-11-23): weather alerts on the Public channel, or
+one you pick ([simplify.md](simplify.md)); next, NOAA Weather Radio (item 19)
+· Updated 2026-11-23
 
 ## Where things stand
 
@@ -23,7 +23,7 @@ the branch `archive/full` (commit 344769a). That covers:
 
 | # | What | Status |
 |---|---|---|
-| 21 | Cut the system down to weather alerts on Public, plus the `mesh-commands` library | steps 0–6 done (#143–#150, this PR); left: the wiki (step 7), then release 1.0.0 and the node's migration (step 8) |
+| 21 | Cut the system down to weather alerts on Public, plus the `mesh-commands` library | done: #143–#153, the wiki, released as 1.0.0; `[alerts] channel` added on the way (#153) |
 | 19 | Alerts from NOAA Weather Radio (SAME headers), with no internet | planned: [weather-radio.md](weather-radio.md); the receiver settled (RTL-SDR Blog V4, ordered 2026-11-19); the other decisions left |
 | 9 | Field testing on real radios | paused, waiting on more radios. Its checks are for the old system and on the archive branch; the 1.0 checks are below |
 

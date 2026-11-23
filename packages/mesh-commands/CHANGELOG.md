@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 - 2026-11-23
+
+Released with Mesh Contingency 1.0.0, in its repository (not on PyPI).
 
 First version, taken out of Mesh Contingency 0.12 (its `api.py`,
 `registry.py`, `running.py`, `limits.py`, `output.py`, `testing.py`, the `help`
