@@ -54,9 +54,12 @@ jobs:
       # Installed from its folder alone (not editable), with Mesh Contingency
       # nowhere on the path, so it can be lifted into another project as is.
       - run: python -m pip install ./packages/mesh-commands
+      # From the library's folder: at the repo root, mesh_contingency/ would
+      # be importable from the current directory.
       - name: Never imports Mesh Contingency
+        working-directory: packages/mesh-commands
         run: |
-          ! grep -rnE '(^|[^a-z_])mesh_contingency' packages/mesh-commands --include='*.py'
+          ! grep -rnE '(^|[^a-z_])mesh_contingency' . --include='*.py'
           python -c "import importlib.util as u; assert u.find_spec('mesh_contingency') is None"
       - name: Tests
         working-directory: packages/mesh-commands
