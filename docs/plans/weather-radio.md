@@ -1,17 +1,17 @@
 # Plan: alerts from NOAA Weather Radio, with no internet
 
-Status: planned, nothing built yet; the receiver settled (an RTL-SDR Blog V4, ordered 2026-11-19), four decisions left · Requested 2026-11-07
+Status: planned, nothing built yet; the receiver settled (an RTL-SDR Blog V4, ordered 2026-11-19), the other decisions left · Requested 2026-11-07 · Updated 2026-11-23 for 1.0 (posts to Public; no `health`, watch or console)
 
 ## Goal
 
-The automatic weather alerts (item 2, `[alerts]`) come from
+The automatic weather alerts (`[alerts]`) come from
 api.weather.gov, so they stop when the node's computer loses the internet,
 which in a disaster is often when they matter most. NOAA Weather Radio (NWR)
 is broadcast over the air on 162.400–162.550 MHz, and every warning starts
 with a short digital **SAME** header (Specific Area Message Encoding). The
 node listens to its local NWR station with a cheap receiver, decodes those
-headers, and posts the alerts for its watched counties to the alert
-channel, whether or not the internet is up.
+headers, and posts the alerts for its watched counties to the Public
+channel, as the NWS API's alerts are, whether or not the internet is up.
 
 ## What a SAME header holds
 
@@ -59,7 +59,7 @@ These are proposals; each needs the user's yes or no. The first is settled.
    - The frequency: the local station's, from NOAA's NWR station listing by
      county. The 162.550 MHz in the example command is only a placeholder.
 2. **Always on, not only when the internet is down.** Proposed: NWR and
-   the NWS API both feed the same channel, and the first source to report
+   the NWS API both post to Public, and the first source to report
    an alert posts it. NWR is often minutes ahead of the API, and running both
    all the time means the NWR path is tested every week, not first tried in
    a disaster.
@@ -68,6 +68,12 @@ These are proposals; each needs the user's yes or no. The first is settled.
    only show that the receiver works (see *Health*). Codes for non-weather
    events (`CEM`, `EVI`, `LAE` and others) are posted too, because NWR
    carries them for local emergency management.
+
+   The `[alerts]` filter applies too. `events` matches the event's name,
+   e.g. `TOR` is `Tornado Warning`. A SAME header has no severity, so
+   proposed: with `severity` set, each event code is given the severity the
+   NWS usually gives it (warnings Severe or Extreme, watches and advisories
+   Moderate or Minor), from a table in `same.py`. **Accepted 2026-11-23.**
 4. **How a post reads.** Proposed: the same format as the API's posts,
    with `(NWR)` after `ALERT` so people know where it came from and that
    it has no details:
@@ -93,7 +99,7 @@ NWR station ── 162.xxx MHz ──> RTL-SDR ──> rtl_fm | multimon-ng -a E
 api.weather.gov ──> AlertWatcher.check ─────────┤ (the posting half of check(),
                                                 │  split out so both use it)
                                                 ▼
-                                   #contingency-wx, alerts.json, history
+                                   Public, alerts.json
 ```
 
 - **`mesh_contingency/same.py` (new, data only):** `parse_header(line)` →
@@ -118,13 +124,20 @@ api.weather.gov ──> AlertWatcher.check ─────────┤ (the p
   source posted the same event for the same county within 15 minutes of
   it, and stays quiet if so. Kept in `alerts.json` as now, so a
   restart doesn't post anything twice.
-- **Health.** `health` gets a line such as
-  `NWR: listening, last header 2h ago, last weekly test 3d ago`, and the
-  web console's Dashboard the same. The node watch (`[watch]`) DMs admins
-  when the receiver's command keeps failing, or when no weekly test has
-  been heard for 8 days (NWR's weekly test is normally on a set day each
-  week): a working antenna and dongle are the thing most likely to fail
-  quietly.
+- **Health.** 1.0 has no `health` command and no node watch, so the
+  receiver reports in the log, which `install.sh --check` shows:
+  - at startup: `NWR: listening (rtl_fm ...)`;
+  - each time a weekly test is heard: `NWR: weekly test heard (WXK00)`;
+  - when the command keeps failing, or no weekly test has been heard for 8
+    days: a `Warning:`. NWR's weekly test is normally on a set day each
+    week, and the antenna and dongle are the thing most likely to fail
+    quietly.
+
+  **Accepted 2026-11-23:** with `[nwr]` set, the weekly alert test
+  (`[alert_test]`) adds a line such as `NWR: last weekly test heard 3d ago`
+  (or `NWR: no weekly test heard yet`), so people on the mesh see that the
+  receiver works too. An admin DM instead would have needed the node watch
+  back.
 
 ## Config
 
@@ -137,26 +150,27 @@ command = "rtl_fm -f 162.550M -M fm -s 22050 - | multimon-ng -q -t raw -a EAS -"
 # no_test_days = 8   # tell admins if no weekly test is heard for this long
 ```
 
-It posts to the `[alerts]` channel and watches the `[alerts]` counties, so
+It posts to Public and watches the `[alerts]` counties, so
 NWR needs `[alerts] counties` set. Tune the frequency to the station for
 those counties (the NWS lists each station's frequency and the counties it
 serves).
 
 ## PRs
 
-1. **This plan** and roadmap item 19.
+1. **This plan** and roadmap item 19 (done, #109).
 2. **SAME headers** (`same.py`): the parser, the event names, the issue
    time, matching to watched counties; tests from recorded header lines,
    including broken and partial ones (a weak signal decodes garbage).
    Nothing runs yet.
 3. **The listener:** `[nwr]` in the config, `NwrListener`, the posting half
    of `AlertWatcher.check` split out and shared, the de-duplication against
-   the API, `health`, the watch's notices and the Dashboard row. Tests use a
+   the API, the filter (with `same.py`'s severity table), the log lines and
+   warnings, and the NWR line in the weekly test. Tests use a
    fake command (`printf` of recorded lines, one that exits, one that
    hangs) in CI, so no radio is needed.
 4. **Docs:** the README (*Automatic weather alerts*, *Requirements*,
-   *Configuration*), `config.example.toml`, the wiki's Admin Guide (setting
-   up a receiver), and the changelog. Then a release.
+   *Configuration*), `config.example.toml`, the wiki (setting up a
+   receiver), and the changelog. Then a release.
 5. **Later, if wanted:** the spoken details by speech-to-text.
 
 ## To check on real hardware
@@ -168,6 +182,6 @@ serves).
   (the dongle sits next to a 900 MHz transmitter).
 - What the decoder prints for a weak or partial header, to add to the
   tests.
-- A real alert reaching the channel by both paths, posted once.
-- Unplugging the dongle: the watch's notice, then recovery when it's
+- A real alert reaching Public by both paths, posted once.
+- Unplugging the dongle: the warning in the log, then recovery when it's
   plugged back in.
