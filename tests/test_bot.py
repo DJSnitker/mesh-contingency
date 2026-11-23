@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import io
+import json
 import os
 import signal
 import tempfile
@@ -354,7 +355,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         await self.start()
         os.kill(os.getpid(), signal.SIGUSR1)
         await self.wait_for_output("Sent flood advert (SIGUSR1)")
-        self.assertEqual(self.radio.adverts, [True])
+        self.assertEqual(self.radio.adverts, [True, True])  # at startup, then the signal
 
     async def test_advert_at_startup_counts_toward_the_schedule(self):
         await self.start(CONFIG + "\n[advert]\nat_startup = true\nevery_hours = 12\nflood = false\n")
@@ -365,13 +366,32 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("last_zero_hop", (self.folder / "adverts.json").read_text())
 
     async def test_first_scheduled_advert_goes_out_at_once(self):
-        await self.start(CONFIG + "\n[advert]\nevery_hours = 12\n")
+        await self.start(CONFIG + "\n[advert]\nevery_hours = 12\nat_startup = false\n")
         self.assertIn("Sending a flood advert every 12 hour(s); next now.", self.out.getvalue())
         await self.wait_for_output("Sent flood advert (scheduled)")
         self.assertEqual(self.radio.adverts, [True])
 
-    async def test_no_adverts_unless_configured(self):
+    async def test_a_flood_advert_at_startup_by_default(self):
         await self.start()
+        self.assertEqual(self.radio.adverts, [True])
+        self.assertIn("Sent flood advert (at startup)", self.out.getvalue())
+        self.assertNotIn("advert every", self.out.getvalue())
+
+    async def test_no_startup_advert_soon_after_another(self):
+        config_file = self.write_files(CONFIG)
+        (self.folder / "adverts.json").write_text(json.dumps({"last_flood": time.time() - 10 * 60}))
+        await self.start(config_file=config_file)
+        self.assertEqual(self.radio.adverts, [])  # a restart 10 minutes after the last one
+        self.assertIn("No flood advert at startup: one went out 10 min ago.", self.out.getvalue())
+
+    async def test_a_startup_advert_after_the_gap(self):
+        config_file = self.write_files(CONFIG)
+        (self.folder / "adverts.json").write_text(json.dumps({"last_flood": time.time() - 31 * 60}))
+        await self.start(config_file=config_file)
+        self.assertEqual(self.radio.adverts, [True])
+
+    async def test_no_adverts_when_turned_off(self):
+        await self.start(CONFIG + "\n[advert]\nat_startup = false\n")
         self.assertEqual(self.radio.adverts, [])
         self.assertNotIn("advert every", self.out.getvalue())
 

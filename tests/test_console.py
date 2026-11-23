@@ -26,7 +26,7 @@ from mesh_contingency.state import Store
 
 class LoadAdvertTest(unittest.TestCase):
     def test_defaults(self):
-        self.assertEqual(load_advert({}), (False, 0, True))
+        self.assertEqual(load_advert({}), (True, 0, True))
 
     def test_settings(self):
         self.assertEqual(load_advert({"advert": {"at_startup": True, "every_hours": 12, "flood": False}}),

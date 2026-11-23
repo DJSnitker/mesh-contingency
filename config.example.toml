@@ -36,7 +36,7 @@ keys = []                      # e.g. ["a1b2...", "c3d4..."]
 [advert]
 every_hours = 0      # 0 for never; 12 is a good choice
 flood = true         # flood (across the mesh) or zero-hop (in direct range)
-at_startup = false   # also advert every time the bot starts
+at_startup = true    # also advert when the bot starts (not again within 30 min)
 
 # Who may use each command: "admin" (the radios above), "public" (anyone who
 # can message the node) or "disabled".

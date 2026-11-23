@@ -14,6 +14,13 @@ change how the bot is configured).
   SIGUSR1. Like any new command it starts disabled until `config.toml` has
   `advert = { permission = "admin" }` in `[commands]`.
 
+### Changed
+- The node adverts when it starts, by default (`[advert] at_startup` now
+  defaults to true; set it to false to stop it). The advert is flood or
+  zero-hop as `[advert] flood` says. It's skipped if one of the same kind
+  went out in the last 30 minutes, so a bot that systemd keeps restarting
+  doesn't flood the mesh every 30 seconds.
+
 ## [1.0.0] - 2026-11-23
 
 Mesh Contingency is cut down to one job: National Weather Service alerts for

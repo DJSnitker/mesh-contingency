@@ -8,12 +8,15 @@ look at the contacts, without stopping the bot or using the mesh.
     [advert]
     every_hours = 12       # advert this often (default 0, never)
     flood = true           # flood (the whole mesh) or zero-hop (default true)
-    at_startup = false     # also advert every time the bot starts (default false)
+    at_startup = true      # also advert when the bot starts (default true)
 
 The time of the last advert of each kind (flood, zero-hop) is kept in
 adverts.json next to config.toml, whether it was scheduled or sent by hand, so
 a restart doesn't reset the schedule: the next scheduled advert goes out
 every_hours after the last one of its kind, at startup if that's overdue.
+The startup advert is skipped if one of its kind went out less than
+STARTUP_GAP ago, so a bot that systemd keeps restarting doesn't flood the
+mesh every 30 seconds.
 """
 
 import asyncio
@@ -28,6 +31,8 @@ ADVERT_KEYS = {"at_startup", "every_hours", "flood"}
 ADVERTS_FILE = "adverts.json"
 # Seconds before trying again when the radio refuses a scheduled advert.
 RETRY_SECONDS = 600
+# No startup advert if one of its kind went out this recently (seconds).
+STARTUP_GAP = 30 * 60
 HELP = """Console commands:
   advert          zero-hop advert (radios in direct range)
   advert flood    flood advert (repeated across the mesh)
@@ -41,7 +46,7 @@ def load_advert(config):
     section = config.get("advert", {})
     if not isinstance(section, dict) or set(section) - ADVERT_KEYS:
         raise SystemExit(f"[advert] may only set {', '.join(sorted(ADVERT_KEYS))}.")
-    at_startup, flood = section.get("at_startup", False), section.get("flood", True)
+    at_startup, flood = section.get("at_startup", True), section.get("flood", True)
     if not isinstance(at_startup, bool) or not isinstance(flood, bool):
         raise SystemExit("[advert] at_startup and flood must be true or false.")
     every_hours = section.get("every_hours", 0)
@@ -82,6 +87,17 @@ async def send_advert(mc, flood, why, store=None):
     if store is not None:
         record_advert(store, flood)
     return True
+
+
+async def advert_at_startup(mc, flood, store):
+    """The startup advert, unless one of its kind went out less than
+    STARTUP_GAP ago (a restart soon after another). Returns True if sent."""
+    last = store.data.get(_last_key(flood))
+    if isinstance(last, (int, float)) and 0 <= time.time() - last < STARTUP_GAP:
+        kind = "flood" if flood else "zero-hop"
+        print(f"No {kind} advert at startup: one went out {round((time.time() - last) / 60)} min ago.", flush=True)
+        return False
+    return await send_advert(mc, flood, "at startup", store)
 
 
 async def advert_on_schedule(mc, store, every_hours, flood):

@@ -121,6 +121,7 @@ keys = ["<64-hex public key>"]
 
 [advert]
 every_hours = 12                    # so radios can find the node
+# at_startup = false               # it also adverts when it starts
 ```
 
 **Alerts.**

@@ -23,6 +23,7 @@ from .alerts import AlertTest, AlertWatcher, NoChannel, channel_slot, load_alert
 from .config import channel_settings, load_admins, load_commands, load_config, retired_settings
 from .console import (
     ADVERTS_FILE,
+    advert_at_startup,
     advert_on_schedule,
     load_advert,
     run_console_command,
@@ -110,7 +111,7 @@ async def _main():
     # Check the whole config before connecting, so mistakes show up straight away.
     config = load_config(args.config)
     admins, admin_warnings = load_admins(config, args.config)
-    advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
+    advert_on_start, advert_every_hours, advert_flood = load_advert(config)
     alert_settings = load_alerts(config)
     test_settings = load_alert_test(config)
     registry = load_commands(config)
@@ -187,8 +188,8 @@ async def _main():
     with contextlib.suppress(AttributeError, NotImplementedError):  # no SIGUSR1 on Windows
         loop.add_signal_handler(signal.SIGUSR1,
                                 lambda: link.in_background(send_advert(mc, True, "SIGUSR1", advert_times)))
-    if advert_at_startup:
-        await send_advert(mc, advert_flood, "at startup", advert_times)
+    if advert_on_start:
+        await advert_at_startup(mc, advert_flood, advert_times)
     tasks = []
     if advert_every_hours:
         # So admins' radios learn the node; the schedule carries on across restarts.
