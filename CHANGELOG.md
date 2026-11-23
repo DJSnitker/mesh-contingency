@@ -15,6 +15,9 @@ may change how the bot is configured).
   systemd user service; run again, it updates without touching your files.
   `--console` also builds the web console. CI lints it with shellcheck and
   runs a fresh install and an update.
+- The installer checks the radio's USB port: with a radio plugged in, it
+  tries to open the port and says what's in the way (the group to join, a
+  login that hasn't picked up a new group yet, or a port no group can open).
 
 ## [0.12.0] - 2026-11-11
 

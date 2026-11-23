@@ -519,8 +519,9 @@ curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/ins
 It checks out the latest release into `~/mesh-contingency`, installs the bot
 into a `.venv` there, makes `config.toml` and `users.toml` from the examples,
 and sets up the [systemd user service](#as-a-service) without starting it.
-Then it lists what's left: editing those two files, joining the `dialout`
-group for the radio's USB port, installing `mail`, and starting the service.
+Then it lists what's left: editing those two files, letting your user open the
+radio's USB port (with the radio plugged in, it tries the port itself and names
+the group to join), installing `mail`, and starting the service.
 It never uses sudo; if a package is missing (git, Python 3.11+ with venv) it
 prints the command to install it and stops.
 
