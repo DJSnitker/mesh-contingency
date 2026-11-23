@@ -1,22 +1,30 @@
 # Copy to config.toml and fill in. The bot reads it when it starts, so restart
 # it after a change (systemctl --user restart mesh-contingency).
 
+# Everything goes to MeshCore's Public channel, which every radio has (the bot
+# finds it by its key, whatever slot it's in, and never adds a channel).
+
 # Automatic weather alerts: the bot checks the National Weather Service for
-# these counties ("Name, ST") and posts each new alert to the alert channel
-# once, with no admin needed. An alert several counties share is posted once.
-# It looks up each county's NWS code once, then checks every county in one
-# request. Empty, the default, turns it off.
+# these counties ("Name, ST") and posts each new alert once, with no admin
+# needed. An alert several counties share is posted once. It looks up each
+# county's NWS code once, then checks every county in one request. Empty, the
+# default, turns it off.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5
-# channel = "#contingency-wx"  # defaults to the alert command's channel
+# Post only some alerts: by the NWS's severity (Extreme, Severe, Moderate,
+# Minor, Unknown) and/or by event name (any case). An alert is posted if it
+# passes every filter set; leave both out to post every alert. An alert
+# filtered out isn't posted later if you change the filter.
+# severity = ["Extreme", "Severe"]
+# events = ["Tornado Warning", "Severe Thunderstorm Warning", "Flash Flood Warning"]
 
-# A test message on the alert channel (testalert sends it on request), and a
-# weekly time to send it by itself, so people know the channel works.
+# A test message (testalert sends it on request), and a weekly time to send it
+# by itself, so people know the alerts get through.
 [alert_test]
 weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty for never
 # timezone = "America/Chicago" # for weekly; defaults to the computer's
-# message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
+# message = "TEST: this is a test of the weather alerts on this channel. No action needed."
 
 # Who may send the admin commands: each admin radio's full public key (64 hex
 # digits; in the MeshCore app, share your contact to see it). The bot replies
@@ -55,11 +63,6 @@ admin_rate = "none"
 help = { permission = "admin" }
 alert = { permission = "admin" }
 testalert = { permission = "admin" }
-
-# alert posts to a public hashtag channel (added to the radio if missing):
-# [commands.alert]
-# permission = "admin"
-# channel = "#contingency-wx"
 
 # Your own code can be a command too, named with handler = "module:attr" (the
 # module must be importable, e.g. on PYTHONPATH):

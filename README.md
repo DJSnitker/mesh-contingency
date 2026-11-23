@@ -22,10 +22,10 @@
 
 A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore)
 companion radio connected over USB serial. It watches the National Weather
-Service for the counties you list and posts each new alert to a channel on
-the mesh, once, with nobody at the keyboard. Its admins can also post a
-message there themselves (`alert`) and send the channel's test message
-(`testalert`), by direct message from their own radios.
+Service for the counties you list and posts each new alert to MeshCore's
+Public channel, once, with nobody at the keyboard. Its admins can also post a
+message there themselves (`alert`) and send the test message (`testalert`),
+by direct message from their own radios.
 
 Earlier versions did much more (users, a mailbox, email, check-ins, a web
 console, phone and desktop apps). That's all kept on the git tag
@@ -38,9 +38,9 @@ in `config.toml`). Anyone else gets `unrecognized user or function`.
 
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
-| `alert <message>` | admins | Post a message to the alert channel |
+| `alert <message>` | admins | Post a message to the Public channel |
 | `help [command]` | admins | List the commands you can use, or show how to use one |
-| `testalert` | admins | Post the test message to the alert channel now |
+| `testalert` | admins | Post the test message to the Public channel now |
 
 `alert` posts the message exactly as typed; it must fit in one channel
 message (133 characters, less the node's name and ": ", which the radio puts
@@ -53,6 +53,8 @@ in front). An admin who mistypes a command is told the nearest one
 [alerts]
 counties = ["Taylor, TX", "Jones, TX"]  # empty, the default, turns it off
 every_minutes = 10                      # how often to check (at least 5)
+severity = ["Extreme", "Severe"]        # optional: post only these
+# events = ["Tornado Warning", "Flash Flood Warning"]  # optional: or only these
 ```
 
 Write each county as its name and state (`"Taylor, TX"`; `Taylor County, TX`
@@ -72,22 +74,40 @@ are forgotten some hours after they end. If something can't be looked up (no
 internet, or api.weather.gov is down) the log says so once and the bot keeps
 trying every round.
 
-The alerts go to the hashtag channel `#contingency-wx`, which anyone can
-join by adding the same name in their app. When the bot starts, it makes sure
-the radio has the channel, adding it to the first empty slot if needed. To
-use another channel, set `channel = "#name"` under `[commands.alert]`, or
-under `[alerts]` for the automatic alerts only.
+### What's posted
+
+With no filter, every alert is posted. `severity` takes the NWS's levels
+(Extreme, Severe, Moderate, Minor, Unknown) and `events` takes event names,
+exactly as the NWS writes them but in any case. An alert is posted if it
+passes every filter that's set. An alert filtered out is still remembered as
+seen, so loosening the filter later doesn't post old alerts. The log says how
+many each round left out.
+
+### Where it's posted
+
+Everything goes to MeshCore's Public channel, which every radio has. The bot
+finds it by its key, which is the same on every radio, in whichever slot it's
+in (usually 0). It never adds or renames a channel. If the radio has no
+Public channel, nothing is posted:
+- the bot warns at startup;
+- `alert` and `testalert` say so;
+- `install.sh --check` stops on it.
+
+Before 1.0 the alerts went to a hashtag channel (`#contingency-wx`). A
+`channel` setting left in `[alerts]` or `[commands.alert]` is ignored, with a
+warning.
 
 ### Weekly test
 
-So people know the channel works, the bot can post a test message every week,
-followed by the counties it watches, and `testalert` posts it on request:
+So people know the alerts get through, the bot can post a test message every
+week, followed by the counties it watches, and `testalert` posts it on
+request:
 
 ```toml
 [alert_test]
 weekly = "Wednesday 17:00"     # or "Wed 5:00PM"; empty (the default) for no weekly test
 timezone = "America/Chicago"   # defaults to the computer's time zone
-# message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
+# message = "TEST: this is a test of the weather alerts on this channel. No action needed."
 ```
 
 The time is in the time zone given, daylight saving included. If the bot
@@ -113,9 +133,8 @@ refused).
 curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
 ```
 
-It asks for the alert channel (Enter keeps `#contingency-wx`), checks out the
-latest release into `~/mesh-contingency`, installs the bot into a `.venv`
-there, makes `config.toml` from the example, and sets up the
+It checks out the latest release into `~/mesh-contingency`, installs the bot
+into a `.venv` there, makes `config.toml` from the example, and sets up the
 [systemd user service](#as-a-service) without starting it. Then it lists
 what's left: editing `config.toml`, and letting your user open the radio's
 USB port (with the radio plugged in, it tries the port itself and names the
@@ -141,12 +160,12 @@ It stops first if something would keep the node from working (no radio, a
 port you can't open), notes what it would run without (no counties, no
 admins), then starts the service, or restarts it, and waits up to 90 seconds
 for the bot's `Listening for direct messages`. It shows any `Warning:` lines,
-or what the bot printed if it stopped.
+or what the bot printed if it stopped. A radio with no Public channel is
+reported as a problem to fix.
 
 Run the install again to update: it moves to the newest release, reinstalls,
 and restarts the service if it's running. Your config and saved data are
-never overwritten. Options go after `bash -s --`: `--alert-channel NAME`
-answers the channel question, `--dir DIR` installs somewhere else,
+never overwritten. Options go after `bash -s --`: `--dir DIR` installs somewhere else,
 `--ref main` follows `main` instead of the releases, and `--no-service` skips
 the service.
 
@@ -320,7 +339,7 @@ include real data (your `config.toml`, node keys) in code, tests or issues.
 mesh_contingency/
   bot.py              entry point: the radio, the alert tasks, adverts; DMs go to mesh_commands
   config.py           reading config.toml: the admins, the commands, settings older versions had
-  alerts.py           the alert channel; the automatic weather alerts and the weekly test
+  alerts.py           posting to Public; the automatic weather alerts, their filter, the weekly test
   weather.py          api.weather.gov: county codes and active alerts
   contacts.py         adding the admins' radios; listing contacts
   console.py          commands typed into the bot's terminal, scheduled adverts
@@ -343,8 +362,8 @@ tests/                the bot's tests (python -m unittest)
 - An admin is matched by the full public key of a contact in the radio. A
   message carries only a key prefix, so if two contacts share an admin's
   prefix neither gets admin rights, and the log says to remove the impostor.
-- `alert` and the weather alerts post to a public channel: anyone who adds
-  its name can read it.
+- `alert` and the weather alerts post to the Public channel, which every
+  radio in range can read.
 - Everything the bot prints has terminal control sequences escaped, since
   names come from anyone on the mesh.
 - `meshcore` is held to the tested minor version, and CI's GitHub Actions are

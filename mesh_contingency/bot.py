@@ -18,8 +18,8 @@ from mesh_commands.limits import wait_text
 from mesh_commands.output import SafeOutput
 from meshcore import EventType, MeshCore
 
-from .alerts import AlertTest, AlertWatcher, load_alert_test, load_alerts
-from .config import load_admins, load_commands, load_config, retired_settings
+from .alerts import AlertTest, AlertWatcher, NoPublicChannel, load_alert_test, load_alerts, public_slot
+from .config import channel_settings, load_admins, load_commands, load_config, retired_settings
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -111,9 +111,9 @@ async def _main():
     admins, admin_warnings = load_admins(config, args.config)
     advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
     alert_settings = load_alerts(config)
-    test_settings = load_alert_test(config, alert_settings.channel)
+    test_settings = load_alert_test(config)
     registry = load_commands(config)
-    for warning in [retired_settings(config), *admin_warnings]:
+    for warning in [retired_settings(config), channel_settings(config), *admin_warnings]:
         if warning:
             print(f"Warning: {warning}")
 
@@ -154,7 +154,17 @@ async def _main():
     defaults = ", ".join(f"{level} {describe_rate(rate)}" for level, rate in registry.limits.rates.items())
     print(f"Rate limits per sender and command: {defaults} (unless a command sets rate).")
 
-    # Setup that needs the radio, such as alert making sure its channel exists.
+    # Where everything is posted. A radio without Public posts nothing, so
+    # say so now (install.sh --check stops on this line).
+    try:
+        print(f"Alerts go to the Public channel (slot {await public_slot(mc)}).")
+    except NoPublicChannel:
+        print("Warning: No Public channel on the radio, so no alerts can be posted: add MeshCore's Public "
+              "channel back in the radio's app.")
+    except Exception as e:  # the radio didn't answer
+        print(f"Warning: couldn't read the radio's channels ({e or type(e).__name__}).")
+
+    # Setup that needs the radio, for commands that have any.
     for command in commands.values():
         try:
             note = await asyncio.wait_for(command.start(), command.timeout)

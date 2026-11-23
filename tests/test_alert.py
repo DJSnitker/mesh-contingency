@@ -4,7 +4,7 @@ from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender
 from mesh_commands.testing import FakeMeshCore, event, make_context
 from meshcore import EventType
 
-from mesh_contingency.alerts import format_alerts, hashtag_secret, short_time
+from mesh_contingency.alerts import PUBLIC_SECRET, format_alerts, short_time
 from mesh_contingency.commands.alert import AlertCommand
 from mesh_contingency.state import State
 
@@ -40,45 +40,31 @@ class AlertCommandTest(unittest.IsolatedAsyncioTestCase):
         self.state = State()
         self.cmd = AlertCommand(make_context("alert", radio=self.radio, extras={"state": self.state}))
 
-    async def test_posts_the_message_to_the_channel(self):
+    async def test_posts_the_message_to_public(self):
         result = await self.cmd.execute("  Shelter open at the  church on 5th  ", ADMIN)
-        self.assertEqual(self.radio.channels[1], ("#contingency-wx", hashtag_secret("#contingency-wx")))
-        self.assertEqual(self.radio.channel_sent, [(1, "Shelter open at the  church on 5th")])
-        self.assertEqual(result.reply, "alert: posted to #contingency-wx")
-        self.assertEqual(result.console,
-                         "Posted to #contingency-wx (slot 1, added to the radio): Shelter open at the  church on 5th")
+        self.assertEqual(self.radio.channel_sent, [(0, "Shelter open at the  church on 5th")])
+        self.assertEqual(result.reply, "alert: posted to Public")
+        self.assertEqual(result.console, "Posted to Public (slot 0): Shelter open at the  church on 5th")
 
-    async def test_start_adds_the_channel_once(self):
-        self.assertEqual(await self.cmd.start(), "alert: #contingency-wx is channel slot 1 (added to the radio).")
-        self.assertEqual(await self.cmd.start(), "alert: #contingency-wx is channel slot 1.")
-        self.assertEqual([c[0] for c in self.radio.channels].count("#contingency-wx"), 1)
-
-    async def test_uses_the_channel_already_on_the_radio(self):
-        self.radio.channels[5] = ("#Contingency-WX", hashtag_secret("#contingency-wx"))
-        result = await self.cmd.execute("hello", ADMIN)
-        self.assertEqual(self.radio.channel_sent, [(5, "hello")])
-        self.assertNotIn("added", result.console)
-        self.assertEqual(self.radio.channels[1], ("", bytes(16)))  # nothing added
-
-    async def test_same_name_with_another_key_is_not_used(self):
-        self.radio.channels[1] = ("#contingency-wx", bytes(range(16)))  # a private channel by that name
+    async def test_public_in_another_slot(self):
+        self.radio.channels[0] = ("#local", bytes(range(16)))
+        self.radio.channels[3] = ("Öffentlich", PUBLIC_SECRET)  # found by its key, whatever it's called
         await self.cmd.execute("hello", ADMIN)
-        self.assertEqual(self.radio.channel_sent[0][0], 2)
+        self.assertEqual(self.radio.channel_sent, [(3, "hello")])
 
-    async def test_no_free_slot(self):
-        self.radio.channels[1:] = [(f"ch{i}", bytes([i]) * 16) for i in range(1, 8)]
-        with self.assertRaisesRegex(CommandError, "^alert: no free channel slot on the radio for #contingency-wx$"):
+    async def test_a_channel_named_public_with_another_key_is_not_used(self):
+        self.radio.channels[0] = ("Public", bytes(range(16)))
+        with self.assertRaisesRegex(CommandError, "^alert: no Public channel on the radio; add MeshCore's Public "
+                                                  "channel back in its app; nothing posted$"):
             await self.cmd.execute("hello", ADMIN)
         self.assertEqual(self.radio.channel_sent, [])
+        self.assertEqual(self.radio.channels[1], ("", bytes(16)))  # nothing added
 
-    async def test_channel_from_config(self):
-        cmd = AlertCommand(make_context("alert", options={"channel": "#storm"}, radio=self.radio,
-                                        extras={"state": self.state}))
+    async def test_an_old_channel_option_is_ignored(self):
+        cmd = AlertCommand(make_context("alert", options={"channel": "#storm"}, radio=self.radio))
         await cmd.execute("hello", ADMIN)
-        self.assertEqual(self.radio.channels[1][0], "#storm")
-        for bad in ("storm", "#", "#" + "x" * 31, 5):
-            with self.subTest(channel=bad), self.assertRaisesRegex(ValueError, "hashtag channel"):
-                AlertCommand(make_context("alert", options={"channel": bad}, radio=self.radio))
+        self.assertEqual(self.radio.channel_sent, [(0, "hello")])
+        self.assertNotIn("#storm", [name for name, _ in self.radio.channels])
 
     async def test_a_message_must_fit_with_the_node_name(self):
         self.radio.self_info["name"] = "N" * 30

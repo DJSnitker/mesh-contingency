@@ -51,14 +51,14 @@ class ParseWeeklyTest(unittest.TestCase):
 
 class LoadAlertTestTest(unittest.TestCase):
     def test_defaults(self):
-        settings = load_alert_test({}, "#storm")
-        self.assertEqual(settings, TestSettings("#storm", "TEST: this is a test of the #storm alert channel. "
-                                                          "No action needed.", None, None))
+        settings = load_alert_test({})
+        self.assertEqual(settings, TestSettings("TEST: this is a test of the weather alerts on this channel. "
+                                                "No action needed.", None, None))
 
     def test_weekly_in_a_time_zone(self):
         settings = load_alert_test({"alert_test": {"weekly": "Wed 5:00PM", "timezone": "America/Chicago",
-                                                   "message": "  Weekly net test  "}}, "#contingency-wx")
-        self.assertEqual(settings, TestSettings("#contingency-wx", "Weekly net test", WED_5PM, CHICAGO))
+                                                   "message": "  Weekly net test  "}})
+        self.assertEqual(settings, TestSettings("Weekly net test", WED_5PM, CHICAGO))
 
     def test_mistakes_stop_startup(self):
         for section, problem in [
@@ -70,7 +70,7 @@ class LoadAlertTestTest(unittest.TestCase):
             ({"message": "x" * (MAX_REPLY_LEN + 1)}, f"at most {MAX_REPLY_LEN} characters"),
         ]:
             with self.subTest(section=section), self.assertRaisesRegex(SystemExit, problem):
-                load_alert_test({"alert_test": section}, "#contingency-wx")
+                load_alert_test({"alert_test": section})
 
 
 class NextWeeklyTest(unittest.TestCase):
@@ -105,16 +105,15 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
         self.radio = FakeMeshCore()
         self.state = State(self.folder)
         self.test = self.state.alert_test = AlertTest(
-            self.radio, TestSettings("#contingency-wx", "Weekly test", WED_5PM, CHICAGO), self.state)
+            self.radio, TestSettings("Weekly test", WED_5PM, CHICAGO), self.state)
         self.cmd = TestAlertCommand(make_context("testalert", radio=self.radio, extras={"state": self.state}))
 
     async def test_command_posts_the_test_now(self):
         with mock.patch("mesh_contingency.alerts.time.time", return_value=chicago(2026, 10, 20, 9, 0)):
             result = await self.cmd.execute("", ADMIN)
-        self.assertEqual(self.radio.channel_sent, [(1, "Weekly test")])
-        self.assertEqual(result.reply, "testalert: posted to #contingency-wx; next weekly test Wed 5:00PM CDT")
-        self.assertEqual(result.console,
-                         "Alert test posted to #contingency-wx (slot 1, added to the radio):\n  Weekly test")
+        self.assertEqual(self.radio.channel_sent, [(0, "Weekly test")])
+        self.assertEqual(result.reply, "testalert: posted to Public; next weekly test Wed 5:00PM CDT")
+        self.assertEqual(result.console, "Alert test posted to Public (slot 0):\n  Weekly test")
         self.assertIn("last_test", State(self.folder).store(ALERTS_FILE).data)
 
     async def test_the_watched_counties_follow_the_message(self):
@@ -122,7 +121,7 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
                  "Kent", "Knox", "Mitchell", "Nolan", "Runnels", "Scurry", "Shackelford", "Stephens", "Stonewall",
                  "Throckmorton"]
         self.radio.self_info["name"] = "Hilltop Node"
-        self.state.alert_test = AlertTest(self.radio, TestSettings("#contingency-wx", "Weekly test"), self.state,
+        self.state.alert_test = AlertTest(self.radio, TestSettings("Weekly test"), self.state,
                                           tuple(f"{n}, TX" for n in names))
         result = await self.cmd.execute("", ADMIN)
         sent = [text for _, text in self.radio.channel_sent]
@@ -136,21 +135,22 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("  (2/2) ", result.console)
 
     async def test_one_county_fits_in_one_message(self):
-        self.state.alert_test = AlertTest(self.radio, TestSettings("#contingency-wx", "Test"), self.state,
+        self.state.alert_test = AlertTest(self.radio, TestSettings("Test"), self.state,
                                           ("Taylor, TX",))
         await self.cmd.execute("", ADMIN)
         self.assertEqual([t for _, t in self.radio.channel_sent], ["Test", "Counties watched for alerts: Taylor"])
 
     async def test_command_without_a_weekly_test(self):
-        self.state.alert_test = AlertTest(self.radio, TestSettings("#contingency-wx", "Test"), self.state)
+        self.state.alert_test = AlertTest(self.radio, TestSettings("Test"), self.state)
         result = await self.cmd.execute("", ADMIN)
-        self.assertEqual(result.reply, "testalert: posted to #contingency-wx")
+        self.assertEqual(result.reply, "testalert: posted to Public")
 
     async def test_command_mistakes(self):
         with self.assertRaisesRegex(CommandError, r"^usage: testalert$"):
             await self.cmd.execute("now", ADMIN)
-        self.radio.channels[1:] = [(f"ch{i}", bytes([i]) * 16) for i in range(1, 8)]
-        with self.assertRaisesRegex(CommandError, "^testalert: no free channel slot on the radio for #contingency-wx$"):
+        self.radio.channels[0] = ("", bytes(16))  # Public removed
+        with self.assertRaisesRegex(CommandError, "^testalert: no Public channel on the radio; add MeshCore's "
+                                                  "Public channel back in its app; nothing posted$"):
             await self.cmd.execute("", ADMIN)
         self.state.alert_test = None
         with self.assertRaisesRegex(CommandError, "isn't set up"):
@@ -159,7 +159,7 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_message_too_long_for_this_node(self):
         self.radio.self_info["name"] = "N" * 40
-        long = AlertTest(self.radio, TestSettings("#contingency-wx", "x" * 100), self.state)
+        long = AlertTest(self.radio, TestSettings("x" * 100), self.state)
         self.assertEqual(long.problem(), "[alert_test] message is 100 characters; a channel message from this node "
                                          f"has room for {MAX_REPLY_LEN - 42}")
         self.state.alert_test = long
@@ -170,7 +170,7 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
     async def test_describe(self):
         with mock.patch("mesh_contingency.alerts.time.time", return_value=chicago(2026, 10, 22, 9, 0)):
             self.assertEqual(self.test.describe(),
-                             "Wednesday 17:00 America/Chicago to #contingency-wx; next Wed 5:00PM CDT")
+                             "Wednesday 17:00 America/Chicago to Public; next Wed 5:00PM CDT")
 
     async def test_runs_every_week_at_the_time(self):
         clock = [chicago(2026, 10, 20, 9, 0)]  # a Tuesday morning
@@ -187,10 +187,10 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
                 mock.patch("mesh_contingency.state.time.time", lambda: clock[0]), \
                 self.assertRaises(asyncio.CancelledError):
             await self.test.run()
-        self.assertEqual(self.radio.channel_sent, [(1, "Weekly test")] * 2)
+        self.assertEqual(self.radio.channel_sent, [(0, "Weekly test")] * 2)
         self.assertTrue(all(s <= 3600 for s in sleeps))  # looks at the clock at least hourly
         self.assertEqual(State(self.folder).store(ALERTS_FILE).data["last_test"], chicago(2026, 10, 28, 17, 0))
-        self.assertIn("Weekly alert test posted to #contingency-wx:\n  Weekly test\n", self.out.getvalue())
+        self.assertIn("Weekly alert test posted to Public:\n  Weekly test\n", self.out.getvalue())
 
     async def test_a_failed_week_doesnt_stop_it(self):
         clock = [chicago(2026, 10, 21, 16, 0)]

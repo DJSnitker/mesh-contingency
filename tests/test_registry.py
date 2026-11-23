@@ -48,15 +48,6 @@ class BuiltInTest(unittest.TestCase):
         reply = asyncio.run(commands["help"].execute("", Sender("Admin", ADMIN_KEY))).reply
         self.assertEqual(reply, "commands: help, alert, testalert. Send help <command> for usage")
 
-    def test_a_second_alert_command(self):
-        registry = load_commands(commands_config(
-            alert={"permission": "admin"},
-            alert_storm={"permission": "admin", "handler": "mesh_contingency.commands.alert:AlertCommand",
-                         "channel": "#storm-watch"}))
-        commands = registry.build()
-        self.assertEqual(commands["alert_storm"].channel, "#storm-watch")
-        self.assertEqual(commands["alert_storm"].usage, "alert_storm <message>")
-
 
 class OldConfigTest(unittest.TestCase):
     def test_removed_commands_are_ignored_with_one_warning(self):
