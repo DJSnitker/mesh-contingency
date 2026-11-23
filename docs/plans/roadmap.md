@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: 1.0.0 released (2026-11-23): weather alerts on the Public channel, or
+Status: 1.1.0 released (2026-11-23; 1.0.0 the same day, then the `advert` command and a startup advert): weather alerts on the Public channel, or
 one you pick ([simplify.md](simplify.md)); next, NOAA Weather Radio (item 19)
 · Updated 2026-11-23
 

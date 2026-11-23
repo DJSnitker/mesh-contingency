@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mesh-contingency"
-version = "1.0.0"
+version = "1.1.0"
 description = "MeshCore bot that posts National Weather Service alerts to the Public channel, with admin commands to post and test"
 readme = "README.md"
 license = "LicenseRef-Proprietary"
