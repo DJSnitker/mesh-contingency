@@ -133,12 +133,20 @@ refused).
 curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
 ```
 
-It checks out the latest release into `~/mesh-contingency`, installs the bot
-into a `.venv` there, makes `config.toml` from the example, and sets up the
-[systemd user service](#as-a-service) without starting it. Then it lists
-what's left: editing `config.toml`, and letting your user open the radio's
-USB port (with the radio plugged in, it tries the port itself and names the
-group to join).
+A new install asks two questions first, so the rest runs without you:
+
+- **Counties** for weather alerts, split by `;`, e.g. `Taylor, TX; Jones, TX`.
+- **Your radio's public key**, to make it the first admin. Press Enter to
+  skip; [The first admin](#the-first-admin) says where to find it.
+
+Then it checks out the latest release into `~/mesh-contingency`, installs the
+bot and its command library into a `.venv` there, and makes `config.toml`
+from the example with your answers in it. It sets up the
+[systemd user service](#as-a-service) without starting it. Last, it lists
+what's left:
+- anything you skipped;
+- letting your user open the radio's USB port. With the radio plugged in, it
+  tries the port itself and names the group to join.
 
 The script never runs sudo itself. A few one-time steps need an admin of the
 computer, so it prints those commands for you (or the computer's admin) to
@@ -150,29 +158,43 @@ run:
 | Your user can't open the radio's USB port | `sudo usermod -aG dialout "$USER"` (the port's group), then log out and back in |
 | The computer doesn't let users turn on lingering | `sudo loginctl enable-linger "$USER"`, so the node starts at boot with nobody logged in |
 
-Once you've edited `config.toml` and plugged in the radio, check the node:
+Once the radio is plugged in, check the node:
 
 ```sh
 ~/mesh-contingency/install.sh --check
 ```
 
-It stops first if something would keep the node from working (no radio, a
-port you can't open), notes what it would run without (no counties, no
-admins), then starts the service, or restarts it, and waits up to 90 seconds
-for the bot's `Listening for direct messages`. It shows any `Warning:` lines,
-or what the bot printed if it stopped. A radio with no Public channel is
-reported as a problem to fix.
+It reads `config.toml` the way the bot does, then stops first if something
+would keep the node from working:
+- no radio, or a port you can't open;
+- a mistake in the config;
+- no counties.
+
+It notes what the node runs without, which is no admins: `alert` and
+`testalert` then answer no one. Then it starts the service, or restarts it,
+and waits up to 90 seconds for the bot's `Listening for direct messages`. It
+also stops if the radio has no Public channel, or if the alert watcher
+didn't start. It shows any `Warning:` lines, or what the bot printed if it
+stopped.
 
 Run the install again to update: it moves to the newest release, reinstalls,
 and restarts the service if it's running. Your config and saved data are
-never overwritten. Options go after `bash -s --`: `--dir DIR` installs somewhere else,
-`--ref main` follows `main` instead of the releases, and `--no-service` skips
-the service.
+never overwritten, and an update asks nothing. Options go after
+`bash -s --`:
+
+| Option | What it does |
+|---|---|
+| `--counties "Taylor, TX; Jones, TX"` | Answers the counties question |
+| `--admin-key KEY` | Answers the admin key question |
+| `--dir DIR` | Installs somewhere else |
+| `--ref main` | Follows `main` instead of the releases |
+| `--no-service` | Skips the service |
 
 ### The first admin
 
-Put your own radio's full public key (64 hex characters; in the MeshCore app,
-share your contact to see it) in `config.toml`:
+The installer asks for it. To add one later, or more, put the radio's full
+public key (64 hex characters; in the MeshCore app, share your contact to
+see it) in `config.toml`:
 
 ```toml
 [admins]

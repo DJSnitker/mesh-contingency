@@ -199,6 +199,7 @@ Each step is its own PR. Tests and lint must pass after each one.
      - A note: no admin keys, so `alert`/`testalert` answer no one.
      - It waits for the watcher's start line.
    - Update the CI install job.
+   - Done: `--counties` and `--admin-key` answer the questions; `--check` reads the config with the bot's own code (a counties list on several lines counts) and also stops on a config mistake; the version line uses `git describe --match 'v*'`. `requirements.txt`, which nothing read, is gone.
 6. **The docs.**
    - Rewrite the README to about 200 lines: what it does, install, config (with the filter), admins and the two commands, check it, update, troubleshoot, uninstall.
    - Add a CHANGELOG 1.0.0 entry listing every removal and pointing at the archive tag.

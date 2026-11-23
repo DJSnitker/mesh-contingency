@@ -63,6 +63,7 @@ The first step of cutting the system down to weather alerts
   ignored, with one warning listing them.
 - `examples/mesh-dice` and `ENCRYPTION_NOTES.md`; pycryptodome is no longer
   a dependency.
+- `requirements.txt`, left over from before `pyproject.toml` (nothing read it).
 
 ### Changed
 - Admins are listed in `config.toml`:
@@ -91,6 +92,16 @@ The first step of cutting the system down to weather alerts
   `[alerts]` or `[commands.alert]` is ignored with a warning, and
   `--alert-channel` is ignored by the installer, which no longer asks for a
   channel. The default test message no longer names a channel.
+- The installer asks a new node for its counties (`Taylor, TX; Jones, TX`)
+  and, optionally, its first admin's public key, and writes them into
+  `config.toml` (`--counties` and `--admin-key` answer without asking; a
+  skipped answer stays on the to-do list). `--console`, `--alert-channel`
+  and `--comm-channel` are gone.
+- `install.sh --check` reads the config as the bot does (a counties list
+  over several lines counts, and a config mistake is shown). No counties is
+  now a reason to stop, as is a bot that listens but doesn't start watching
+  for alerts; no admins is a note. Its version line names the release
+  (`git describe --match 'v*'`), not the archive tag.
 
 ## [0.12.0] - 2026-11-11
 
