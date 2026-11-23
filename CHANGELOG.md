@@ -7,6 +7,15 @@ may change how the bot is configured).
 
 ## [Unreleased]
 
+### Added
+- **One-command install** for a node on Linux:
+  `curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash`
+  checks out the latest release into `~/mesh-contingency`, installs the bot,
+  makes the config and users files from the examples, and sets up the
+  systemd user service; run again, it updates without touching your files.
+  `--console` also builds the web console. CI lints it with shellcheck and
+  runs a fresh install and an update.
+
 ## [0.12.0] - 2026-11-11
 
 The web console from other computers: console users log in over the local

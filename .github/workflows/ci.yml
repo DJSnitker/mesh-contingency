@@ -263,3 +263,25 @@ jobs:
           assert verse.reply[0].startswith("(1/2) John 3:16 For God so loved the world")
           assert roll.startswith("Dana rolled 2d6: ")
           EOF
+
+  install:
+    name: Install script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+      - run: shellcheck install.sh
+      # Installs this commit (from a branch here, as the clone needs one) with
+      # the system's Python, then runs again as an update: the config stays.
+      - name: Fresh install, then an update
+        run: |
+          git switch -c ci-install
+          export MC_REPO="file://$PWD"
+          ./install.sh --dir ~/node --ref ci-install --console --no-service
+          ~/node/.venv/bin/python -c "import mesh_contingency"
+          test -f ~/node/mesh_contingency/web/static/index.html
+          echo "# kept" >> ~/node/config.toml
+          ./install.sh --dir ~/node --ref ci-install --console --no-service
+          grep -q "# kept" ~/node/config.toml

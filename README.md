@@ -508,6 +508,61 @@ them automatically.
 
 ## Setup
 
+### One command
+
+On Linux, as the user the node will run as (not root):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
+```
+
+It checks out the latest release into `~/mesh-contingency`, installs the bot
+into a `.venv` there, makes `config.toml` and `users.toml` from the examples,
+and sets up the [systemd user service](#as-a-service) without starting it.
+Then it lists what's left: editing those two files, joining the `dialout`
+group for the radio's USB port, installing `mail`, and starting the service.
+It never uses sudo; if a package is missing (git, Python 3.11+ with venv) it
+prints the command to install it and stops.
+
+Run it again to update: it moves to the newest release, reinstalls, and
+restarts the service if it's running. Your config, users and saved data are
+never overwritten. Options go after `bash -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh \
+    | bash -s -- --console              # also build the web console (needs Node.js)
+```
+
+`--dir DIR` installs somewhere else, `--ref main` follows `main` instead of the
+releases, and `--no-service` skips the service. To read the script before
+running it, download it first: `curl -fsSLO …/install.sh`, then `bash install.sh`.
+
+The wiki's **[Set Up a Node](https://github.com/DJSnitker/mesh-contingency/wiki/Set-Up-a-Node)**
+walks through it all, from the install to the first message from your radio.
+
+### The first admin
+
+A new node has no admins until you add one. Put your own radio's full public
+key (64 hex characters, in the MeshCore app's settings) in `users.toml`, in
+place of the example key, and delete the example users:
+
+```toml
+[admin]
+keys = ["<your 64-character key>"]
+
+# An admin isn't automatically a user; add this to use msg, inbox, qm and so on.
+[users.<your 64-character key>]
+name = "Sam T-Deck"
+```
+
+Then advert from your radio, advert the node
+(`systemctl --user kill --kill-whom=main -s USR1 mesh-contingency`), and send
+it `health`: an admin gets the node's state back. Other admins are more keys
+in the list; everyone else joins over the mesh with `join` and an admin's
+`approve` (see [Users file](#users-file) and [Permissions](#permissions)).
+
+### By hand
+
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install -e .           # installs meshcore and the mesh-contingency command
@@ -849,7 +904,8 @@ journal, run it as a systemd user service with
 [`deploy/mesh-contingency.service`](deploy/mesh-contingency.service). Step-by-step
 setup, day-to-day commands and troubleshooting are in the wiki:
 [Running as a systemd Service on Linux](https://github.com/DJSnitker/mesh-contingency/wiki/Running-as-a-systemd-Service-on-Linux).
-In short, from the project folder:
+The [installer](#one-command) sets it up for you. By hand, in short, from the
+project folder:
 
 ```sh
 mkdir -p ~/.config/systemd/user
