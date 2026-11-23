@@ -81,7 +81,6 @@ then A–Z; see [Permissions](#permissions) to change who may run what.
 | `testalert` | admins | Post the [test message](#weekly-alert-test) to the alert channel now |
 | `users [page]` | admins | List the users and what each has set |
 | `whois <name or key>` | admins | What the node knows about a user |
-| `area [county, ST]` | anyone | The weather now in the counties the node watches ([alerts]); alone, list them |
 | `help [command]` | anyone | List your commands, or how to use one |
 | `join` | anyone | Ask to become a user, under your radio's name |
 | `ok [status]` | anyone | Check in: tell others you're ok |
@@ -247,25 +246,6 @@ the channel; nobody is sent a direct message. For anyone to look up a
 zipcode's or county's alerts themselves, there is `wx <zipcode>` or
 `wx Taylor, TX`.
 
-**The weather now in the watched counties, `area`.** With `area = {
-permission = "public" }` under `[commands]`, anyone can ask for the counties
-`[alerts]` watches, and the latest report for one of them, in one message:
-
-```
-area
-→ area: Taylor, TX; Jones, TX
-area Taylor, TX
-→ Taylor, TX ALERT: Wind Advisory | 66F, Cloudy | SSE10mph G17 | 26m ago | Today: 81F Mostly Cloudy 4%
-```
-
-The county can be just its name (`area taylor`) when no other watched county
-shares it. The reports are the ones the bot keeps for the web console's
-dashboard (each county's nearest station and its forecast, every 15
-minutes), so `area` answers at once and never waits on the NWS; with the
-internet down it still sends the last report, with its age. They run
-whenever `area` or the console is on. The phone app's Weather tab is built
-on `area`.
-
 ### Weekly alert test
 
 So people know the alert channel works, the bot can post a test message to it
@@ -301,7 +281,6 @@ direct message when a problem starts and when it's over:
 | Command errors | `errors` commands fail or time out within 30 minutes | 30 minutes have passed and there are fewer |
 | Users file | `users.toml` has a mistake and isn't reloaded | it's reloaded |
 | Backup failing | a [backup](#backups) can't be made | one is |
-| Failed console logins | `failed_logins` failed logins to the [remote console](#remote-console) within 15 minutes, from any devices (only with it on) | 15 minutes have passed and there are fewer |
 
 ```
 Node problem: battery low, 3.42V (below 3.50V)
@@ -344,7 +323,6 @@ every_minutes = 5        # how often to check; at least 1
 battery_volts = 3.5      # warn below this; 0 for no battery check
 undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
 errors = 3               # commands failed or timed out within 30 min; 0 for no check
-failed_logins = 10       # failed remote console logins within 15 min; 0 for no check
 ```
 
 With `enabled = false`, a users file that can't be reloaded is still sent to
@@ -501,10 +479,6 @@ them automatically.
 - Internet access for `wx` ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)
   and [zippopotam.us](https://zippopotam.us) for zipcode lookup; no API keys).
   `verse` works offline.
-- Optional, for the [web console](#web-console): [Node.js](https://nodejs.org)
-  22.22+ or 24.15+ with npm, to build its app from this folder (only once per
-  update; the bot doesn't need Node.js to run). Its fonts are bundled, so it
-  works without the internet.
 
 ## Setup
 
@@ -554,11 +528,6 @@ printed if it stopped, and notes if the node won't start at boot.
 Run it again to update: it moves to the newest release, reinstalls, and
 restarts the service if it's running. Your config, users and saved data are
 never overwritten. Options go after `bash -s --`:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh \
-    | bash -s -- --console              # also build the web console (needs Node.js)
-```
 
 `--alert-channel NAME` and `--comm-channel NAME` answer the channel questions
 (needed to change them without a terminal, as in a script); an update never
@@ -617,7 +586,6 @@ real email addresses and node keys. See `config.example.toml`:
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
-area = { permission = "public" }       # needs [alerts] counties
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }
@@ -848,8 +816,7 @@ The radio holds only so many contacts (`health` shows e.g. `contacts 41/350`).
   new one.
 
 A contact is named by its name, the start of its name, or 4 or more hex digits
-of its key; when several match, give more of the key. The web console's Radio
-page lists the contacts with a **Remove** and a **Reset path** button for each.
+of its key; when several match, give more of the key.
 
 ### Radio settings
 
@@ -967,9 +934,7 @@ only what happened, never what anyone wrote:
 That's the sender, the command's name, refused, failed (with the kind of
 error) or timed out, and how long each reply was: never the command's text
 (a message, an email address, a passphrase, a name looked up) or the reply.
-A message that isn't a command shows as `not a command`. The web console's
-posts to a channel show the channel and the length; what was posted is in
-`history`, with the console's other actions. The radio keeps nothing either:
+A message that isn't a command shows as `not a command`. The radio keeps nothing either:
 the bot takes each message off it as it arrives.
 
 To clear what an older version (0.9.0 and before) logged, the journal of
@@ -1026,225 +991,12 @@ learns the node from its advert, and the node adds theirs when it hears it
 So for a new user: ask them to advert from their app, send `advert flood` (or
 `advert` if they're in range), and check with `contacts <their name>`.
 
-### Web console
-
-The node can also be run from a browser on its own computer, without a radio
-in hand and without 133-character replies. It's off by default. To turn it
-on:
-
-1. Install its extra, and build the app (needs [Node.js](#requirements); a
-   wheel built with `python -m build` already has the app inside):
-   ```sh
-   .venv/bin/pip install -e ".[console]"
-   cd console && npm ci && npm run build && cd ..
-   ```
-2. In `config.toml`:
-   ```toml
-   [console]
-   enabled = true
-   port = 8737          # the default
-   ```
-3. Restart the bot. It prints the link, with a key, and writes it to
-   `console.url` next to `config.toml` (readable only by you):
-   ```
-   Web console: http://127.0.0.1:8737/?key=... (also in /home/you/mesh-contingency/console.url)
-   ```
-4. Open it in a browser on that computer, with one command:
-   ```sh
-   .venv/bin/mesh-contingency-console      # -c path/to/config.toml if it isn't the default
-   ```
-   It reads `console.url`, checks the bot answers that link, and opens it in
-   your browser. If it can't, it says why: the console is off, the bot isn't
-   running, or the link is old. (Or open the link from `console.url`
-   yourself.) The key moves into a cookie and leaves the address bar, so
-   after that `http://127.0.0.1:8737/` is enough, until the bot restarts:
-   each start makes a new key, and the page then says to open the console
-   again.
-
-   To type just `mesh-contingency-console`, from any folder, link it onto
-   your PATH once:
-   ```sh
-   ln -s "$PWD/.venv/bin/mesh-contingency-console" ~/.local/bin/
-   ```
-   The link follows the project's `.venv`: if you rebuild that, install
-   again and the link works as before.
-
-Its pages, in the order of the menu, grouped as the phone app's tabs are:
-the Dashboard, then what people do (Mailbox to Bible), then what only
-admins look after (Radio, Users, History). In a window as narrow as a
-phone, the menu becomes the app's tab bar along the bottom: Dashboard,
-Mailbox, Contacts, Weather and More (the rest).
-
-- **Dashboard:** users, join requests, check-ins and messages waiting, the
-  weather alerts out now for the counties in `[alerts]` (each with its
-  counties, in orange; it links to Weather), the node watch, the last
-  backup, `health`, and a live log of what the bot prints (as in the
-  journal: commands' names, never their text or replies).
-- **Mailbox:** who has messages waiting, from whom, read or not, sealed or
-  not, never what they say (that stays for the recipient, over the radio);
-  and **Leave a message** in a user's inbox (`msg`, from `console`).
-- **Check-ins:** who has sent `ok`, newest first, and who hasn't, with
-  **Clear check-ins**; and **Look up a check-in** (`status`).
-- **Contacts:** two tabs.
-  - **Channels:** the radio's channel slots in use, the last heard on
-    first: each one's name, whether it's the usual Public channel, a
-    hashtag channel or a private one, and what the bot posts there
-    (`alert`, `comm`, the automatic alerts, the weekly test), but never its
-    key. Each opens as a chat: what the radio heard on it since the bot
-    started, with who sent it, the hops and the signal, and what this node
-    posted there, on the right. The bot keeps the last 200 of each channel
-    while the console is on, in memory only: a restart forgets them, and
-    none are written to disk. It takes no commands from channels. Each
-    channel has a box to post to it as this node, with a count against the
-    one-message limit; a post is recorded in `history` (`posted to Family:
-    ...`, by console). Each channel, the tab and Contacts in the menu count
-    the messages heard since you last opened it, in this browser; a restart
-    of the bot starts the counts again.
-  - **Contacts:** the radio's contacts (with a filter): each one's type,
-    whether it's a user or an admin, its path and when it was last heard,
-    with **Reset path** and **Remove** ([`contact`](#contacts)).
-
-  The console doesn't chat with people directly: they talk through `msg`
-  and the channels, and a direct message to the node is always a command.
-- **Weather:** a card for each county in `[alerts] counties`, alert or
-  not: the latest reading from the nearest NWS station, the next three
-  forecast periods, and any alert out for it. The bot asks the NWS every 15
-  min and keeps the last report, so a card says how old it is, and why if
-  it couldn't be updated (no internet, say). Without counties in `[alerts]`
-  there's nothing to show. Star a county (☆) to show it first: once any are
-  starred, the rest wait under **Show more**. The stars are kept in this
-  browser. Below the cards: **Weather anywhere**, any zipcode or county as
-  `wx` answers it; then **Post alert test** (`testalert`; the page asks
-  first, since it goes out on the air) and **Look up counties again**
-  (`alertmap`).
-- **Bible:** the verse of the day, and **Look up a verse** (`verse`).
-- **Radio:** **Advert**, **Flood advert** and **Back up now**, and the
-  radio's [settings](#radio-settings), with a form for each change, and the
-  frequency set apart. Its contacts and channels are in Contacts.
-- **Users:** every user and admin with their settings, last seen, check-in
-  and messages, with **Whois**, **Edit emails** (`setemail`: the qm
-  address and the emailall group), **Reset passphrase** and **Remove**; the
-  join requests waiting, with **Approve** and **Deny**; and **Reload users
-  file** (`reload`), after editing it.
-- **Console users:** who may log in from other computers (see
-  [Remote console](#remote-console)): add one, give one a new password, or
-  remove one.
-- **History:** what admins have done, newest first, with a filter.
-- **Account** (at the foot of the menu, or in More): who you are; on the
-  remote console, **Change password** and **Log out**.
-
-Everything it does runs the same commands as over the radio, as an admin
-called `console`: the same checks, rate limits and confirmations (`remove`
-asks first, and the page shows a **Confirm** button), and `history` records
-them `by console`. A message left from Mailbox is `from console`.
-Commands turned off in `config.toml` aren't offered. It doesn't edit
-`config.toml`, and it can't read sealed messages.
-
-It answers only on `127.0.0.1` (`host = "localhost"` is the only other
-choice), so other computers can't reach it; see
-[Security notes](#security-notes). If the port is taken, the bot says
-`Warning: web console not started: port 8737 can't be used (...)` and runs
-without it; set another `port`. Without a build it says `Note: the web
-console's app isn't built, so only its API answers`. After a `git pull` that
-changes `console/`, build again and restart the bot. Working on the app
-itself: see [`console/README.md`](console/README.md).
-
-#### Remote console
-
-For an Emergency Operations Center, where the node's computer is in another
-room and people work from whatever laptop, tablet or phone is at hand, the
-same console can also answer the local network, over HTTPS, for **console
-users**: a name and password each. Console users are separate from the
-radio's users and admins: they need no radio, owning one (even an
-admin's) gives no way in, and they have no rights over the mesh. A console
-user can do everything the console does, the radio's settings included,
-and manage the other console users.
-
-1. Make the first console user on the node's computer (it asks for a
-   password twice, 12 characters or more):
-   ```sh
-   mesh-contingency-console user add sam
-   ```
-   `user password sam`, `user remove sam` (it asks first) and `user list`
-   work too, with the bot running or not: they're the way back in if
-   everyone is locked out. They're kept in `console_users.json` next to
-   `config.toml`, as password hashes only, readable only by you, and left
-   out of backups.
-2. In `config.toml`, then restart the bot:
-   ```toml
-   [console]
-   enabled = true
-   remote = true
-   # remote_port = 8738
-   ```
-3. The bot makes its own HTTPS certificate the first time (in
-   `console_tls/`) and prints where to open it and the certificate's
-   fingerprint:
-   ```
-   Remote console: https://node.local:8738/ (certificate SHA-256 30:2B:...:C1:57)
-     also https://192.168.1.20:8738/
-   ```
-   Each browser warns about the certificate once: check that the
-   fingerprint it shows is the one the bot printed (also on the Dashboard),
-   then go on. To use your own certificate instead, set `cert` and `key`
-   under `[console]`. `mesh-contingency-console cert show` prints the
-   fingerprint, and `cert renew` makes a new certificate (say the
-   computer's address changed), used from the next start.
-4. If the computer has a firewall, let the local network reach the port,
-   e.g. with ufw: `sudo ufw allow from 192.168.1.0/24 to any port 8738
-   proto tcp`.
-
-Then open the address on another device and log in. What a console user
-does is recorded as theirs: `history` says `by sam (console)`, a message
-left from Mailbox is `from sam (console)`, and their rate limits and
-confirmations are their own. Add more console users on the **Console
-users** page; a console user can't remove themselves there, so there's
-always one left, and their own password is on **Account**. Giving someone
-a new password, or removing them, logs them out at their next click.
-
-A login lasts until 30 minutes without using it (a page left open,
-refreshing itself, doesn't count), 12 hours at most, **Log out**, or a
-restart of the bot. After 5 wrong passwords for one name, or 10
-from one device, in 15 minutes, that name or device waits 15 minutes; a new
-password set with `user password` lets them in again at once. Each login,
-failure, lockout and logout is in the bot's journal (never a password),
-and a burst of failed logins (10 in 15 minutes, from any devices; `[watch]
-failed_logins`) is a [node watch](#node-watch) problem, so the mesh's
-admins hear about it over the radio, naming the devices it came from.
-Requests from addresses outside the local network (10.x, 172.16-31.x,
-192.168.x, 169.254.x, 100.64-127.x for Tailscale-style VPNs, and IPv6
-unique and link-local) are refused before the login page, so a port
-forward on the router doesn't put it on the internet.
-
-### Phone app
-
-A phone app for users, in `app/`, that talks Bluetooth (or, on a computer,
-USB) to the user's own MeshCore radio and reaches the node by ordinary direct
-messages, so its permissions, limits and sealing all apply; the bot needs
-only `area` turned on, for the Weather tab's county cards. Android first; the
-plan is in [`docs/plans/mobile-app.md`](docs/plans/mobile-app.md). It connects
-to the radio (its name, battery and firmware), finds the node, joins, and
-has the mailbox, check-ins, chat, the area's weather, the Bible, email,
-and the radio's own settings. Each release since 0.9.0 attaches its Android
-APK (a debug build, for sideloading). From 0.11.0, each release also attaches
-the **desktop app**, the same app for Windows, Mac and Linux (Electron, with
-the radio over Bluetooth or USB): a Windows installer, Mac disk images, and
-a Linux AppImage, `.deb` and `.pacman` package. They're unsigned, so each
-system warns the first time; see [`app/README.md`](app/README.md). The replies it reads are pinned
-in `tests/fixtures/app_replies.json`: change a reply there and in the app
-together. Building it, running it on an emulator and installing it on a
-phone: see [`app/README.md`](app/README.md).
-
 ## Testing
 
 ```sh
 .venv/bin/python -m unittest
 .venv/bin/pip install -e ".[dev]" && .venv/bin/ruff check .   # lint
 ```
-
-The web console's tests need aiohttp (`pip install -e ".[console]"`) and are
-skipped without it; its app has its own (`npm test` in `console/`), and so
-does the phone app (`npm test` in `app/`).
 
 The tests use only the standard library. Network calls, the `mail` command
 and the radio are all faked (see `mesh_contingency/testing.py`), so they run
@@ -1382,24 +1134,14 @@ Pull requests run [CI](.github/workflows/ci.yml) on GitHub, and it must pass:
 
 - **Tests** on Python 3.11, 3.12, 3.13 and 3.14.
 - **Lint** with [ruff](https://docs.astral.sh/ruff/); the rules are in `pyproject.toml`.
-- **Package**: builds the web console's app and the wheel, checks the Bible
-  data, the app and the command registrations are inside it, installs it
+- **Package**: builds the wheel, checks the Bible data and the command
+  registrations are inside it, installs it
   with `examples/mesh-dice`, and runs a verse lookup and a dice roll through
   the installed commands.
-- **Web console app**: formatting (Prettier), unit tests (Vitest) and the
-  build, in `console/`.
-- **Phone app**: the same, in `app/`.
-- **Android build**: the phone app's debug APK, kept for 14 days as the
-  run's `mesh-contingency-debug-apk` artifact.
-- **Desktop build**: the desktop app's installers, built on Linux, Windows
-  and Mac runners, kept for 14 days as the run's
-  `mesh-contingency-desktop-<system>` artifacts.
 
 The PR template has a short checklist. Never include real data (your
 `config.toml` or `users.toml`, email addresses, node keys) in code, tests or issues.
-Dependabot opens weekly PRs to update GitHub Actions, Python dependencies, the
-web console's and the phone app's npm packages, and the phone app's Gradle
-dependencies.
+Dependabot opens weekly PRs to update GitHub Actions and Python dependencies.
 
 ## Project layout
 
@@ -1422,12 +1164,7 @@ mesh_contingency/
   contacts.py         auto-adding new contacts by node type
   weather.py          api.weather.gov / zipcode lookups (data only)
   alerts.py           the alert channel; the automatic weather alerts and the weekly test
-  area_weather.py     the weather now in each watched county, for area and the console's dashboard
-  channel_log.py      the radio's channel messages since the bot started, for the console
   radio_presets.py    MeshCore's regional radio presets, for the console's radio settings
-  web/                the web console: [console] settings, server.py (key, cookie and
-                      host checks; serving the app), api.py (the JSON API), launch.py
-                      (mesh-contingency-console), static/ (the build)
   bible/
     __init__.py       reference parsing and verse lookup
     bsb.json.gz       the bundled Berean Standard Bible
@@ -1439,7 +1176,6 @@ mesh_contingency/
     mailbox.py        msg, inbox, clearinbox and setpass
     alert.py          an admin's message to the alert channel
     alertmap.py       looking up the watched counties' NWS codes again
-    area.py           the weather now in a watched county, from area_weather.py
     backup.py         a backup of the bot's data now
     contact.py        removing one of the radio's contacts, or resetting the path to it
     radio.py          the radio's settings (changed from the console only)
@@ -1450,9 +1186,6 @@ mesh_contingency/
     users.py          users, whois, remove, resetpass, whoami and leave
     mail.py           the shared email sending and address checks
     qm.py, emailall.py, email.py
-console/              the web console's Angular app (see console/README.md)
-app/                  the phone app: Angular and Capacitor, android/ its Android project
-                      (see app/README.md)
 examples/mesh-dice/   an example third-party command package
 .github/              CI workflow, Dependabot, PR and issue templates
 pyproject.toml        package metadata, the mesh-contingency command and built-in command registrations
@@ -1460,13 +1193,10 @@ config.example.toml   example configuration
 users.example.toml    example users file
 deploy/
   mesh-contingency.service  systemd user unit (see "As a service")
-scripts/
-  demo_console.py     the web console on made-up data, for screenshots (see console/README.md)
 docs/
   branding/           the logo: lockups (light and dark), mark, app icons, favicon
   plans/              design plans and what was decided
-tests/                unit tests (python -m unittest); fixtures/app_replies.json, the
-                      replies the phone app reads, which both sides' tests check
+tests/                unit tests (python -m unittest)
 ```
 
 ## Writing a command
@@ -1640,31 +1370,6 @@ the node can see) is in [ENCRYPTION_NOTES.md](ENCRYPTION_NOTES.md).
   pinned to commit SHAs; Dependabot proposes updates to both.
 - Rate limits and email caps (see [Limits](#limits)) are per sender and kept
   in memory; restarting the bot resets them.
-- The [web console](#web-console) listens only on `127.0.0.1`, never the
-  network. Every request needs the key the bot makes at each start (in the
-  link, then an `HttpOnly`, `SameSite=Strict` cookie), so other accounts on
-  the computer can't use it; `console.url` is readable only by you. Only
-  requests addressed to `127.0.0.1:<port>` or `localhost:<port>` are
-  answered, and anything that changes something needs the console's own
-  `Origin`, so web pages in your browser can't use it either, even with DNS
-  rebinding. Every response forbids loading anything from elsewhere and
-  being framed. Sealed text, sealing keys and message text never leave the
-  node this way. Anyone who can use your account on that computer can use
-  the console as an admin, as they could edit `users.toml`.
-- The [remote console](#remote-console), off unless `remote = true`, is a
-  second listener on every address, HTTPS only (TLS 1.2 or newer, a
-  certificate the bot makes, EC P-256, or yours), with
-  `Strict-Transport-Security`. It answers only private, link-local and
-  loopback source addresses. Console users' passwords are kept as scrypt
-  hashes (a salt each) in `console_users.json`, readable only by you and
-  never backed up; a wrong name and a wrong password get the same answer,
-  in the same time. Logins are random session ids in memory, in `Secure`,
-  `HttpOnly`, `SameSite=Strict` cookies; anything that changes something
-  also needs the console's own `https://` `Origin`. Lockouts (5 failures
-  per name, 10 per address, in 15 minutes) slow guessing; use long
-  passwords, since there's no second factor. A console user is an admin of
-  the node, the radio's settings included, but not of the mesh: they can't
-  run commands over the radio, and no radio can be one.
 
 ## License
 

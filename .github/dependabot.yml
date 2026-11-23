@@ -1,5 +1,4 @@
-# Weekly pull requests to keep GitHub Actions, Python, and the web console's
-# and the phone app's npm and Gradle dependencies current.
+# Weekly pull requests to keep GitHub Actions and Python dependencies current.
 # Each one runs CI before it can be merged.
 version: 2
 updates:
@@ -19,53 +18,3 @@ updates:
       python:
         patterns: ["*"]
 
-  - package-ecosystem: npm
-    directory: /console
-    schedule:
-      interval: weekly
-    # Angular pins the TypeScript it supports (22.2: >=6.0 <6.1), so newer
-    # TypeScript fails the build; it's raised by hand with an Angular upgrade
-    # (ng update), not proposed here. Patch releases still are.
-    ignore:
-      - dependency-name: typescript
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-    groups:
-      angular:
-        patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
-      npm:
-        patterns: ["*"]
-
-  # The phone app: the same Angular and TypeScript rule as the console.
-  - package-ecosystem: npm
-    directory: /app
-    schedule:
-      interval: weekly
-    ignore:
-      - dependency-name: typescript
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-    groups:
-      angular:
-        patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
-      capacitor:
-        patterns: ["@capacitor/*", "@capacitor-community/*"]
-      npm:
-        patterns: ["*"]
-
-  # Its Android project's Gradle plugin and libraries; Capacitor sets most of
-  # them (variables.gradle), so these mostly follow a Capacitor upgrade.
-  - package-ecosystem: gradle
-    directory: /app/android
-    schedule:
-      interval: weekly
-    # Capacitor 8 builds with the Android Gradle plugin 8, which Gradle 9.6+
-    # can't run (it removed an internal API AGP 8 uses), and AGP 9 changes
-    # how Kotlin plugins build. Both majors wait for a Capacitor upgrade;
-    # minor and patch releases are still proposed.
-    ignore:
-      - dependency-name: gradle-wrapper
-        update-types: ["version-update:semver-major"]
-      - dependency-name: com.android.tools.build:gradle
-        update-types: ["version-update:semver-major"]
-    groups:
-      gradle:
-        patterns: ["*"]

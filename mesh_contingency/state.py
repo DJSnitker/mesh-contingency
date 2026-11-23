@@ -81,9 +81,7 @@ class State:
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
         self.watch = None  # the NodeWatch, if [watch] is enabled
         self.backups = None  # the Backups, for the backup command and the schedule
-        self.area_weather = None  # the AreaWeather, if the web console and [alerts] are on
-        self.channel_log = None  # the ChannelLog, if the web console is on
-        self.console_logins = None  # the remote console's Logins, if it's on (for the node watch)
+        self.console_logins = None  # always None now the remote console is gone; the watch's login check is off
         self.restart = None  # restart(why): stop the bot to be started again, while it runs
         self._stores = {}
 

@@ -25,14 +25,10 @@ from .api import (
     PUBLIC,
     USER,
     CommandError,
-    Context,
     Sender,
     is_authorized,
 )
-from .area_weather import AreaWeather
 from .backup import Backups, load_backup
-from .channel_log import KEEP, ChannelLog
-from .commands.area import AreaCommand
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -51,7 +47,6 @@ from .registry import RENAMED, Registry
 from .running import run_command
 from .state import State, duration
 from .watch import NodeWatch, ask_radio, load_watch
-from .web import INSTALL, aiohttp_missing, load_console
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -74,8 +69,6 @@ UNRECOGNIZED_COOLDOWN = 300
 SUGGEST_CUTOFF = 0.75
 # How often to check whether an hourly new-contact summary is due.
 SUMMARY_CHECK_SECONDS = 60
-# Lines of the log kept for the web console's live log.
-LOG_LINES = 500
 
 
 def find_serial_port():
@@ -147,7 +140,7 @@ async def set_clock(mc):
     if off is not None and abs(off) < CLOCK_SLACK:
         return
     if await ask_radio(lambda: mc.commands.set_time(int(time.time())), EventType.OK) is None:
-        print("Warning: couldn't set the radio's clock; set it from the web console (radio clock).", flush=True)
+        print("Warning: couldn't set the radio's clock.", flush=True)
     elif off is None:
         print("Set the radio's clock from the computer's.", flush=True)
     else:
@@ -158,7 +151,7 @@ async def set_clock(mc):
 async def main():
     # Everything printed may include text from the mesh; escape any terminal
     # control sequences in it.
-    output = SafeOutput(sys.stdout, keep=LOG_LINES)
+    output = SafeOutput(sys.stdout)
     with contextlib.redirect_stdout(output):
         return await _main(output)
 
@@ -185,7 +178,6 @@ async def _main(output):
     test_settings = load_alert_test(config, alert_settings.channel)
     watch_settings = load_watch(config)
     backup_settings = load_backup(config, args.config.resolve().parent)
-    console_settings = load_console(config)
     # Check the [commands] config and import the enabled commands before
     # connecting, so mistakes show up straight away.
     registry = Registry(config)
@@ -418,36 +410,8 @@ async def _main(output):
         state.watch = NodeWatch(mc, watch_settings, state, directory, tell_watch)
         print(f"Watching the node {state.watch.describe()}; problems go to {len(directory.admins)} admin(s).")
         node_watch = asyncio.create_task(state.watch.run())
-    # Uses of each command by each sender, over the radio and from the web console.
+    # Uses of each command by each sender.
     limiter = RateLimiter()
-    web_console = None
-    if console_settings.enabled and aiohttp_missing():
-        print(f"Warning: [console] is enabled, but the web console needs aiohttp: run {INSTALL} in the project "
-              "folder and restart. Running without it.")
-    elif console_settings.enabled:
-        from .web.server import ConsoleServer
-
-        console_ctx = Context(name="console", directory=directory, radio=mc, commands=commands, state=state,
-                              send=send_later, limits=registry.limits)
-        web_console = ConsoleServer(console_settings, console_ctx, args.config.resolve().parent, limiter, output)
-        if not await web_console.start():
-            web_console = None
-    if web_console:
-        state.channel_log = ChannelLog()
-        print(f"Channel messages for the web console: the newest {KEEP} of each channel, in memory only.")
-    if web_console and web_console.logins:
-        state.console_logins = web_console.logins
-        if state.watch and state.watch.describe_logins():
-            web_console.logins.on_lockout = state.watch.wake.set  # tell the admins without waiting
-            print(f"Watching the remote console's logins: {state.watch.describe_logins()} go to the admins.")
-    area_weather = None
-    # The reports the console's Area Weather page and the area command show.
-    area_command = any(isinstance(c, AreaCommand) for c in commands.values())
-    if (web_console or area_command) and state.alert_watcher:
-        state.area_weather = AreaWeather(state.alert_watcher, state)
-        print(f"Area weather: {state.area_weather.describe()}.")
-        area_weather = asyncio.create_task(state.area_weather.run())
-    # After the alert watcher: area is off without one.
     warn_unconfigured()
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
@@ -612,7 +576,7 @@ async def _main(output):
     # error and let the service manager start the bot again.
     stopping = asyncio.Event()
     lost = []
-    restarting = []  # why, when a restart was asked for (radio reboot from the console)
+    restarting = []  # why, when a restart was asked for (a radio reboot)
 
     def restart(why):
         """Restart on purpose: stop shortly (so the command's reply gets
@@ -639,14 +603,8 @@ async def _main(output):
     with contextlib.suppress(NotImplementedError):  # not on Windows
         loop.add_signal_handler(signal.SIGTERM, stopping.set)
     mc.subscribe(EventType.DISCONNECTED, on_disconnect)
-    # Commands come only by direct message. Channel messages are only kept,
-    # for the web console to show, and only while it's on.
+    # Commands come only by direct message; channel messages are ignored.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)
-    if state.channel_log:
-        async def on_channel_message(event):
-            state.channel_log.heard(event.payload)
-
-        mc.subscribe(EventType.CHANNEL_MSG_RECV, on_channel_message)
     await mc.start_auto_message_fetching()
 
     try:
@@ -664,12 +622,8 @@ async def _main(output):
             node_watch.cancel()
         if scheduled_backups:
             scheduled_backups.cancel()
-        if area_weather:
-            area_weather.cancel()
         if stop_console:
             stop_console()
-        if web_console:
-            await web_console.stop()
         with contextlib.suppress(AttributeError, NotImplementedError):
             loop.remove_signal_handler(signal.SIGHUP)
             loop.remove_signal_handler(signal.SIGUSR1)

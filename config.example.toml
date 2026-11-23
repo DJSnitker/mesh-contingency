@@ -32,8 +32,7 @@ at_startup = false   # also advert every time the bot starts
 # channel once, with no admin needed. An alert several counties share is
 # posted once. It looks up each county's NWS code
 # once (alertmap looks them up again), then checks every county in one
-# request. Empty, the default, turns it off. With the web console on, its
-# Area Weather page shows each county's weather too.
+# request. Empty, the default, turns it off.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
 every_minutes = 10             # how often to check; at least 5
@@ -68,29 +67,6 @@ every_minutes = 5        # how often to check; at least 1
 battery_volts = 3.5      # warn below this; 0 for no battery check
 undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
 errors = 3               # commands failed or timed out within 30 min; 0 for no check
-failed_logins = 10       # failed remote console logins within 15 min; 0 for no check
-
-# The web console: the node in a browser on this computer (see "Web console"
-# in the README). Needs aiohttp, pip install -e ".[console]", and its app
-# built: npm ci && npm run build in console/. Each start writes the link to
-# open it, with a new key, to console.url next to this file; the
-# mesh-contingency-console command opens it. It listens on 127.0.0.1 only;
-# host may be 127.0.0.1 or localhost.
-#
-# remote = true also opens it to the local network (an EOC's laptops and
-# phones), over HTTPS on remote_port, for console users: a name and password
-# each, separate from the radio's users (see "Remote console" in the
-# README). Make the first with: mesh-contingency-console user add NAME.
-# Requests from public (internet) addresses are refused. The bot makes its
-# own certificate in console_tls/ and prints its fingerprint; cert and key
-# use your own instead.
-[console]
-enabled = false
-port = 8737
-# remote = false
-# remote_port = 8738
-# cert = "/path/to/cert.pem"
-# key = "/path/to/key.pem"
 
 # How often each sender may use each command (per minute, hour or day, or
 # "none"), unless the command's entry sets rate = "...". Over 24 hours,
@@ -118,7 +94,6 @@ emails_per_day_total = 200
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
-area = { permission = "public" }       # needs [alerts] counties
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }

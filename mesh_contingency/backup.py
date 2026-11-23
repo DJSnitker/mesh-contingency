@@ -24,8 +24,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .directory import BACKUP_FOLDER
-from .web.console_users import USERS_FILE as CONSOLE_USERS_FILE
 
+# The old remote console's users: password hashes, never backed up.
+CONSOLE_USERS_FILE = "console_users.json"
 BACKUP_FILE = "backup.json"  # when the last backup was made
 BACKUP_KEYS = {"to", "every_hours", "keep"}
 DEFAULT_TO = "~/MeshContingencyBackups"

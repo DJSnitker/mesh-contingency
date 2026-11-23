@@ -21,10 +21,9 @@
 # starts (or restarts) the service and waits for the bot to say it's
 # listening, reporting any warnings or what stopped it.
 #
-# Options, after "bash -s --" when piped (curl ... | bash -s -- --console):
+# Options, after "bash -s --" when piped (curl ... | bash -s -- --no-service):
 #   --dir DIR      install here instead of ~/mesh-contingency
 #   --ref REF      a tag or branch instead of the latest release (e.g. main)
-#   --console      also install and build the web console (needs Node.js)
 #   --no-service   don't install the systemd user service
 #   --alert-channel NAME   the alert channel (weather alerts, alert), e.g. #district7-wx
 #   --comm-channel NAME    the communications channel (comm), e.g. #district7-comm
@@ -44,14 +43,14 @@ main() {
     set -euo pipefail
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
-    local dir="$HOME/mesh-contingency" ref="" console=0 service=1
+    local dir="$HOME/mesh-contingency" ref="" service=1
     local alert_channel="" comm_channel="" check=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --dir) dir="${2:?--dir needs a folder}"; shift 2 ;;
             --ref) ref="${2:?--ref needs a tag or branch}"; shift 2 ;;
-            --console) console=1; shift ;;
+            --console) say "The web console has been removed; ignoring --console."; shift ;;
             --no-service) service=0; shift ;;
             --check) check=1; shift ;;
             --alert-channel) alert_channel="$(channel_name "${2:?--alert-channel needs a name}")" \
@@ -72,11 +71,9 @@ main() {
     local missing=() python
     command -v git >/dev/null || missing+=(git)
     python="$(find_python)" || missing+=(python)
-    if [ "$console" = 1 ] && ! node_ok; then missing+=(nodejs); fi
     if [ ${#missing[@]} -gt 0 ]; then
         say "Missing: ${missing[*]}. Install it, then run this again:"
         say "  $(package_hint "${missing[@]}")"
-        [ "$console" = 0 ] || say "  (the web console needs Node.js 22.22+ or 24.15+, with npm)"
         exit 1
     fi
 
@@ -125,13 +122,7 @@ main() {
     # Quiets setuptools' warning about editable installs; pip errors still show.
     export PYTHONWARNINGS=ignore
     .venv/bin/python -m pip install -q --upgrade pip
-    if [ "$console" = 1 ]; then
-        .venv/bin/python -m pip install -q -e ".[console]"
-        say "Building the web console (npm)"
-        (cd console && npm ci --silent --no-audit --no-fund && npm run --silent build)
-    else
-        .venv/bin/python -m pip install -q -e .
-    fi
+    .venv/bin/python -m pip install -q -e .
 
     # Your own files, made once from the examples and never overwritten.
     local made=()
@@ -189,15 +180,6 @@ find_python() {
         fi
     done
     return 1
-}
-
-# Node.js 22.22+ or 24.15+ (or newer than 24), with npm.
-node_ok() {
-    command -v node >/dev/null && command -v npm >/dev/null || return 1
-    node -e '
-        const [a, b] = process.versions.node.split(".").map(Number);
-        process.exit((a === 22 && b >= 22) || (a === 24 && b >= 15) || a > 24 ? 0 : 1);
-    '
 }
 
 # A channel name as the bot takes it: "#" and then letters, digits, - or _,
@@ -402,11 +384,9 @@ package_hint() {
             apt:venv) names+=(python3-venv) ;;
             apt:mail) names+=(s-nail) ;;
             pacman:python|pacman:venv) names+=(python) ;;
-            pacman:nodejs) names+=(nodejs npm) ;;
             pacman:mail) names+=(s-nail) ;;
             dnf:python) names+=(python3) ;;
             dnf:venv) names+=(python3) ;;
-            dnf:nodejs) names+=(nodejs npm) ;;
             dnf:mail) names+=(s-nail) ;;
             *) names+=("$n") ;;
         esac

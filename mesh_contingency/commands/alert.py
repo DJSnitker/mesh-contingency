@@ -43,7 +43,7 @@ class AlertCommand(Command):
             raise CommandError(f"{self.name}: too long for one channel message ({len(message)} characters; "
                                f"at most {limit}); nothing posted")
         slot, added = await self.channel_slot()
-        await post(self.radio, slot, [message], self.ctx.state.channel_log)
+        await post(self.radio, slot, [message])
         self.ctx.state.record(self.ctx.name_of(sender), f"posted to {self.channel}: {message}")
         where = f"slot {slot}, added to the radio" if added else f"slot {slot}"
         return CommandResult(console=f"Posted to {self.channel} ({where}): {message}",
