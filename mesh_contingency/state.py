@@ -1,22 +1,13 @@
-"""What the bot remembers: who has messaged it since it started, and small
-JSON files (statuses, the mailbox) kept next to config.toml across restarts.
+"""What the bot keeps across restarts: small JSON files next to config.toml
+(the alerts already posted, when the last advert and test went out).
 
-These files hold node keys and what people wrote, so they are git-ignored and
-written readable only by their owner.
+They're git-ignored and written readable only by their owner.
 """
 
 import json
 import os
 import time
-from collections import Counter, deque
 from pathlib import Path
-
-from .limits import EmailLog
-
-# The audit trail of admin actions (and users leaving), newest last, read
-# with the history command.
-HISTORY_FILE = "history.json"
-MAX_HISTORY = 200
 
 
 class StoreError(Exception):
@@ -59,68 +50,15 @@ class Store:
 
 
 class State:
-    """Shared by every command: the senders seen since startup and the state
-    files, which live in data_dir (the folder of config.toml), or only in
-    memory if data_dir is None."""
+    """Shared by every command: the state files, which live in data_dir (the
+    folder of config.toml), or only in memory if data_dir is None."""
 
     def __init__(self, data_dir=None):
         self.data_dir = Path(data_dir) if data_dir is not None else None
         self.started = time.time()
-        # key (or the key prefix, for a sender who couldn't be identified) ->
-        # (name, time last seen), least recently seen first
-        self.seen = {}
-        self.emails = EmailLog()  # for the email caps, shared by every email command
-        # Since startup, for health: "messages" in, "sent" (replies and notices),
-        # "undelivered" (of those) and "errors" (commands that failed or timed out).
-        self.counts = Counter()
-        self.last_error = None  # (time.time(), e.g. "wx failed")
-        self.error_times = deque()  # time.time() of each error in the last day, for the watch
-        self.undelivered_in_row = 0  # direct messages not acknowledged since the last one that was
-        self.last_delivered = None  # time.time() a direct message was last acknowledged
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
-        self.watch = None  # the NodeWatch, if [watch] is enabled
-        self.backups = None  # the Backups, for the backup command and the schedule
-        self.console_logins = None  # always None now the remote console is gone; the watch's login check is off
-        self.restart = None  # restart(why): stop the bot to be started again, while it runs
         self._stores = {}
-
-    def saw(self, key, name):
-        """Record a direct message from this sender."""
-        self.seen.pop(key, None)
-        self.seen[key] = (name, time.time())
-
-    def error(self, what):
-        """Record a command that failed or timed out, e.g. "wx failed"."""
-        self.counts["errors"] += 1
-        self.last_error = (time.time(), what)
-        self.error_times.append(self.last_error[0])
-        while self.error_times[0] < self.last_error[0] - 86400:
-            self.error_times.popleft()
-
-    def delivered(self):
-        """A direct message was acknowledged."""
-        self.undelivered_in_row = 0
-        self.last_delivered = time.time()
-
-    def undelivered(self):
-        """A direct message got no acknowledgement after retries."""
-        self.counts["undelivered"] += 1
-        self.undelivered_in_row += 1
-
-    def recent_errors(self, seconds, now=None):
-        """How many commands failed or timed out in the last `seconds`."""
-        cutoff = (time.time() if now is None else now) - seconds
-        return sum(1 for t in self.error_times if t >= cutoff)
-
-    def record(self, by, what):
-        """Add an action to the history, e.g. record("Doug", "approved Sam
-        (5a3e1c7b9d20)"), keeping the newest MAX_HISTORY."""
-        store = self.store(HISTORY_FILE)
-        entries = store.data.setdefault("entries", [])
-        entries.append({"time": time.time(), "by": by, "what": what})
-        del entries[:-MAX_HISTORY]
-        store.save()
 
     def store(self, filename):
         """The Store for a file in data_dir, the same one for every command
@@ -140,11 +78,3 @@ def duration(seconds):
         return f"{hours}h {minutes}m"
     return f"{minutes}m"
 
-
-def ago(then, now=None):
-    """How long ago a time.time() was, briefly: "just now", "5m ago", "2d ago"."""
-    seconds = (time.time() if now is None else now) - then
-    for unit, size in (("d", 86400), ("h", 3600), ("m", 60)):
-        if seconds >= size:
-            return f"{int(seconds // size)}{unit} ago"
-    return "just now"

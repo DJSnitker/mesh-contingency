@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from mesh_contingency.limits import EmailLog, Limits, RateLimiter, describe_rate, parse_rate, wait_text
+from mesh_contingency.limits import Limits, RateLimiter, describe_rate, parse_rate, wait_text
 from mesh_contingency.registry import Registry
 
 
@@ -26,33 +26,35 @@ class LimitsConfigTest(unittest.TestCase):
     def test_defaults(self):
         limits = Limits.from_config({})
         self.assertEqual(limits.rates, {"public": (10, 3600), "user": (30, 3600), "admin": None})
-        self.assertEqual((limits.emails_per_day, limits.emails_per_day_total), (50, 200))
 
     def test_settings(self):
-        limits = Limits.from_config({"limits": {"public_rate": "3/minute", "admin_rate": "100/day",
-                                                "emails_per_day": 0}})
+        limits = Limits.from_config({"limits": {"public_rate": "3/minute", "admin_rate": "100/day"}})
         self.assertEqual(limits.rates["public"], (3, 60))
         self.assertEqual(limits.rates["admin"], (100, 86400))
-        self.assertEqual(limits.emails_per_day, 0)
+
+    def test_old_email_caps_are_ignored(self):
+        limits = Limits.from_config({"limits": {"emails_per_day": 50, "emails_per_day_total": 200}})
+        self.assertEqual(limits, Limits())
 
     def test_mistakes(self):
         with self.assertRaisesRegex(SystemExit, r"\[limits\] may only set"):
             Limits.from_config({"limits": {"guest_rate": "1/hour"}})
-        with self.assertRaisesRegex(SystemExit, r"\[limits\] emails_per_day must be"):
-            Limits.from_config({"limits": {"emails_per_day": -1}})
         with self.assertRaisesRegex(SystemExit, r"\[limits\] user_rate rate must look"):
             Limits.from_config({"limits": {"user_rate": "lots"}})
 
     def test_registry_applies_rates(self):
+        help_handler = "mesh_contingency.commands.help:HelpCommand"
+        available = {name: help_handler for name in ("help", "mine", "alert", "testalert", "other")}
         registry = Registry({"limits": {"user_rate": "2/minute"}, "commands": {
-            "help": {"permission": "public"}, "roster": {"permission": "user"},
-            "wx": {"permission": "public", "rate": "1/day"}, "advert": {"permission": "admin"},
-            "verse": {"permission": "public", "rate": "none"}}})
+            "help": {"permission": "public"}, "mine": {"permission": "user"},
+            "alert": {"permission": "admin", "rate": "1/day"}, "testalert": {"permission": "admin"},
+            "other": {"permission": "public", "rate": "none"}}}, available)
         self.assertEqual({name: spec.rate for name, spec in registry.specs.items()},
-                         {"help": (10, 3600), "roster": (2, 60), "wx": (1, 86400), "advert": None, "verse": None})
-        self.assertNotIn("rate", registry.specs["wx"].options)
-        with self.assertRaisesRegex(SystemExit, r"\[commands.wx\] rate must look"):
-            Registry({"commands": {"wx": {"permission": "public", "rate": "often"}}})
+                         {"help": (10, 3600), "mine": (2, 60), "alert": (1, 86400), "testalert": None,
+                          "other": None})
+        self.assertNotIn("rate", registry.specs["alert"].options)
+        with self.assertRaisesRegex(SystemExit, r"\[commands.alert\] rate must look"):
+            Registry({"commands": {"alert": {"permission": "admin", "rate": "often"}}}, available)
 
 
 class RateLimiterTest(unittest.TestCase):
@@ -77,20 +79,6 @@ class RateLimiterTest(unittest.TestCase):
         self.assertEqual(limiter.check("bob", "wx", (1, 60)), (0, False))
         self.assertEqual(limiter.check("dana", "verse", (1, 60)), (0, False))
         self.assertEqual(limiter.check("dana", "wx", None), (0, False))
-
-
-class EmailLogTest(unittest.TestCase):
-    def test_counts_the_last_day(self):
-        now = [1_000_000.0]
-        with mock.patch("mesh_contingency.limits.time.time", lambda: now[0]):
-            log = EmailLog()
-            log.record("dana", 2)
-            now[0] += 3600
-            log.record("bob", 1)
-            log.record("dana", 1)
-            self.assertEqual((log.sends("dana"), log.sends("bob"), log.addresses()), (2, 1, 4))
-            now[0] += 86400 - 3600 + 1
-            self.assertEqual((log.sends("dana"), log.sends("bob"), log.addresses()), (1, 1, 2))
 
 
 class WaitTextTest(unittest.TestCase):

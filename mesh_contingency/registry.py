@@ -4,8 +4,8 @@ Commands are found through the "mesh_contingency.commands" entry point group,
 which every installed package can add to (this one registers the built-in
 commands the same way), or named directly in the config:
 
-    [commands.wx]
-    permission = "public"
+    [commands.alert]
+    permission = "admin"
 
     [commands.hello]
     handler = "my_commands:hello"   # module:attr, a Command subclass or function
@@ -74,14 +74,15 @@ class CommandSpec:
     options: dict = field(default_factory=dict)
     rate: tuple | None = None  # (count, seconds) per sender, or None for no limit
 
-# Commands that used to exist, and why they went: a config that still lists
-# one gets a warning rather than failing to start.
-RETIRED = {
-    "rename": "names are now the radios' names, kept up to date by the bot",
-}
-# Commands that were renamed: an old config's section is used for the new
-# name, with a warning, so an upgraded node keeps working.
-RENAMED = {"quickim": "qm", "setquickim": "setqm"}
+# Commands that used to exist: a config that still lists them gets one
+# warning rather than failing to start. All but rename went in 1.0, when
+# the node became weather alerts only (they're on the tag archive/full-system).
+RETIRED = frozenset({
+    "addgroup", "advert", "alertmap", "approve", "area", "backup", "checkins", "clearinbox", "cleargroup",
+    "clearstatus", "comm", "contact", "contacts", "deny", "email", "emailall", "health", "history", "inbox",
+    "join", "leave", "msg", "ok", "qm", "quickim", "radio", "reload", "remove", "rename", "resetpass", "roster",
+    "setemail", "setpass", "setqm", "setquickim", "settings", "status", "users", "verse", "whoami", "whois", "wx",
+})
 
 
 class Registry:
@@ -103,28 +104,19 @@ class Registry:
         available = discover() if available is None else available
         self.limits = Limits.from_config(config)
         sections = dict(config.get("commands", {}))
-        renamed = []  # warnings about old command names
-        for old, new in RENAMED.items():
-            if old not in sections or old in available:
-                continue
-            if new in sections:
-                renamed.append(f"[commands.{old}] is now [commands.{new}], which is also there; remove "
-                               f"[commands.{old}] from the config.")
-            else:
-                renamed.append(f"{old} is now called {new}; rename [commands.{old}] to [commands.{new}] in the "
-                               f"config. Using it for {new} meanwhile.")
-                sections[new] = sections[old]
-            del sections[old]
         self.specs = {}  # name -> CommandSpec, enabled commands only
         self.disabled = []  # names of commands nobody may run
         self.warnings = []  # problems worth printing at startup
         self.factories = {}  # name -> imported Command subclass or function
-        self.warnings += renamed
 
+        retired = [name for name, section in sections.items()
+                   if name in RETIRED and name not in available and not (isinstance(section, dict)
+                                                                         and "handler" in section)]
+        if retired:
+            self.warnings.append(f"[commands] lists commands that no longer exist, ignored: {', '.join(retired)}. "
+                                 "Remove their entries (see config.example.toml).")
         for name, section in sections.items():
-            if name in RETIRED and name not in available and not (isinstance(section, dict) and "handler" in section):
-                self.warnings.append(f"{name} no longer exists ({RETIRED[name]}); remove [commands.{name}] "
-                                     f"from the config.")
+            if name in retired:
                 continue
             spec = self._check(name, section, available, self.limits)
             if spec is None:
@@ -172,9 +164,10 @@ class Registry:
         options = {k: v for k, v in section.items() if k not in RESERVED_KEYS}
         return CommandSpec(name, handler, permission, timeout, options, rate)
 
-    def build(self, directory, radio, state=None, send=None):
+    def build(self, admins, radio, state=None, send=None):
         """Create the enabled commands, sharing one State, and return them as
-        {name: Command}. send(public key, text) queues a direct message.
+        {name: Command}. admins is the set of admins' public keys;
+        send(public key, text) queues a direct message.
 
         A command that fails to start is skipped and added to warnings.
         """
@@ -182,8 +175,8 @@ class Registry:
         state = state or State()
         for name, spec in self.specs.items():
             factory = self.factories[name]
-            ctx = Context(name=name, options=spec.options, directory=directory, radio=radio, commands=commands,
-                          state=state, limits=self.limits, **({"send": send} if send else {}))
+            ctx = Context(name=name, options=spec.options, radio=radio, commands=commands, state=state,
+                          limits=self.limits, admins=frozenset(admins), **({"send": send} if send else {}))
             try:
                 cmd = factory(ctx) if inspect.isclass(factory) else FunctionCommand(ctx, factory)
             except Exception as e:

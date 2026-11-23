@@ -5,16 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mesh-contingency"
 version = "0.12.0"
-description = "MeshCore direct-message bot: weather lookups, Bible verses, email notifications and radio admin commands, with pluggable third-party commands"
+description = "MeshCore bot that posts National Weather Service alerts to the Public channel, with admin commands to post and test"
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 license-files = ["LICENSE"]
 authors = [{ name = "Doug Snitker" }]
 requires-python = ">=3.11"
-# pycryptodome seals mailbox messages (X25519 keys need 3.21).
 # meshcore is held to the tested minor version, since its API changes between
 # them; Dependabot proposes a new range when one is released.
-dependencies = ["meshcore>=2.3.17,<2.4", "pycryptodome>=3.21"]
+dependencies = ["meshcore>=2.3.17,<2.4"]
 
 [project.optional-dependencies]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
@@ -30,51 +29,11 @@ mesh-contingency = "mesh_contingency.bot:run"
 # Built-in commands, registered the same way a third-party package would.
 [project.entry-points."mesh_contingency.commands"]
 help = "mesh_contingency.commands.help:HelpCommand"
-wx = "mesh_contingency.commands.wx:WxCommand"
-verse = "mesh_contingency.commands.verse:VerseCommand"
-qm = "mesh_contingency.commands.qm:QmCommand"
-emailall = "mesh_contingency.commands.emailall:EmailAllCommand"
-email = "mesh_contingency.commands.email:EmailCommand"
-advert = "mesh_contingency.commands.advert:AdvertCommand"
-contacts = "mesh_contingency.commands.contacts:ContactsCommand"
-contact = "mesh_contingency.commands.contact:ContactCommand"
-radio = "mesh_contingency.commands.radio:RadioCommand"
-reload = "mesh_contingency.commands.reload:ReloadCommand"
-ok = "mesh_contingency.commands.status:OkCommand"
-status = "mesh_contingency.commands.status:StatusCommand"
-clearstatus = "mesh_contingency.commands.status:ClearStatusCommand"
-checkins = "mesh_contingency.commands.status:CheckinsCommand"
-roster = "mesh_contingency.commands.roster:RosterCommand"
-health = "mesh_contingency.commands.health:HealthCommand"
-history = "mesh_contingency.commands.history:HistoryCommand"
-msg = "mesh_contingency.commands.mailbox:MsgCommand"
-inbox = "mesh_contingency.commands.mailbox:InboxCommand"
-clearinbox = "mesh_contingency.commands.mailbox:ClearInboxCommand"
-setpass = "mesh_contingency.commands.mailbox:SetPassCommand"
 alert = "mesh_contingency.commands.alert:AlertCommand"
-alertmap = "mesh_contingency.commands.alertmap:AlertMapCommand"
 testalert = "mesh_contingency.commands.testalert:TestAlertCommand"
-comm = "mesh_contingency.commands.comm:CommCommand"
-backup = "mesh_contingency.commands.backup:BackupCommand"
-join = "mesh_contingency.commands.join:JoinCommand"
-approve = "mesh_contingency.commands.join:ApproveCommand"
-deny = "mesh_contingency.commands.join:DenyCommand"
-setqm = "mesh_contingency.commands.settings:SetQmCommand"
-addgroup = "mesh_contingency.commands.settings:AddGroupCommand"
-cleargroup = "mesh_contingency.commands.settings:ClearGroupCommand"
-setemail = "mesh_contingency.commands.settings:SetEmailCommand"
-users = "mesh_contingency.commands.users:UsersCommand"
-whois = "mesh_contingency.commands.users:WhoisCommand"
-remove = "mesh_contingency.commands.users:RemoveCommand"
-resetpass = "mesh_contingency.commands.users:ResetPassCommand"
-whoami = "mesh_contingency.commands.users:WhoAmICommand"
-leave = "mesh_contingency.commands.users:LeaveCommand"
 
 [tool.setuptools.packages.find]
 include = ["mesh_contingency*"]
-
-[tool.setuptools.package-data]
-"mesh_contingency.bible" = ["bsb.json.gz"]
 
 [tool.ruff]
 line-length = 120

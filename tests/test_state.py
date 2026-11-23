@@ -2,9 +2,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
-from mesh_contingency.state import State, Store, StoreError, ago
+from mesh_contingency.state import State, Store, StoreError, duration
 
 
 class StoreTest(unittest.TestCase):
@@ -47,20 +46,11 @@ class StateTest(unittest.TestCase):
         self.assertEqual(json.loads((folder / "a.json").read_text()), {"x": 1})
         self.assertEqual(State(folder).store("a.json").data, {"x": 1})  # after a restart
 
-    def test_seen_most_recent_last(self):
-        state = State()
-        with mock.patch("mesh_contingency.state.time.time", side_effect=[1, 2, 3]):
-            state.saw("a", "Alice")
-            state.saw("b", "Bob")
-            state.saw("a", "Alice")
-        self.assertEqual(list(state.seen.items()), [("b", ("Bob", 2)), ("a", ("Alice", 3))])
 
-
-class AgoTest(unittest.TestCase):
-    def test_ago(self):
-        for seconds, text in [(5, "just now"), (60, "1m ago"), (3599, "59m ago"), (7200, "2h ago"),
-                              (3 * 86400, "3d ago")]:
-            self.assertEqual(ago(1000, now=1000 + seconds), text)
+class DurationTest(unittest.TestCase):
+    def test_duration(self):
+        for seconds, text in [(59, "0m"), (300, "5m"), (3 * 3600 + 300, "3h 5m"), (2 * 86400 + 3 * 3600, "2d 3h")]:
+            self.assertEqual(duration(seconds), text)
 
 
 if __name__ == "__main__":

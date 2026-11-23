@@ -1,37 +1,10 @@
-# Copy to config.toml and fill in.
-
-# The node only acts on direct messages; channel messages are ignored.
-
-# New nodes heard advertising are added to the radio's contacts if their type
-# is listed: chat, repeater, room, sensor. Only chat nodes can message us.
-# Enabling this puts the radio in manual-add mode (a setting stored on the
-# radio). Remove this section to leave the radio's own behavior alone.
-[contacts]
-auto_add = ["chat"]
-# Send each admin a direct message when a contact is added, e.g.
-# "New contact: Alice (a1b2c3d4e5f6, chat)". On by default.
-notify_admins = true
-# At most this many new nodes are added per hour (users and admins always
-# are), and this many new-contact notices sent one by one; the rest come in
-# one summary per hour. 0 means no limit.
-max_new_per_hour = 20
-notices_per_hour = 5
-
-# Adverts tell other radios about this node, so they can message it. They can
-# also be sent while the bot runs: type "advert" or "advert flood" in its
-# terminal, or kill -USR1 <pid> for a flood advert. A scheduled advert goes out
-# every_hours after the last one of its kind (by hand or not), even across
-# restarts, so a restart only adverts if one is due.
-[advert]
-every_hours = 0      # advert this often; 0 for never
-flood = true         # flood (across the mesh) or zero-hop (direct range)
-at_startup = false   # also advert every time the bot starts
+# Copy to config.toml and fill in. The bot reads it when it starts, so restart
+# it after a change (systemctl --user restart mesh-contingency).
 
 # Automatic weather alerts: the bot checks the National Weather Service for
-# these counties ("Name, ST") and posts each new alert to the alert command's
-# channel once, with no admin needed. An alert several counties share is
-# posted once. It looks up each county's NWS code
-# once (alertmap looks them up again), then checks every county in one
+# these counties ("Name, ST") and posts each new alert to the alert channel
+# once, with no admin needed. An alert several counties share is posted once.
+# It looks up each county's NWS code once, then checks every county in one
 # request. Empty, the default, turns it off.
 [alerts]
 counties = []                  # e.g. ["Taylor, TX", "Jones, TX"]
@@ -45,111 +18,53 @@ weekly = ""                    # e.g. "Wednesday 17:00" or "Wed 5:00PM"; empty f
 # timezone = "America/Chicago" # for weekly; defaults to the computer's
 # message = "TEST: this is a test of the #contingency-wx alert channel. No action needed."
 
-# Backups of the bot's data (config.toml, users.toml, the JSON files next to
-# config.toml and the users file's backups folder), each a new folder named
-# for the time, inside `to`; admins can make one now with the backup command.
-# Put `to` on another disk if you can (a USB stick, a second drive, a network
-# share): a backup on the same disk is lost with it.
-[backup]
-to = "~/MeshContingencyBackups"   # e.g. "/mnt/usb/MeshContingencyBackups"
-every_hours = 24                  # 0 for only with the backup command
-keep = 7                          # newest backups kept
+# Who may send the admin commands: each admin radio's full public key (64 hex
+# digits; in the MeshCore app, share your contact to see it). The bot replies
+# only to contacts in its radio; if the radio adds new contacts only when told
+# (manual-add mode), the bot adds the admins' radios when they advert.
+[admins]
+keys = []                      # e.g. ["a1b2...", "c3d4..."]
 
-# The bot watches the node itself and sends every admin a direct message when
-# a problem starts ("Node problem: ...") and when it's over ("Node ok again:
-# ..."): a low battery, the radio restarting, messages not delivered, email
-# failing, repeated command errors, a users file that can't be reloaded, or a
-# backup failing.
-# A problem is announced at most once an hour. These are the defaults.
-[watch]
-enabled = true
-every_minutes = 5        # how often to check; at least 1
-battery_volts = 3.5      # warn below this; 0 for no battery check
-undelivered_in_row = 5   # messages in a row not delivered; 0 for no check
-errors = 3               # commands failed or timed out within 30 min; 0 for no check
+# Adverts tell other radios about this node, so admins can message it. They
+# can also be sent while the bot runs: type "advert" or "advert flood" in its
+# terminal, or kill -USR1 <pid> for a flood advert. A scheduled advert goes out
+# every_hours after the last one of its kind (by hand or not), even across
+# restarts, so a restart only adverts if one is due.
+[advert]
+every_hours = 0      # advert this often; 0 for never
+flood = true         # flood (across the mesh) or zero-hop (direct range)
+at_startup = false   # also advert every time the bot starts
 
 # How often each sender may use each command (per minute, hour or day, or
-# "none"), unless the command's entry sets rate = "...". Over 24 hours,
-# emails_per_day caps each sender's qm, emailall and email commands (one
-# each, however many addresses), and emails_per_day_total the addresses
-# emailed by everyone; 0 for no cap.
-# These are the defaults.
+# "none"), unless the command's entry sets rate = "...". These are the
+# defaults.
 [limits]
 public_rate = "10/hour"
 user_rate = "30/hour"
 admin_rate = "none"
-emails_per_day = 50
-emails_per_day_total = 200
 
 # Which commands run, and who may use each:
 #   "public"   anyone who can direct-message the node
-#   "user"     senders with a [users.<key>] section in users.toml
-#   "admin"    senders listed in users.toml [admin] keys (admins are not
-#              automatically users)
+#   "admin"    the radios in [admins] keys
 #   "disabled" nobody
 # An installed command with no entry here is disabled (with a warning at
 # startup). An unknown command or level stops startup. Optional per command:
 # timeout = <seconds> (default 60), rate = "5/hour"; any other key is passed
 # to the command.
 [commands]
-help = { permission = "public" }
-wx = { permission = "public" }
-verse = { permission = "public" }
-qm = { permission = "user" }
-emailall = { permission = "user" }
-email = { permission = "user" }
-advert = { permission = "admin" }
-contacts = { permission = "admin" }
-contact = { permission = "admin" }
-radio = { permission = "admin" }
-reload = { permission = "admin" }
-ok = { permission = "public" }
-status = { permission = "public" }
-clearstatus = { permission = "admin" }
-checkins = { permission = "admin" }
-roster = { permission = "admin" }
-health = { permission = "admin" }
-history = { permission = "admin" }
-msg = { permission = "user" }
-inbox = { permission = "user" }
-clearinbox = { permission = "user" }
-setpass = { permission = "user" }
+help = { permission = "admin" }
 alert = { permission = "admin" }
-alertmap = { permission = "admin" }
 testalert = { permission = "admin" }
-comm = { permission = "admin" }
-backup = { permission = "admin" }
-join = { permission = "public" }
-approve = { permission = "admin" }
-deny = { permission = "admin" }
-setqm = { permission = "user" }
-addgroup = { permission = "user" }
-cleargroup = { permission = "user" }
-setemail = { permission = "admin" }
-users = { permission = "admin" }
-whois = { permission = "admin" }
-remove = { permission = "admin" }
-resetpass = { permission = "admin" }
-whoami = { permission = "user" }
-leave = { permission = "user" }
 
 # alert posts to a public hashtag channel (added to the radio if missing):
 # [commands.alert]
 # permission = "admin"
 # channel = "#contingency-wx"
 
-# A command from an installed package (pip install <package>) needs only a
-# permission. Your own code, packaged or not, can be named with handler =
-# "module:attr" (the module must be importable, e.g. on PYTHONPATH):
+# Your own code can be a command too, named with handler = "module:attr" (the
+# module must be importable, e.g. on PYTHONPATH):
 #
 # [commands.roll]
-# handler = "mesh_dice:roll"
+# handler = "my_dice:roll"
 # permission = "public"
 # max_dice = 10        # an option for the command itself
-
-# Users and admins are in their own file, which the bot reloads while it runs
-# (see users.example.toml). These are the defaults:
-# [directory]
-# file = "users.toml"   # relative to this file
-# reload_seconds = 5    # how often to check it for changes; 0 = only on
-#                       # the reload command or SIGHUP

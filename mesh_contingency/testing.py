@@ -15,7 +15,6 @@ from meshcore import EventType
 
 from .alerts import PUBLIC_SECRET
 from .api import Context
-from .directory import Directory
 from .limits import Limits
 from .state import State
 
@@ -23,17 +22,18 @@ from .state import State
 PUBLIC_CHANNEL_SECRET = PUBLIC_SECRET.hex()
 
 
-def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, directory=None,
-                 state=None, sent=None, limits=None):
-    """A Context like the one the bot creates a command with. Pass users and
-    admins, or a Directory to change them during a test. Commands that share
-    data need the same State; without a data_dir it is kept in memory. Direct
-    messages the command sends with ctx.send are added to the `sent` list as
-    (public key, text). limits replaces the default [limits] settings."""
+def make_context(name, options=None, users=None, admins=None, radio=None, commands=None, state=None, sent=None,
+                 limits=None):
+    """A Context like the one the bot creates a command with: admins (and
+    users) are collections of public keys. Commands that share data need the
+    same State; without a data_dir it is kept in memory. Direct messages the
+    command sends with ctx.send are added to the `sent` list as (public key,
+    text). limits replaces the default [limits] settings."""
     sent = sent if sent is not None else []
-    return Context(name=name, options=options or {}, directory=directory or Directory(users, admins),
-                   radio=radio, commands=commands if commands is not None else {}, state=state or State(),
-                   send=lambda key, text: sent.append((key, text)), limits=limits or Limits())
+    return Context(name=name, options=options or {}, radio=radio, commands=commands if commands is not None else {},
+                   state=state or State(), send=lambda key, text: sent.append((key, text)), limits=limits or Limits(),
+                   users=dict.fromkeys(users or (), {}) if not isinstance(users, dict) else users,
+                   admins=frozenset(admins or ()))
 
 
 def event(event_type, payload=None):

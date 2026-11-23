@@ -1,6 +1,7 @@
-"""Listen to a MeshCore companion device over USB serial and act on direct messages.
+"""Post National Weather Service alerts to MeshCore's Public channel, and
+answer the admins' direct-message commands, through a companion radio on USB.
 
-Channel messages are ignored entirely (the alert command only posts to one).
+Channel messages are ignored; commands come only by direct message.
 """
 
 import argparse
@@ -8,27 +9,16 @@ import asyncio
 import contextlib
 import difflib
 import glob
-import os
 import signal
 import sys
 import time
-import tomllib
 from pathlib import Path
 
 from meshcore import EventType, MeshCore
 
 from .alerts import AlertTest, AlertWatcher, load_alert_test, load_alerts
-from .api import (
-    ADMIN,
-    DISABLED,
-    MAX_REPLY_LEN,
-    PUBLIC,
-    USER,
-    CommandError,
-    Sender,
-    is_authorized,
-)
-from .backup import Backups, load_backup
+from .api import DISABLED, LEVELS, MAX_REPLY_LEN, CommandError, Sender, is_authorized
+from .config import load_admins, load_config, retired_settings
 from .console import (
     ADVERTS_FILE,
     advert_on_schedule,
@@ -38,22 +28,19 @@ from .console import (
     send_advert,
     watch_console,
 )
-from .contacts import NoticeBatcher, load_auto_add, load_contact_limits, load_notify_admins, setup_auto_add
-from .directory import Directory, DirectoryError, describe, possessive
+from .contacts import add_admins
 from .limits import RateLimiter, describe_rate, wait_text
-from .names import name_problem
 from .output import SafeOutput
-from .registry import RENAMED, Registry
+from .registry import Registry
 from .running import run_command
 from .state import State, duration
-from .watch import NodeWatch, ask_radio, load_watch
 
 # config.toml in the project folder (the parent of this package).
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 # How long to wait for the radio when shutting down.
 DISCONNECT_SECONDS = 5
-# After a restart is asked for, seconds before stopping, so the reply gets out.
-RESTART_SECONDS = 2
+# How long to wait for the radio to answer a question at startup.
+RADIO_SECONDS = 5
 # The radio's clock this far off the computer's (seconds) is set at startup.
 CLOCK_SLACK = 5
 
@@ -63,12 +50,9 @@ UNRECOGNIZED_REPLY = "unrecognized user or function"
 # seconds, so another auto-replying node can't trap us in a reply loop.
 UNRECOGNIZED_COOLDOWN = 300
 # How alike (0-1, difflib's ratio) a mistyped command must be to one the
-# sender may run to be suggested: typos like "hlep", "emial" or "resetpassword"
-# are 0.75 or more; "hello" (help), "weather" (health) or "test" (testalert)
-# are 0.67 or less.
+# sender may run to be suggested: typos like "hlep" or "alret" are 0.75 or
+# more; "hello" (help) or "test" (testalert) are less.
 SUGGEST_CUTOFF = 0.75
-# How often to check whether an hourly new-contact summary is due.
-SUMMARY_CHECK_SECONDS = 60
 
 
 def find_serial_port():
@@ -77,15 +61,6 @@ def find_serial_port():
         glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
     )
     return candidates[0] if candidates else None
-
-
-def load_config(path):
-    """Return the parsed TOML config, or {} if the file does not exist."""
-    try:
-        with open(path, "rb") as f:
-            return tomllib.load(f)
-    except FileNotFoundError:
-        return {}
 
 
 def parse_command(msg, commands):
@@ -100,22 +75,30 @@ def parse_command(msg, commands):
     return (command, parts[1].strip() if len(parts) > 1 else "") if command else None
 
 
+async def ask_radio(request, wanted, seconds=RADIO_SECONDS):
+    """The payload of the radio's answer to request() if it is of type
+    wanted, or None if it answered otherwise or not in time."""
+    try:
+        res = await asyncio.wait_for(request(), seconds)
+    except Exception:
+        return None
+    return res.payload if res is not None and res.type == wanted else None
+
+
 def nearest_command(word, names, disabled=()):
-    """The command in names a mistyped word was meant to be, or None: its new
-    name if it was renamed, else the closest. A disabled command's own name
-    gets no suggestion: it's not a typo for something else."""
+    """The command in names a mistyped word was meant to be, or None. A
+    disabled command's own name gets no suggestion: it's not a typo for
+    something else."""
     word = word.lower()
     if word in disabled:
         return None
-    if RENAMED.get(word) in names:
-        return RENAMED[word]
     close = difflib.get_close_matches(word, names, n=1, cutoff=SUGGEST_CUTOFF)
     return close[0] if close else None
 
 
 def warn_if_shared(path):
-    """Warn if a file holding addresses, keys or passwords can be read or
-    changed by other accounts."""
+    """Warn if the config can be changed (or read) by other accounts: whoever
+    can change it chooses the admins."""
     try:
         mode = path.stat().st_mode & 0o777
     except OSError:
@@ -123,11 +106,6 @@ def warn_if_shared(path):
     if mode & 0o077:
         print(f"Warning: {path} can be read or changed by other accounts (mode {mode:o}); "
               f"fix with: chmod 600 {path}", flush=True)
-
-
-def mailrc_path():
-    """The mail command's settings file, which may hold an SMTP password."""
-    return Path(os.environ.get("MAILRC") or Path.home() / ".mailrc")
 
 
 async def set_clock(mc):
@@ -153,10 +131,10 @@ async def main():
     # control sequences in it.
     output = SafeOutput(sys.stdout)
     with contextlib.redirect_stdout(output):
-        return await _main(output)
+        return await _main()
 
 
-async def _main(output):
+async def _main():
     parser = argparse.ArgumentParser(prog="mesh-contingency", description=__doc__)
     parser.add_argument("-p", "--port", help="serial port (auto-detected if omitted)")
     parser.add_argument("-b", "--baud", type=int, default=115200)
@@ -165,22 +143,16 @@ async def _main(output):
                         help=f"config file (default: {DEFAULT_CONFIG})")
     args = parser.parse_args()
 
+    # Check the whole config before connecting, so mistakes show up straight away.
     config = load_config(args.config)
-    # Users and admins live in their own file, reloaded while the bot runs.
-    directory = Directory.from_config(config, args.config)
-    if not directory.load():
-        print(f"Warning: {directory.path} not found; no users or admins until it is created.")
-    auto_add = load_auto_add(config)
-    notify_admins = load_notify_admins(config)
-    max_new_per_hour, notices_per_hour = load_contact_limits(config)
+    admins, admin_warnings = load_admins(config, args.config)
     advert_at_startup, advert_every_hours, advert_flood = load_advert(config)
     alert_settings = load_alerts(config)
     test_settings = load_alert_test(config, alert_settings.channel)
-    watch_settings = load_watch(config)
-    backup_settings = load_backup(config, args.config.resolve().parent)
-    # Check the [commands] config and import the enabled commands before
-    # connecting, so mistakes show up straight away.
     registry = Registry(config)
+    for warning in [retired_settings(config), *admin_warnings]:
+        if warning:
+            print(f"Warning: {warning}")
 
     port = args.port or find_serial_port()
     if not port:
@@ -197,6 +169,8 @@ async def _main(output):
     mc.auto_update_contacts = True
     print(f"Connected to {mc.self_info.get('name')}. {len(mc.contacts)} contacts.")
     await set_clock(mc)
+    if note := await add_admins(mc, admins):
+        print(note)
 
     # One message at a time: the radio matches each ack to the message it
     # just sent, so overlapping sends could confuse delivery tracking.
@@ -215,18 +189,14 @@ async def _main(output):
             # The radio may have learned this node after we loaded contacts.
             await mc.commands.get_contacts()
             contact = mc.get_contact_by_key_prefix(key)
-        state.counts["sent"] += 1
         if contact is None:
-            state.counts["undelivered"] += 1
             print(f"  (no contact {prefix} to send {what} to; is it in the radio's contacts?)", flush=True)
             return
         async with send_lock:
             result = await mc.commands.send_msg_with_retry(contact, text)
         if result is None:
-            state.undelivered()
             print(f"  ({what} to {prefix} not acknowledged after retries)", flush=True)
         else:
-            state.delivered()
             print(f"  ({what} to {prefix} delivered)", flush=True)
 
     background = set()  # running background tasks, kept so they aren't garbage collected
@@ -242,58 +212,19 @@ async def _main(output):
         radio's event handling (or a command's reply) while it goes out."""
         in_background(send_dm(key, text, what=what))
 
-    def tell_admins(text, what):
-        """Send text to every current admin in the background."""
-        for admin in sorted(directory.admins):
-            send_later(admin, text, what)
-
-    notices = NoticeBatcher(notices_per_hour)
-
-    def announce_new_contact(key, name, type_name):
-        """Tell every admin about a contact the bot just added, unless this
-        hour's notices are used up (then it goes in the hourly summary)."""
-        if notices.allow():
-            tell_admins(f"New contact: {name or '?'} ({key}, {type_name})", "new-contact notice")
-
-    async def send_summaries():
-        """Send the hourly summary of contacts not announced or not added."""
-        while True:
-            await asyncio.sleep(SUMMARY_CHECK_SECONDS)
-            text = notices.summary()
-            if text:
-                print(text, flush=True)
-                if notify_admins:
-                    tell_admins(text, "new-contact summary")
-
-    def protected_keys():
-        """Users' and admins' full keys, as of now."""
-        return directory.users.keys() | directory.admins
-
-    def announce_blocked(prefix, name, target):
-        """Warn every admin about a node posing as a user or admin. Sent even
-        with notify_admins off, since it may be an attack."""
-        who = describe(target, directory.users)
-        tell_admins(f"Blocked {prefix} {name or '?'}: posing as {who} (same key prefix, different key)",
-                    "blocked-contact alert")
-
-    if auto_add is not None:
-        await setup_auto_add(mc, auto_add, on_added=announce_new_contact if notify_admins else None,
-                             protected=protected_keys, on_blocked=announce_blocked,
-                             max_new_per_hour=max_new_per_hour, on_skipped=notices.skipped)
-        if notify_admins and directory.admins:
-            print(f"New contacts are announced to {len(directory.admins)} admin(s).")
-
-    # Who has messaged the node, and the state files (statuses, the mailbox),
-    # kept next to config.toml.
+    # The state files (the alerts posted, the advert times), next to config.toml.
     state = State(args.config.resolve().parent)
-    commands = registry.build(directory, mc, state, send_later)
-    for level, who in [(PUBLIC, "anyone"), (USER, f"{len(directory.users)} user(s)"),
-                       (ADMIN, f"{len(directory.admins)} admin(s)")]:
+    commands = registry.build(admins, mc, state, send_later)
+    for level in LEVELS[:-1]:
         names = [c.name for c in commands.values() if c.permission == level]
-        print(f"  {level} commands ({who}): {', '.join(names) or 'none'}")
+        if names:
+            who = f"{len(admins)} admin(s)" if level == "admin" else "anyone" if level == "public" else "users"
+            print(f"  {level} commands ({who}): {', '.join(names)}")
     print(f"  {DISABLED} commands (nobody): {', '.join(registry.disabled) or 'none'}")
     for warning in registry.warnings:
         print(f"Warning: {warning}")
+    if not admins and any(c.permission == "admin" for c in commands.values()):
+        print("Note: no admins in [admins] keys in config.toml, so nobody can use the admin commands.")
     defaults = ", ".join(f"{level} {describe_rate(rate)}" for level, rate in registry.limits.rates.items())
     print(f"Rate limits per sender and command: {defaults} (unless a command sets rate).")
 
@@ -308,61 +239,10 @@ async def _main(output):
         else:
             if note:
                 print(note)
+    for command in commands.values():
+        if not command.enabled and command.permission != DISABLED:
+            print(f"Warning: {getattr(command, 'unconfigured', None) or f'{command.name} is not set up'}.")
 
-    def warn_unconfigured():
-        for command in commands.values():
-            if not command.enabled and command.permission != DISABLED:
-                # A command may say why it's off; the email commands are off with no addresses.
-                why = getattr(command, "unconfigured", None)
-                print(f"Warning: {why or f'no user has {command.name} addresses in {directory.name}'}.", flush=True)
-
-    def convert_settings():
-        """Move addresses saved under an old command name (quickim) to the
-        new one (qm), keeping the order of each user's settings."""
-        changes, moved = {}, set()
-        for key, user in directory.users.items():
-            for old, new in RENAMED.items():
-                if old in user and new not in user:
-                    user = changes[key] = {(new if k == old else k): v for k, v in user.items()}
-                    moved.add(old)
-        if not changes:
-            return
-        moved = sorted(moved)
-        try:
-            directory.save_users(changes)
-        except DirectoryError as e:
-            print(f"Warning: {', '.join(moved)} settings not converted: {directory.name} {e}", flush=True)
-            return
-        print(f"{directory.name}: {', '.join(f'{old} is now {RENAMED[old]}' for old in moved)} "
-              f"for {len(changes)} user(s)", flush=True)
-
-    def on_users_reloaded(summary):
-        print(f"{directory.name} reloaded: {summary}", flush=True)
-        convert_settings()
-        if directory.path:
-            warn_if_shared(directory.path)
-        warn_unconfigured()
-        check_shared_prefixes()
-        if state.watch and "users" in state.watch.announced:
-            state.watch.wake.set()  # so it says the file is fixed
-
-    def on_users_error(reason):
-        """A new version of the users file can't be used: say so, and keep
-        the current users."""
-        print(f"Warning: {directory.name} not reloaded: {reason}; keeping the current users.", flush=True)
-        if state.watch:
-            state.watch.wake.set()  # it tells the admins, and again when it's fixed
-        else:
-            tell_admins(f"{directory.name} not reloaded: {reason}", "users-file notice")
-
-    convert_settings()
-    directory.on_change.append(on_users_reloaded)
-    # Watch the users file; SIGHUP (kill -HUP <pid>) reloads it straight away.
-    wake = asyncio.Event()
-    with contextlib.suppress(AttributeError, NotImplementedError):  # no SIGHUP on Windows
-        asyncio.get_running_loop().add_signal_handler(signal.SIGHUP, wake.set)
-    watcher = asyncio.create_task(directory.watch(wake, on_users_error))
-    summaries = asyncio.create_task(send_summaries())
     loop = asyncio.get_running_loop()
     # When each kind of advert last went out, scheduled or by hand.
     advert_times = state.store(ADVERTS_FILE)
@@ -371,56 +251,31 @@ async def _main(output):
         loop.add_signal_handler(signal.SIGUSR1, lambda: in_background(send_advert(mc, True, "SIGUSR1", advert_times)))
     if advert_at_startup:
         await send_advert(mc, advert_flood, "at startup", advert_times)
-    adverts = None
+    tasks = []
     if advert_every_hours:
-        # So new radios learn the node; the schedule carries on across restarts.
+        # So admins' radios learn the node; the schedule carries on across restarts.
         wait = seconds_until_advert(advert_times, advert_every_hours, advert_flood)
         print(f"Sending a {'flood' if advert_flood else 'zero-hop'} advert every {advert_every_hours:g} hour(s); "
               f"next {'now' if not wait else 'in ' + wait_text(wait)}.")
-        adverts = asyncio.create_task(advert_on_schedule(mc, advert_times, advert_every_hours, advert_flood))
-    auto_alerts = None
+        tasks.append(asyncio.create_task(advert_on_schedule(mc, advert_times, advert_every_hours, advert_flood)))
     if alert_settings.counties:
         alert_watcher = state.alert_watcher = AlertWatcher(mc, alert_settings, state)
         print(f"Watching NWS alerts for {alert_watcher.describe()}.")
-        auto_alerts = asyncio.create_task(alert_watcher.run())
+        tasks.append(asyncio.create_task(alert_watcher.run()))
+    else:
+        print("Warning: no counties in [alerts] counties in config.toml, so no weather alerts will be posted.")
     alert_test = state.alert_test = AlertTest(mc, test_settings, state, alert_settings.counties)
     if problem := alert_test.problem():
         raise SystemExit(f"{problem}. Shorten it.")
-    alert_tests = None
     if test_settings.weekly:
         print(f"Weekly alert test: {alert_test.describe()}.")
-        alert_tests = asyncio.create_task(alert_test.run())
-    backups = state.backups = Backups(backup_settings, state, args.config.resolve(), directory)
-    scheduled_backups = None
-    if backup_settings.every_hours:
-        wait = backups.seconds_until_due()
-        print(f"Backups: {backups.describe()}; next {'now' if not wait else 'in ' + wait_text(wait)}.")
-        scheduled_backups = asyncio.create_task(backups.run())
-    else:
-        print(f"Backups: {backups.describe()}.")
-    if backups.same_disk():
-        print(f"Note: {backup_settings.to} is on the same disk as the bot's data; a backup on another disk "
-              "(a USB stick, a second drive) survives that disk failing.")
-    node_watch = None
-    if watch_settings.enabled:
-        def tell_watch(text):
-            print(f"Watch: {text}", flush=True)
-            tell_admins(text, "watch notice")
-
-        state.watch = NodeWatch(mc, watch_settings, state, directory, tell_watch)
-        print(f"Watching the node {state.watch.describe()}; problems go to {len(directory.admins)} admin(s).")
-        node_watch = asyncio.create_task(state.watch.run())
+        tasks.append(asyncio.create_task(alert_test.run()))
     # Uses of each command by each sender.
     limiter = RateLimiter()
-    warn_unconfigured()
     stop_console = watch_console(loop, lambda line: in_background(run_console_command(mc, line, advert_times)))
     if stop_console:
         print("Type help for console commands (advert, advert flood, contacts).")
-    when = f"every {directory.reload_seconds}s" if directory.reload_seconds else "on reload or SIGHUP only"
-    print(f"Users file: {directory.path} (checked {when}).")
-    for path in (args.config.resolve(), directory.path, mailrc_path()):
-        if path:
-            warn_if_shared(path)
+    warn_if_shared(args.config.resolve())
     print("Listening for direct messages (Ctrl+C to quit)...")
 
     def message_prefix(msg):
@@ -433,24 +288,6 @@ async def _main(output):
 
     def contacts_with_prefix(prefix):
         return [c for c in mc.contacts.values() if prefix and c.get("public_key", "").lower().startswith(prefix)]
-
-    reported_shared = set()  # (prefix, contacts' keys) already reported
-
-    def check_shared_prefixes():
-        """Warn (once per set of contacts) about a user's or admin's key
-        prefix shared by several contacts in the radio, which leaves that
-        person unable to use their rights until the impostor is removed."""
-        for key in sorted(protected_keys()):
-            matches = contacts_with_prefix(key[:12])
-            report = (key[:12], frozenset(c["public_key"] for c in matches))
-            if len(matches) < 2 or report in reported_shared:
-                continue
-            reported_shared.add(report)
-            who = describe(key, directory.users)
-            print(f"Warning: {len(matches)} contacts share {possessive(who)} key prefix {key[:12]}; {who} has no "
-                  f"user or admin rights until the impostor is removed from the radio's contacts.", flush=True)
-            tell_admins(f"{len(matches)} contacts share {possessive(who)} key prefix {key[:12]}: remove the impostor "
-                        f"from the radio", "shared-prefix alert")
 
     async def get_sender(msg):
         """Return the Sender of a direct message.
@@ -468,47 +305,12 @@ async def _main(output):
             matches = contacts_with_prefix(prefix)
         if len(matches) != 1:
             if matches:
-                print(f"  ({len(matches)} contacts share key prefix {prefix}; sender not identified)", flush=True)
-                check_shared_prefixes()  # tell the admins if it's a user's or admin's prefix
+                admin = any(c["public_key"].lower() in admins for c in matches)
+                print(f"  ({len(matches)} contacts share key prefix {prefix}; sender not identified"
+                      f"{'; one is an admin, so remove the impostor from the radio' if admin else ''})", flush=True)
             return Sender(prefix, None)
         contact = matches[0]
-        sync_names([contact])
         return Sender(contact.get("adv_name") or prefix, contact["public_key"].lower())
-
-    unsaved_names = set()  # (key, name) the users file couldn't take, so it isn't retried each message
-
-    def sync_names(contacts):
-        """Keep each user's name in the users file the same as their radio's
-        name, which is what everyone on the mesh sees."""
-        changes = {}
-        for contact in contacts:
-            key = contact.get("public_key", "").lower()
-            name = contact.get("adv_name") or ""
-            user = directory.users.get(key)
-            if user is None or not name or user.get("name") == name or (key, name) in unsaved_names:
-                continue
-            if name_problem(name):  # what join would refuse
-                unsaved_names.add((key, name))
-                print(f"Warning: {possessive(describe(key, directory.users))} radio is now called {name!r}, "
-                      f"which can't be used; keeping {describe(key, directory.users)}", flush=True)
-                continue
-            changes[key] = {"name": name, **user}
-            changes[key]["name"] = name
-        if not changes:
-            return
-        old = {key: describe(key, directory.users) for key in changes}
-        try:
-            directory.save_users(changes)
-        except DirectoryError as e:
-            unsaved_names.update((key, settings["name"]) for key, settings in changes.items())
-            print(f"Warning: radio names not saved: {directory.name} {e}", flush=True)
-            return
-        for key, settings in changes.items():
-            print(f"{old[key]} ({key[:12]}) is now {settings['name']}, the radio's name", flush=True)
-            state.record("radio", f"{old[key]} ({key[:12]}) is now {settings['name']}")
-
-    sync_names(mc.contacts.values())
-    check_shared_prefixes()
 
     last_unrecognized = {}  # key prefix -> time.monotonic() of the last UNRECOGNIZED_REPLY
 
@@ -525,27 +327,23 @@ async def _main(output):
 
     async def on_message(event):
         msg = event.payload
-        state.counts["messages"] += 1
         sender = await get_sender(msg)
         prefix = message_prefix(msg)
         label = prefix if sender.name == prefix else f"{prefix} {sender.name}"
         parsed = parse_command(msg, commands)
-        # Only the command's name is printed, never what was sent with it (a
-        # message, a passphrase, a name) or what doesn't parse as a command.
+        # Only the command's name is printed, never what was sent with it
+        # (an alert's text) or what doesn't parse as a command.
         print(f"[{label}] {parsed[0].name if parsed else 'not a command'}", flush=True)
-        state.saw(sender.public_key or prefix, sender.name)  # the name the node advertises, for roster
         if parsed is None:
             words = msg.get("text", "").split()
             if not words:
                 return
-            # Users and admins are told the nearest command they may run;
-            # strangers learn nothing about the commands there are.
-            if sender.public_key in directory.users or sender.public_key in directory.admins:
-                mine = [c.name for c in commands.values()
-                        if is_authorized(c, sender, directory.users, directory.admins)]
+            # Admins are told the nearest command they may run; strangers
+            # learn nothing about the commands there are.
+            if sender.public_key in admins:
+                mine = [c.name for c in commands.values() if is_authorized(c, sender, {}, admins)]
                 nearest = nearest_command(words[0], mine, registry.disabled)
                 if nearest:
-                    # Only the first word is repeated: the rest may be a passphrase.
                     print(f"  -> unrecognized command; suggesting {nearest}", flush=True)
                     await reply(msg, sender, f"unknown command {words[0][:30]}; did you mean {nearest}? "
                                              "help lists yours")
@@ -553,7 +351,7 @@ async def _main(output):
             await reply_unrecognized(msg, sender, "unrecognized command")
             return
         command, text = parsed
-        if not is_authorized(command, sender, directory.users, directory.admins):
+        if not is_authorized(command, sender, {}, admins):
             await reply_unrecognized(msg, sender, f"{command.name} denied: sender not approved")
             return
         wait, first = limiter.check(sender.public_key or prefix, command.name, command.rate)
@@ -565,7 +363,7 @@ async def _main(output):
             else:
                 print(f"  -> {command.name} limit reached; not replying", flush=True)
             return
-        answer = await run_command(command, text, sender, state)
+        answer = await run_command(command, text, sender)
         # A long reply comes as several messages, sent in order.
         for text in answer.messages:
             await reply(msg, sender, text)
@@ -576,56 +374,28 @@ async def _main(output):
     # error and let the service manager start the bot again.
     stopping = asyncio.Event()
     lost = []
-    restarting = []  # why, when a restart was asked for (a radio reboot)
-
-    def restart(why):
-        """Restart on purpose: stop shortly (so the command's reply gets
-        out first) with an error, for the service manager to start the bot
-        again. The radio dropping meanwhile is expected, not a problem."""
-        if not restarting:
-            restarting.append(why)
-            print(f"Restarting: {why}.", flush=True)
-            loop.call_later(RESTART_SECONDS, stopping.set)
-
-    state.restart = restart
 
     async def on_disconnect(event):
         reason = (event.payload or {}).get("reason", "unknown")
-        if restarting:
-            stopping.set()
-        elif reason != "manual_disconnect":
+        if reason != "manual_disconnect":
             lost.append(reason)
             print(f"Lost the radio ({reason}); stopping.", flush=True)
-            if state.watch:
-                state.watch.lost_radio(reason)  # told to the admins once it's back
             stopping.set()
 
     with contextlib.suppress(NotImplementedError):  # not on Windows
         loop.add_signal_handler(signal.SIGTERM, stopping.set)
     mc.subscribe(EventType.DISCONNECTED, on_disconnect)
-    # Commands come only by direct message; channel messages are ignored.
     mc.subscribe(EventType.CONTACT_MSG_RECV, on_message)
     await mc.start_auto_message_fetching()
 
     try:
         await stopping.wait()
     finally:
-        watcher.cancel()
-        summaries.cancel()
-        if adverts:
-            adverts.cancel()
-        if auto_alerts:
-            auto_alerts.cancel()
-        if alert_tests:
-            alert_tests.cancel()
-        if node_watch:
-            node_watch.cancel()
-        if scheduled_backups:
-            scheduled_backups.cancel()
+        for task in tasks:
+            task.cancel()
         if stop_console:
             stop_console()
         with contextlib.suppress(AttributeError, NotImplementedError):
-            loop.remove_signal_handler(signal.SIGHUP)
             loop.remove_signal_handler(signal.SIGUSR1)
             loop.remove_signal_handler(signal.SIGTERM)
         # A lost radio may not answer; don't hang on it, and disconnect even
@@ -634,7 +404,7 @@ async def _main(output):
             await asyncio.wait_for(mc.stop_auto_message_fetching(), DISCONNECT_SECONDS)
         with contextlib.suppress(Exception):
             await asyncio.wait_for(mc.disconnect(), DISCONNECT_SECONDS)
-    if lost or restarting:
+    if lost:
         return 1
     print("Stopped.")
     return 0

@@ -22,7 +22,7 @@ from mesh_contingency.alerts import (
 )
 from mesh_contingency.api import MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.testalert import TestAlertCommand
-from mesh_contingency.state import HISTORY_FILE, State
+from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 CHICAGO = zoneinfo.ZoneInfo("America/Chicago")
@@ -108,9 +108,6 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
             self.radio, TestSettings("#contingency-wx", "Weekly test", WED_5PM, CHICAGO), self.state)
         self.cmd = TestAlertCommand(make_context("testalert", radio=self.radio, state=self.state))
 
-    def history(self):
-        return [(e["by"], e["what"]) for e in State(self.folder).store(HISTORY_FILE).data["entries"]]
-
     async def test_command_posts_the_test_now(self):
         with mock.patch("mesh_contingency.alerts.time.time", return_value=chicago(2026, 10, 20, 9, 0)):
             result = await self.cmd.execute("", ADMIN)
@@ -118,7 +115,6 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.reply, "testalert: posted to #contingency-wx; next weekly test Wed 5:00PM CDT")
         self.assertEqual(result.console,
                          "Alert test posted to #contingency-wx (slot 1, added to the radio):\n  Weekly test")
-        self.assertEqual(self.history(), [("Admin", "posted the alert test to #contingency-wx")])
         self.assertIn("last_test", State(self.folder).store(ALERTS_FILE).data)
 
     async def test_the_watched_counties_follow_the_message(self):
@@ -193,9 +189,7 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
             await self.test.run()
         self.assertEqual(self.radio.channel_sent, [(1, "Weekly test")] * 2)
         self.assertTrue(all(s <= 3600 for s in sleeps))  # looks at the clock at least hourly
-        times = [e["time"] for e in State(self.folder).store(HISTORY_FILE).data["entries"]]
-        self.assertEqual(times, [chicago(2026, 10, 21, 17, 0), chicago(2026, 10, 28, 17, 0)])
-        self.assertEqual(self.history(), [("auto", "posted the alert test to #contingency-wx")] * 2)
+        self.assertEqual(State(self.folder).store(ALERTS_FILE).data["last_test"], chicago(2026, 10, 28, 17, 0))
         self.assertIn("Weekly alert test posted to #contingency-wx:\n  Weekly test\n", self.out.getvalue())
 
     async def test_a_failed_week_doesnt_stop_it(self):
@@ -212,7 +206,6 @@ class AlertTestTest(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(asyncio.CancelledError):
             await self.test.run()
         self.assertIn("Weekly alert test failed: radio rejected channel message 1 of 1", self.out.getvalue())
-        self.assertEqual(self.state.counts["errors"], 1)
 
 
 if __name__ == "__main__":

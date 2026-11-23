@@ -68,20 +68,20 @@ jobs:
           import glob, zipfile
           wheel = zipfile.ZipFile(glob.glob("dist/*.whl")[0])
           names = wheel.namelist()
-          assert "mesh_contingency/bible/bsb.json.gz" in names, "bundled Bible missing"
-          assert not any(n.startswith("mesh_contingency/web/") for n in names), "the web console was removed"
+          for gone in ("web/", "bible/", "commands/wx.py"):
+              assert not any(n.startswith(f"mesh_contingency/{gone}") for n in names), f"{gone} was removed"
           for secret in ("config.toml", "users.toml"):
               assert not any(n.endswith(secret) for n in names), f"{secret} must never be packaged"
           entry_points = wheel.read(next(n for n in names if n.endswith("entry_points.txt"))).decode()
           assert "[mesh_contingency.commands]" in entry_points, entry_points
           print(entry_points)
           EOF
-      # A clean install from the wheel (not the source tree), plus the example
-      # third-party package, to prove plugins are discovered and run.
-      - name: Install the wheel and the example plugin
+      # A clean install from the wheel (not the source tree), to prove the
+      # commands are discovered and run.
+      - name: Install the wheel
         run: |
           python -m venv /tmp/venv
-          /tmp/venv/bin/pip install dist/*.whl ./examples/mesh-dice
+          /tmp/venv/bin/pip install dist/*.whl
       - name: Smoke test
         working-directory: /tmp
         run: |
@@ -92,30 +92,23 @@ jobs:
           import tomllib
           from pathlib import Path
           from mesh_contingency.api import Sender
-          from mesh_contingency.directory import Directory
           from mesh_contingency.registry import Registry, discover
 
-          # Every command the bot and the example plugin declare, so a new one
-          # can't be left out of this check.
+          # Every command the bot declares, so a new one can't be left out of this check.
           source = Path(os.environ["GITHUB_WORKSPACE"])
-          declared = set()
-          for pyproject in (source / "pyproject.toml", source / "examples/mesh-dice/pyproject.toml"):
-              project = tomllib.loads(pyproject.read_text())["project"]
-              declared |= set(project["entry-points"]["mesh_contingency.commands"])
-          assert {"help", "backup", "roll", "flip"} <= declared, declared
+          project = tomllib.loads((source / "pyproject.toml").read_text())["project"]
+          declared = set(project["entry-points"]["mesh_contingency.commands"])
+          assert declared == {"help", "alert", "testalert"}, declared
           found = discover()
-          missing = declared - set(found)
-          assert not missing, f"commands not discovered: {missing}"
+          assert set(found) == declared, f"discovered: {set(found)}"
           print(f"{len(declared)} commands discovered")
 
-          config = {"commands": {"verse": {"permission": "public"}, "roll": {"permission": "public"}}}
-          commands = Registry(config).build(Directory(), None)
-          dana = Sender("Dana", "d0" * 32)
-          verse = asyncio.run(commands["verse"].execute("john 3:16", dana))
-          roll = asyncio.run(commands["roll"].execute("2d6", dana))
-          print(verse.reply, roll, sep="\n")
-          assert verse.reply[0].startswith("(1/2) John 3:16 For God so loved the world")
-          assert roll.startswith("Dana rolled 2d6: ")
+          admin = Sender("Admin", "ad" * 32)
+          config = {"commands": {name: {"permission": "admin"} for name in ("help", "alert", "testalert")}}
+          commands = Registry(config).build({admin.public_key}, None)
+          reply = asyncio.run(commands["help"].execute("", admin)).reply
+          print(reply)
+          assert reply == "commands: help, alert, testalert. Send help <command> for usage", reply
           EOF
 
   install:
@@ -145,18 +138,17 @@ jobs:
           grep -q "and no group can" out
           MC_PORTS="$PWD/ok" ./install.sh --dir ~/node --ref ci-install --no-service 2>&1 | tee out
           grep -q "you can use it" out
-      # A new install's channels, from the options (CI has no terminal to ask on).
+      # A new install's alert channel, from the option (CI has no terminal to ask on).
       - name: Channels
         run: |
           export MC_REPO="file://$PWD"
-          ./install.sh --dir ~/node2 --ref ci-install --no-service \
-              --alert-channel district7-wx --comm-channel '#d7-comm'
+          ./install.sh --dir ~/node2 --ref ci-install --no-service --alert-channel district7-wx
           grep -q '^alert = .*channel = "#district7-wx"' ~/node2/config.toml
-          grep -q '^comm = .*channel = "#d7-comm"' ~/node2/config.toml
+          test ! -e ~/node2/users.toml
           ! ./install.sh --dir ~/node3 --alert-channel 'bad name!'
-      # --check stops before starting anything while users.toml has the
-      # example admin key (CI has no user systemd to start the service with).
+      # --check stops before starting anything with no radio plugged in (CI
+      # has no radio, nor a user systemd to start the service with).
       - name: Check mode
         run: |
           ! ./install.sh --check --dir ~/node2 | tee out
-          grep -q "example admin key" out
+          grep -q "No radio on USB" out
