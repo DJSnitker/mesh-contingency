@@ -1,6 +1,6 @@
 # Plan: weather alerts on the Public channel, plus a reusable command library
 
-Status: steps 0–5 done (#144–#150), step 6 (docs) in review; the wiki (7) and the 1.0.0 release (8) left · Requested 2026-11-23 · Decisions settled 2026-11-23
+Status: done; released as 1.0.0 (2026-11-23): steps 0–7 (#144–#153 and the wiki), then this release; the node's leftover files moved to backups/ · Requested 2026-11-23 · Decisions settled 2026-11-23
 
 ## Goal
 
