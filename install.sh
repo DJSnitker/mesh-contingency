@@ -390,9 +390,9 @@ PY
 
     local warnings line
     # A radio without Public runs, but posts nothing: that's no node at all.
-    if grep -q "No Public channel on the radio" <<< "$log"; then
-        say "- The radio has no Public channel, so no alerts can be posted: add MeshCore's Public channel"
-        say "  back in the radio's app, then run this again."
+    if grep -q "No alerts can be posted" <<< "$log"; then
+        say "- $(grep -m1 "No alerts can be posted" <<< "$log" | sed 's/^Warning: //')"
+        say "  Fix that in the radio's app, then run this again."
         return 1
     fi
     if ! grep -q "^Watching NWS alerts for " <<< "$log"; then

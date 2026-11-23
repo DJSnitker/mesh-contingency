@@ -13,9 +13,12 @@ from meshcore import EventType
 from mesh_contingency.alerts import (
     ALERTS_FILE,
     KEEP_AFTER_END_SECONDS,
+    PUBLIC_CHANNEL,
     PUBLIC_SECRET,
     AlertSettings,
     AlertWatcher,
+    Channel,
+    hashtag_secret,
     load_alerts,
     parse_county,
 )
@@ -53,9 +56,21 @@ class LoadAlertsTest(unittest.TestCase):
             with self.subTest(text=text), self.assertRaisesRegex(ValueError, "isn't a county and state"):
                 parse_county(text)
 
-    def test_an_old_channel_is_accepted_and_ignored(self):
-        self.assertEqual(load_alerts({"alerts": {"counties": ["Taylor, TX"], "channel": "#abilene-wx"}}),
-                         AlertSettings(("Taylor, TX",)))
+    def test_the_channel(self):
+        self.assertEqual(load_alerts({}).channel, PUBLIC_CHANNEL)
+        for value in ("#wx-test", "wx-test", "  #wx-test "):
+            with self.subTest(value=value):
+                channel = load_alerts({"alerts": {"channel": value}}).channel
+                self.assertEqual(channel, Channel("#wx-test", hashtag_secret("#wx-test")))
+        self.assertEqual(load_alerts({"alerts": {"channel": "public"}}).channel, PUBLIC_CHANNEL)
+        # MeshCore's own derivation: the first 16 bytes of SHA-256 of the name, "#" included
+        self.assertEqual(hashtag_secret("#test").hex(), "9cd8fcf22a47333b591d96a2b848b73f")
+
+    def test_channel_mistakes(self):
+        for value, problem in [("", "must be"), (5, "must be"), ("#", "isn't a hashtag channel"),
+                               ("wx test", "isn't a hashtag channel"), ("x" * 31, "at most 31 bytes")]:
+            with self.subTest(value=value), self.assertRaisesRegex(SystemExit, rf"^\[alerts\] channel .*{problem}"):
+                load_alerts({"alerts": {"channel": value}})
 
     def test_the_filter(self):
         settings = load_alerts({"alerts": {"severity": ["extreme", "Severe"],
@@ -87,7 +102,7 @@ class LoadAlertsTest(unittest.TestCase):
 
     def test_mistakes_stop_startup(self):
         for section, problem in [
-            ({"zipcodes": ["79601"]}, "may only set counties, events, every_minutes, severity"),
+            ({"zipcodes": ["79601"]}, "may only set channel, counties, events, every_minutes, severity"),
             ({"counties": [441]}, "must be a list of counties"),
             ({"counties": ["Taylor"]}, "isn't a county and state"),
             ({"counties": ["Taylor, TX"], "every_minutes": 2}, "at least 5"),
@@ -317,10 +332,25 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.watcher.check(), 0)
         self.assertEqual(self.posted(), [])
         self.assertEqual(self.watcher.posted, {})  # tried again once Public is back
-        self.assertIn("Auto alerts: No Public channel on the radio; nothing posted.", self.out.getvalue())
+        self.assertIn("Auto alerts: No Public channel on the radio; add MeshCore's Public channel back in its app; "
+                      "nothing posted (trying again in 10 min)", self.out.getvalue())
         self.assertEqual(self.radio.channels[0][0], "ch0")  # nothing changed
         self.radio.channels[5] = ("Public", PUBLIC_SECRET)
         self.assertEqual(await self.watcher.check(), 1)
+
+    async def test_a_hashtag_channel_is_added_once(self):
+        test = Channel("#wx-test", hashtag_secret("#wx-test"))
+        self.watcher.settings = AlertSettings(self.watcher.settings.counties, channel=test)
+        self.feed = [alert("a1")]
+        self.assertEqual(await self.watcher.check(), 1)
+        self.assertEqual(self.radio.channels[1], ("#wx-test", test.secret))
+        self.assertEqual([slot for slot, _ in self.radio.channel_sent], [1])
+        self.assertIn("Added the #wx-test channel to the radio (slot 1).", self.out.getvalue())
+        self.assertIn("for Taylor, TX to #wx-test:", self.out.getvalue())
+        self.feed = [alert("a2")]
+        await self.watcher.check()
+        self.assertEqual(self.out.getvalue().count("Added the"), 1)
+        self.assertEqual(self.radio.channels[0], ("Public", PUBLIC_SECRET))  # Public left alone
 
     async def test_a_failed_round_doesnt_stop_the_watcher(self):
         self.feed = [alert("a1")]

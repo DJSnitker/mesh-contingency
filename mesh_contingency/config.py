@@ -109,17 +109,18 @@ def retired_settings(config):
 
 
 def channel_settings(config):
-    """A warning if the config still picks a channel for the alerts (before
-    1.0 they went to a hashtag channel), or None. It's ignored."""
-    found = ["[alerts] channel"] if isinstance(config.get("alerts"), dict) and "channel" in config["alerts"] else []
+    """A warning if the config still picks a channel for the alert command
+    alone (before 1.0 it could), or None. It's ignored: [alerts] channel
+    picks it for everything."""
+    found = []
     for name, section in config.get("commands", {}).items():
         if isinstance(section, dict) and "channel" in section and (
                 name == "alert" or section.get("handler") == "mesh_contingency.commands.alert:AlertCommand"):
             found.append(f"[commands.{name}] channel")
     if not found:
         return None
-    return (f"config.toml sets {', '.join(found)}, which is no longer used: the alerts always go to the "
-            "Public channel. Remove it.")
+    return (f"config.toml sets {', '.join(found)}, which is no longer used: [alerts] channel picks the "
+            "channel for the alerts, alert and testalert. Remove it.")
 
 
 def load_commands(config, available=None):

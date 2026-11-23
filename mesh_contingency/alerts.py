@@ -1,10 +1,13 @@
-"""Weather alerts on MeshCore's Public channel: shared by the alert command,
-the automatic alert watcher and the weekly test.
+"""Weather alerts on a MeshCore channel, Public unless [alerts] channel says
+otherwise: shared by the alert command, the automatic alert watcher and the
+weekly test.
 
 The bot takes no commands from channels; it only sends to one. Public has a
-fixed key, the same on every radio, so the bot posts to whichever slot holds
-that key (usually slot 0). It never adds or renames a channel: a radio
-without Public gets nothing posted, and says so.
+fixed key, the same on every radio, and a hashtag channel's key comes from
+its name, so the bot posts to whichever slot holds that key. A hashtag
+channel the radio doesn't have yet is added to its first empty slot; Public
+is never added or changed: a radio without it gets nothing posted, and says
+so.
 
 The watcher ([alerts] in config.toml) watches counties. It looks up each
 county's NWS code once, then every few minutes asks the National Weather
@@ -17,7 +20,7 @@ restart doesn't post anything again.
 Right after the computer starts the network may not be up yet, so the first
 round waits (up to NETWORK_WAIT) until the NWS's name can be looked up.
 
-[alert_test] posts a test message to Public every week, and the testalert
+[alert_test] posts a test message to the channel every week, and the testalert
 command posts it on request, so people know the alerts get through.
 """
 
@@ -28,22 +31,23 @@ import time
 import urllib.parse
 import zoneinfo
 from dataclasses import dataclass
+from hashlib import sha256
 
 from mesh_commands import MAX_PARTS, MAX_REPLY_LEN, fit_reply, pack
 from meshcore import EventType
 
 from .weather import NWS_API, STATE_FIPS, alert_counties, county_alerts, county_code
 
-# What the alerts are posted to, as printed and replied.
+# MeshCore's usual channel, which the alerts go to unless [alerts] channel is set.
 PUBLIC = "Public"
 # Channel slots to look through if the radio doesn't say how many it has.
 DEFAULT_SLOTS = 8
 # The key of MeshCore's usual Public channel, the same on every radio.
 PUBLIC_SECRET = bytes.fromhex("8b3387e9c5cdea6ac9e5edbaa115cd72")
 ALERTS_FILE = "alerts.json"
-ALERTS_KEYS = {"counties", "every_minutes", "severity", "events"}
-# An older version's setting: ignored, with a warning (see config.retired_settings).
-OLD_ALERTS_KEYS = {"channel"}
+ALERTS_KEYS = {"counties", "every_minutes", "severity", "events", "channel"}
+# The longest channel name a radio keeps, in bytes.
+MAX_CHANNEL_NAME = 31
 # The NWS's severity levels, most severe first.
 SEVERITIES = ("Extreme", "Severe", "Moderate", "Minor", "Unknown")
 DEFAULT_EVERY_MINUTES = 10
@@ -61,11 +65,55 @@ NETWORK_WAIT = 120
 NETWORK_POLL = 5
 
 
-class NoPublicChannel(Exception):
-    """No channel slot on the radio has the Public channel's key."""
+@dataclass(frozen=True)
+class Channel:
+    """A channel to post to: its name, as shown, and its 16-byte key."""
+    name: str
+    secret: bytes
+
+    @property
+    def public(self):
+        return self.secret == PUBLIC_SECRET
 
     def __str__(self):
-        return "no Public channel on the radio; add MeshCore's Public channel back in its app"
+        return self.name
+
+
+PUBLIC_CHANNEL = Channel(PUBLIC, PUBLIC_SECRET)
+
+
+def hashtag_secret(name):
+    """The key of a hashtag channel, which anyone can work out from its name."""
+    return sha256(name.encode("utf-8")).digest()[:16]
+
+
+def parse_channel(value):
+    """The Channel for an [alerts] channel setting: "Public", or a hashtag
+    channel's name with or without its "#". Raises ValueError."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f'must be "{PUBLIC}" or a hashtag channel such as "#wx-test", not {value!r}')
+    name = value.strip()
+    if name.lower() == PUBLIC.lower():
+        return PUBLIC_CHANNEL
+    name = "#" + name.lstrip("#")
+    if len(name) < 2 or any(c.isspace() for c in name) or len(name.encode("utf-8")) > MAX_CHANNEL_NAME:
+        raise ValueError(f"{value!r} isn't a hashtag channel name: no spaces, at most {MAX_CHANNEL_NAME} bytes "
+                         'with its "#", e.g. "#wx-test"')
+    return Channel(name, hashtag_secret(name))
+
+
+class NoChannel(Exception):
+    """The channel isn't on the radio, and can't be added to it."""
+
+    def __init__(self, channel, full=False):
+        super().__init__(channel)
+        self.channel = channel
+        self.full = full
+
+    def __str__(self):
+        if self.full:
+            return f"no free channel slot on the radio for {self.channel}; delete a channel in its app"
+        return f"no {self.channel} channel on the radio; add MeshCore's {self.channel} channel back in its app"
 
 
 def short_time(iso):
@@ -119,12 +167,24 @@ async def read_channels(radio):
     return found
 
 
-async def public_slot(radio):
-    """The radio's channel slot for Public. Raises NoPublicChannel."""
-    for slot, (_, key) in enumerate(await read_channels(radio)):
-        if key == PUBLIC_SECRET:
+async def channel_slot(radio, channel=PUBLIC_CHANNEL):
+    """The radio's channel slot for the channel, found by its key. A hashtag
+    channel that isn't there is added to the first empty slot (and printed);
+    Public never is. Raises NoChannel, or RuntimeError if the radio refuses."""
+    slots = await read_channels(radio)
+    for slot, (_, key) in enumerate(slots):
+        if key == channel.secret:
             return slot
-    raise NoPublicChannel()
+    if channel.public:
+        raise NoChannel(channel)
+    empty = next((slot for slot, (name, key) in enumerate(slots) if not name and not any(key)), None)
+    if empty is None:
+        raise NoChannel(channel, full=True)
+    res = await radio.commands.set_channel(empty, channel.name, channel.secret)
+    if res.type == EventType.ERROR:
+        raise RuntimeError(f"radio rejected adding {channel} to slot {empty}: {res.payload}")
+    print(f"Added the {channel} channel to the radio (slot {empty}).", flush=True)
+    return empty
 
 
 async def post(radio, slot, messages):
@@ -177,6 +237,7 @@ class AlertSettings:
     every_minutes: float = DEFAULT_EVERY_MINUTES
     severity: frozenset = None  # lowercase severities to post, or None for any
     events: frozenset = None  # lowercase event names to post, or None for any
+    channel: Channel = PUBLIC_CHANNEL  # where the alerts, alert and testalert post
 
     def wanted(self, alert):
         """True if the alert passes every filter that's set."""
@@ -216,7 +277,7 @@ def _names(section, key, allowed=None):
 def load_alerts(config):
     """AlertSettings from [alerts] in config.toml. Exits on a mistake."""
     section = config.get("alerts", {})
-    if not isinstance(section, dict) or set(section) - ALERTS_KEYS - OLD_ALERTS_KEYS:
+    if not isinstance(section, dict) or set(section) - ALERTS_KEYS:
         raise SystemExit(f"[alerts] may only set {', '.join(sorted(ALERTS_KEYS))}.")
     counties = section.get("counties", [])
     if isinstance(counties, str):
@@ -234,7 +295,12 @@ def load_alerts(config):
     every = section.get("every_minutes", DEFAULT_EVERY_MINUTES)
     if isinstance(every, bool) or not isinstance(every, (int, float)) or every < MIN_EVERY_MINUTES:
         raise SystemExit(f"[alerts] every_minutes must be a number of minutes, at least {MIN_EVERY_MINUTES}.")
-    return AlertSettings(counties, every, _names(section, "severity", SEVERITIES), _names(section, "events"))
+    try:
+        channel = parse_channel(section.get("channel", PUBLIC))
+    except ValueError as e:
+        raise SystemExit(f"[alerts] channel {e}.") from None
+    return AlertSettings(counties, every, _names(section, "severity", SEVERITIES), _names(section, "events"),
+                         channel)
 
 
 def _timestamp(iso):
@@ -260,7 +326,7 @@ def nws_reachable():
 
 
 class AlertWatcher:
-    """Posts new NWS alerts for the watched counties to Public."""
+    """Posts new NWS alerts for the watched counties to the channel."""
 
     def __init__(self, radio, settings, state, lookup=None, fetch=None, reachable=None):
         self.radio = radio
@@ -291,7 +357,8 @@ class AlertWatcher:
         """For startup."""
         only = self.settings.describe_filter()
         return (f"{plural_counties(len(self.settings.counties))} ({'; '.join(self.settings.counties)}) every "
-                f"{self.settings.every_minutes:g} min to {PUBLIC}{f', posting only {only}' if only else ''}")
+                f"{self.settings.every_minutes:g} min to {self.settings.channel}"
+                f"{f', posting only {only}' if only else ''}")
 
     async def map_counties(self, counties=None):
         """Look up and keep the NWS codes of these counties (all the watched
@@ -375,11 +442,10 @@ class AlertWatcher:
         try:
             if new:
                 try:
-                    slot = await public_slot(self.radio)
-                except NoPublicChannel:
-                    print("Auto alerts: No Public channel on the radio; nothing posted. Add MeshCore's Public "
-                          f"channel back in the radio's app (trying again in {self.settings.every_minutes:g} min)",
-                          flush=True)
+                    slot = await channel_slot(self.radio, self.settings.channel)
+                except NoChannel as e:
+                    print(f"Auto alerts: {str(e)[0].upper()}{str(e)[1:]}; nothing posted (trying again in "
+                          f"{self.settings.every_minutes:g} min)", flush=True)
                     return 0
             for county, entries in new.items():
                 messages = format_alerts(county, [alert for _, _, alert in entries], message_limit(self.radio))
@@ -387,8 +453,8 @@ class AlertWatcher:
                 # Only now, so alerts that couldn't be posted are tried again next round.
                 self.posted.update((key, until) for key, until, _ in entries)
                 sent += len(messages)
-                print(f"Auto alerts: posted {len(messages)} new alert message(s) for {county} to {PUBLIC}:",
-                      flush=True)
+                print(f"Auto alerts: posted {len(messages)} new alert message(s) for {county} to "
+                      f"{self.settings.channel}:", flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
         finally:
@@ -522,13 +588,14 @@ def when_text(timestamp, zone=None):
 
 
 class AlertTest:
-    """Posts the test message to Public: on request, and weekly if set."""
+    """Posts the test message to the channel: on request, and weekly if set."""
 
-    def __init__(self, radio, settings, state, counties=()):
+    def __init__(self, radio, settings, state, counties=(), channel=PUBLIC_CHANNEL):
         self.radio = radio
         self.settings = settings
         self.state = state
         self.counties = counties  # the counties [alerts] watches, listed after the message
+        self.channel = channel  # [alerts] channel
         self.store = state.store(ALERTS_FILE)  # "last_test": time.time() of the last test
 
     def problem(self):
@@ -550,13 +617,13 @@ class AlertTest:
     def describe(self):
         day, hour, minute = self.settings.weekly
         zone = f" {self.settings.zone.key}" if self.settings.zone else ""
-        return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {PUBLIC}; "
+        return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {self.channel}; "
                 f"next {when_text(self.next_time(), self.settings.zone)}")
 
     async def send(self):
         """Post the test message now. Returns (slot, the messages posted).
-        Raises NoPublicChannel."""
-        slot = await public_slot(self.radio)
+        Raises NoChannel."""
+        slot = await channel_slot(self.radio, self.channel)
         messages = self.messages()
         await post(self.radio, slot, messages)
         self.store.data["last_test"] = time.time()
@@ -572,10 +639,10 @@ class AlertTest:
                 await asyncio.sleep(min(wait, MAX_SLEEP))
             try:
                 _, messages = await self.send()
-                print(f"Weekly alert test posted to {PUBLIC}:", flush=True)
+                print(f"Weekly alert test posted to {self.channel}:", flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
             except asyncio.CancelledError:
                 raise
-            except Exception as e:  # e.g. no Public channel, or the radio refused the message
+            except Exception as e:  # e.g. no channel, or the radio refused the message
                 print(f"Weekly alert test failed: {e}", flush=True)

@@ -25,7 +25,7 @@ A small bot for a [MeshCore](https://github.com/meshcore-dev/MeshCore)
 companion radio on a Linux computer's USB port:
 - Every 10 minutes it asks the National Weather Service about the counties
   you list.
-- It posts each new alert to MeshCore's **Public channel**, once:
+- It posts each new alert to MeshCore's **Public channel** (or one you pick), once:
   ```
   Taylor, TX ALERT: Severe Thunderstorm Warning | until Tue 6:00PM | Taylor; Jones
   ```
@@ -90,13 +90,13 @@ Plug in the radio, then:
 It also notes when there are no admins.
 
 **Then** it starts (or restarts) the service and waits for the bot to say
-it's listening. It also stops if the radio has no Public channel, or if the
+it's listening. It also stops if the radio has no alert channel, or if the
 alert watcher didn't start, and it shows any `Warning:` the bot printed.
 
 Then, from an admin's radio:
 1. Advert, so the node learns your radio.
 2. Send the node `help`.
-3. Send `testalert`: the test message should arrive on Public.
+3. Send `testalert`: the test message should arrive on the channel.
 
 ## Configure
 
@@ -108,6 +108,7 @@ change with `systemctl --user restart mesh-contingency`.
 [alerts]
 counties = ["Taylor, TX", "Jones, TX"]
 every_minutes = 10                  # at least 5
+# channel = "#wx-test"              # instead of Public, e.g. to try it out
 severity = ["Extreme", "Severe"]    # optional filter
 # events = ["Tornado Warning", "Flash Flood Warning"]
 
@@ -137,10 +138,16 @@ every_hours = 12                    # so radios can find the node
 - An alert that's filtered out is still remembered, so changing the filter
   doesn't post old ones.
 
-**Public.**
-- The bot finds Public by its key, the same on every radio, in whatever slot
-  it's in. It never adds or changes a channel.
-- Anyone in range reads what's posted there.
+**The channel.**
+- Everything goes to Public unless `channel` names a hashtag channel, such
+  as `"#wx-test"` (the `#` is optional). Use one to try the node out
+  without posting to everyone: join the same channel on your own radio.
+- The bot finds the channel by its key, in whatever slot it's in. Public's
+  key is the same on every radio; a hashtag channel's comes from its name.
+- A hashtag channel the radio doesn't have is added to its first empty slot.
+  Public is never added or changed.
+- Anyone in range reads what's posted to Public, and anyone who knows a
+  hashtag channel's name can join it.
 
 **The weekly test** posts a test message, then the counties watched. If the
 bot isn't running at that time, that week's test is skipped.
@@ -156,9 +163,9 @@ The node answers direct messages from its admins. Anyone else gets
 
 | Command | Who can run it (example config) | What it does |
 |---|---|---|
-| `alert <message>` | admins | Post a message to the Public channel |
+| `alert <message>` | admins | Post a message to the alert channel (Public unless set) |
 | `help [command]` | admins | List the commands you can use, or show how to use one |
-| `testalert` | admins | Post the test message to the Public channel now |
+| `testalert` | admins | Post the test message to the alert channel now |
 
 `alert` posts the message as typed. It must fit in one channel message: 133
 characters, less the node's name and `: `. Who may run each command is set
@@ -197,6 +204,7 @@ journalctl --user -u mesh-contingency -f
 | `No serial device found` | Plug in the radio. The service tries again every 30 s. |
 | `Lost the radio (...)` | The USB link dropped. The service reconnects once it's back. |
 | `No Public channel on the radio` | Add MeshCore's Public channel back in the radio's app. |
+| `no free channel slot on the radio for #...` | Delete a channel you don't use in the radio's app. |
 | An admin gets `unrecognized user or function` | Check the key in `[admins]` is that radio's full key, then advert from it. |
 | `couldn't check for alerts (...)` | No internet, or api.weather.gov is down. It tries again each round. |
 | `N new alert(s) not posted (filtered out ...)` | That's the filter in `[alerts]` at work. |

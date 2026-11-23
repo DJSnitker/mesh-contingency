@@ -1,4 +1,5 @@
-"""Post National Weather Service alerts to MeshCore's Public channel, and
+"""Post National Weather Service alerts to a MeshCore channel (Public unless
+[alerts] channel names another), and
 answer the admins' direct-message commands, through a companion radio on USB.
 
 Channel messages are ignored; commands come only by direct message.
@@ -18,7 +19,7 @@ from mesh_commands.limits import wait_text
 from mesh_commands.output import SafeOutput
 from meshcore import EventType, MeshCore
 
-from .alerts import AlertTest, AlertWatcher, NoPublicChannel, load_alert_test, load_alerts, public_slot
+from .alerts import AlertTest, AlertWatcher, NoChannel, channel_slot, load_alert_test, load_alerts
 from .config import channel_settings, load_admins, load_commands, load_config, retired_settings
 from .console import (
     ADVERTS_FILE,
@@ -154,13 +155,13 @@ async def _main():
     defaults = ", ".join(f"{level} {describe_rate(rate)}" for level, rate in registry.limits.rates.items())
     print(f"Rate limits per sender and command: {defaults} (unless a command sets rate).")
 
-    # Where everything is posted. A radio without Public posts nothing, so
-    # say so now (install.sh --check stops on this line).
+    # Where everything is posted. A radio without the channel posts nothing,
+    # so say so now (install.sh --check stops on "No alerts can be posted").
+    channel = state.channel = alert_settings.channel
     try:
-        print(f"Alerts go to the Public channel (slot {await public_slot(mc)}).")
-    except NoPublicChannel:
-        print("Warning: No Public channel on the radio, so no alerts can be posted: add MeshCore's Public "
-              "channel back in the radio's app.")
+        print(f"Alerts go to the {channel} channel (slot {await channel_slot(mc, channel)}).")
+    except NoChannel as e:
+        print(f"Warning: {str(e)[0].upper()}{str(e)[1:]}. No alerts can be posted.")
     except Exception as e:  # the radio didn't answer
         print(f"Warning: couldn't read the radio's channels ({e or type(e).__name__}).")
 
@@ -201,7 +202,7 @@ async def _main():
         tasks.append(asyncio.create_task(alert_watcher.run()))
     else:
         print("Warning: no counties in [alerts] counties in config.toml, so no weather alerts will be posted.")
-    alert_test = state.alert_test = AlertTest(mc, test_settings, state, alert_settings.counties)
+    alert_test = state.alert_test = AlertTest(mc, test_settings, state, alert_settings.counties, channel)
     if problem := alert_test.problem():
         raise SystemExit(f"{problem}. Shorten it.")
     if test_settings.weekly:

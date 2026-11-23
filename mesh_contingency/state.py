@@ -58,6 +58,7 @@ class State:
         self.started = time.time()
         self.alert_watcher = None  # the AlertWatcher, if [alerts] watches any counties
         self.alert_test = None  # the AlertTest, for testalert and the weekly test
+        self.channel = None  # [alerts] channel, for alert (None: Public)
         self._stores = {}
 
     def store(self, filename):

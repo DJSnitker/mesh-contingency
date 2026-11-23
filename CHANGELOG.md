@@ -40,11 +40,15 @@ longer exists is ignored, with one warning naming it.
   now short.
 
 ### Changed
-- **Alerts go to the Public channel**, found by its key in whatever slot
-  it's in. A radio without Public posts nothing: the bot warns at startup,
-  `alert` and `testalert` say so, and `install.sh --check` stops on it. A
-  `channel` left in `[alerts]` or `[commands.alert]` is ignored with a
-  warning. The default test message no longer names a channel.
+- **Alerts go to the Public channel** by default, found by its key in
+  whatever slot it's in. A radio without Public posts nothing: the bot
+  warns at startup, `alert` and `testalert` say so, and `install.sh --check`
+  stops on it. The default test message no longer names a channel.
+- `[alerts] channel` picks another channel for the alerts, `alert`,
+  `testalert` and the weekly test: `"Public"`, or a hashtag channel such as
+  `"#wx-test"`, to try a node out without posting to everyone. A hashtag
+  channel the radio doesn't have is added to its first empty slot. A
+  `channel` left in `[commands.alert]` is ignored with a warning.
 - **Admins are in `config.toml`:** `[admins] keys = ["<64-hex key>", ...]`.
   With no `[admins]`, the bot still reads `[admin] keys` from an old
   `users.toml`, with a warning to move them.
