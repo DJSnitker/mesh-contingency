@@ -44,7 +44,6 @@ class AlertCommand(Command):
                                f"at most {limit}); nothing posted")
         slot, added = await self.channel_slot()
         await post(self.radio, slot, [message])
-        self.ctx.state.record(self.ctx.name_of(sender), f"posted to {self.channel}: {message}")
         where = f"slot {slot}, added to the radio" if added else f"slot {slot}"
         return CommandResult(console=f"Posted to {self.channel} ({where}): {message}",
                              reply=f"{self.name}: posted to {self.channel}")

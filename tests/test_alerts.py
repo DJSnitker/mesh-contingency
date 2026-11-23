@@ -18,7 +18,7 @@ from mesh_contingency.alerts import (
     load_alerts,
     parse_county,
 )
-from mesh_contingency.state import HISTORY_FILE, State
+from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event
 from mesh_contingency.weather import alert_counties, county_alerts, county_code
 
@@ -252,13 +252,6 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
             await self.watcher.check()
         self.assertEqual(self.watcher.posted, {})
 
-    async def test_posts_are_in_the_history(self):
-        self.feed = [alert("a1")]
-        await self.watcher.check()
-        entries = State(self.folder).store(HISTORY_FILE).data["entries"]
-        self.assertEqual([(e["by"], e["what"]) for e in entries],
-                         [("auto", "posted 1 new Taylor, TX alert message(s) to #contingency-wx")])
-
     async def test_a_failed_round_doesnt_stop_the_watcher(self):
         self.feed = [alert("a1")]
         self.radio.channel_result = event(EventType.ERROR, {"reason": "busy"})
@@ -276,7 +269,6 @@ class WatcherTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Auto alerts: radio rejected channel message 1 of 1", self.out.getvalue())
         self.assertEqual(len(self.posted()), 2)  # refused, then sent on the second round
         self.assertEqual(set(self.watcher.posted), {"a1"})
-        self.assertEqual(self.watcher.state.counts["errors"], 1)
 
     async def test_the_first_round_waits_for_the_network(self):
         self.network = [False, False]

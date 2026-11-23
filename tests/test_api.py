@@ -3,7 +3,6 @@ import unittest
 
 from mesh_contingency.api import (
     ADMIN,
-    CONSOLE,
     DEFAULT_TIMEOUT,
     DISABLED,
     LEVELS,
@@ -17,13 +16,10 @@ from mesh_contingency.api import (
     FunctionCommand,
     Sender,
     command,
-    console_user,
     is_authorized,
-    is_console,
     split_reply,
     to_messages,
 )
-from mesh_contingency.directory import Directory
 from mesh_contingency.testing import make_context
 
 DANA = Sender("Dana", "d0" * 32)
@@ -127,7 +123,7 @@ class IsAuthorizedTest(unittest.TestCase):
     def check(self, permission, key):
         cmd = type("C", (), {"permission": permission})()
         users, admins = {"d0" * 32: {}}, {"ad" * 32}
-        ctx = Context(name="x", directory=Directory(users, admins))
+        ctx = Context(name="x", users=users, admins=frozenset(admins))
         result = is_authorized(cmd, Sender("x", key), users, admins)
         self.assertEqual(ctx.allowed(cmd, Sender("x", key)), result)
         return result
@@ -141,32 +137,10 @@ class IsAuthorizedTest(unittest.TestCase):
         self.assertFalse(self.check(DISABLED, "ad" * 32))
         self.assertFalse(self.check("other", "ad" * 32))
 
-    def test_the_web_console_is_an_admin_but_not_a_user(self):
-        self.assertTrue(self.check(ADMIN, CONSOLE.public_key))
-        self.assertTrue(self.check(PUBLIC, CONSOLE.public_key))
-        self.assertFalse(self.check(USER, CONSOLE.public_key))
-        self.assertFalse(self.check(DISABLED, CONSOLE.public_key))
-
-    def test_a_console_user_is_an_admin_but_not_a_user(self):
-        key = console_user("sam").public_key
-        self.assertTrue(self.check(ADMIN, key))
-        self.assertTrue(self.check(PUBLIC, key))
-        self.assertFalse(self.check(USER, key))
-        self.assertFalse(self.check(DISABLED, key))
-
-
-class ConsoleSenderTest(unittest.TestCase):
-    def test_a_console_user(self):
-        sam = console_user("sam")
-        self.assertEqual((sam.name, sam.public_key), ("sam (console)", "console:sam"))
-        self.assertNotEqual(sam.public_key, console_user("alex").public_key)
-
-    def test_is_console(self):
-        self.assertTrue(is_console(CONSOLE))
-        self.assertTrue(is_console(console_user("sam")))
-        for key in (None, "ad" * 32, "consolex", "Console:sam", "", "con"):
-            with self.subTest(key=key):
-                self.assertFalse(is_console(Sender("x", key)))
+    def test_an_unidentified_sender_has_only_public(self):
+        self.assertTrue(self.check(PUBLIC, None))
+        self.assertFalse(self.check(USER, None))
+        self.assertFalse(self.check(ADMIN, None))
 
 
 class ToMessagesTest(unittest.TestCase):

@@ -43,6 +43,33 @@ The first step of cutting the system down to weather alerts
   watched county. The automatic alerts are unchanged.
 - `install.sh --console`, which now just says the console is gone.
 - CI's web console, phone app, Android and desktop builds.
+- Every command but `alert`, `testalert` and `help`: users and joining
+  (`join`, `approve`, `users`, ...), the mailbox (`msg`, `inbox`, sealing),
+  email (`qm`, `email`, `emailall`), check-ins (`ok`, `status`, `checkins`,
+  `roster`), `wx`, `alertmap`, `comm`, `verse` and the Bible, `health`,
+  `history`, `backup`, `radio`, `advert`, `contact`, `contacts` and `reload`.
+  A config that still lists them starts with one warning naming them.
+- `users.toml` and its reloading, radio names synced into it, and the
+  users-file backups. Admins are now `[admins] keys` in `config.toml` (see
+  Changed).
+- The node watch (`[watch]`, admins told about problems), backups
+  (`[backup]`), new-contact notices and auto-adding by node type
+  (`[contacts]`), and the email caps in `[limits]`. These settings are
+  ignored, with one warning listing them.
+- `examples/mesh-dice` and `ENCRYPTION_NOTES.md`; pycryptodome is no longer
+  a dependency.
+
+### Changed
+- Admins are listed in `config.toml`:
+  `[admins] keys = ["<64-hex public key>", ...]`. If there's no `[admins]`,
+  the bot still reads `[admin] keys` from an old `users.toml`, with a warning
+  to move them. Editing the list takes effect when the bot restarts.
+- On a radio in manual-add mode, the bot adds only the admins' radios when
+  they advert, and never changes that setting itself.
+- `install.sh` no longer makes `users.toml` or asks for the comm channel
+  (`--comm-channel` is ignored), and `--check` notes a node with no admins or
+  no counties instead of looking for the example admin key.
+- The README is cut down to what's left.
 
 ## [0.12.0] - 2026-11-11
 

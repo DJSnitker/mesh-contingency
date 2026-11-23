@@ -5,7 +5,7 @@ from meshcore import EventType
 from mesh_contingency.alerts import format_alerts, hashtag_secret, short_time
 from mesh_contingency.api import MAX_PARTS, MAX_REPLY_LEN, CommandError, Sender
 from mesh_contingency.commands.alert import AlertCommand
-from mesh_contingency.state import HISTORY_FILE, State
+from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event, make_context
 
 ADMIN = Sender("Admin", "ad" * 32)
@@ -31,7 +31,7 @@ class FormatTest(unittest.TestCase):
         messages = format_alerts("33101", alerts, limit=100)
         self.assertEqual(len(messages), MAX_PARTS)
         self.assertTrue(all(len(m) <= 100 for m in messages))
-        self.assertEqual(messages[-1], "33101: 13 more alerts; check wx or weather.gov")
+        self.assertEqual(messages[-1], "33101: 13 more alerts; see weather.gov")
 
 
 class AlertCommandTest(unittest.IsolatedAsyncioTestCase):
@@ -47,9 +47,6 @@ class AlertCommandTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.reply, "alert: posted to #contingency-wx")
         self.assertEqual(result.console,
                          "Posted to #contingency-wx (slot 1, added to the radio): Shelter open at the  church on 5th")
-        entries = self.state.store(HISTORY_FILE).data["entries"]
-        self.assertEqual([(e["by"], e["what"]) for e in entries],
-                         [("Admin", "posted to #contingency-wx: Shelter open at the  church on 5th")])
 
     async def test_start_adds_the_channel_once(self):
         self.assertEqual(await self.cmd.start(), "alert: #contingency-wx is channel slot 1 (added to the radio).")

@@ -13,7 +13,6 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from .directory import Directory
 from .limits import Limits
 from .state import State
 
@@ -31,8 +30,8 @@ CONFIRM_SECONDS = 300
 # sections. Only direct messages are handled, so every sender is identified by
 # their full public key.
 PUBLIC = "public"  # anyone
-USER = "user"  # senders with a [users.<key>] section in the users file
-ADMIN = "admin"  # senders listed in the users file's [admin] keys
+USER = "user"  # senders in Context.users (none in Mesh Contingency, which has only admins)
+ADMIN = "admin"  # senders in Context.admins: [admins] keys in config.toml
 DISABLED = "disabled"  # nobody
 LEVELS = (PUBLIC, USER, ADMIN, DISABLED)
 
@@ -41,9 +40,6 @@ LEVELS = (PUBLIC, USER, ADMIN, DISABLED)
 class CommandResult:
     console: str  # full output printed locally
     reply: str | list[str] | None  # sent back over the mesh: text, messages in order, or nothing
-    # True if the reply only asks the sender to send the same again to
-    # confirm (remove, resetpass): the web console then offers a button.
-    asks: bool = False
 
 
 @dataclass
@@ -52,28 +48,6 @@ class Sender:
     # Full 64-hex public key, or None if the sender is not exactly one of the
     # radio's contacts (then only public commands are allowed).
     public_key: str | None
-
-
-# The web console's sender: an admin of the node who has no radio. Its key
-# isn't hex, so no radio's key can be it. It is whoever opens the console on
-# the node's own computer with the console.url link.
-CONSOLE = Sender("console", "console")
-# A console user (web/console_users.py) is a sender of the same kind, one each:
-# console:<name>, also not hex. They log in from another computer (item 20).
-CONSOLE_USER_PREFIX = "console:"
-
-
-def console_user(name):
-    """The sender for console user name: history and messages say who, as
-    "sam (console)", and each has their own rate limits and confirmations."""
-    return Sender(f"{name} (console)", f"{CONSOLE_USER_PREFIX}{name}")
-
-
-def is_console(sender):
-    """True if sender is the web console: on the node's computer (CONSOLE)
-    or a console user. Never a radio, whose key is hex."""
-    key = sender.public_key
-    return key is not None and (key == CONSOLE.public_key or key.startswith(CONSOLE_USER_PREFIX))
 
 
 class CommandError(Exception):
@@ -87,7 +61,7 @@ def is_authorized(command, sender, users, admins):
     if command.permission == USER:
         return sender.public_key in users
     if command.permission == ADMIN:
-        return sender.public_key in admins or is_console(sender)
+        return sender.public_key in admins
     return False
 
 
@@ -121,7 +95,6 @@ class Context:
 
     name: str  # the name the command answers to
     options: dict = field(default_factory=dict)  # its [commands.<name>] settings, e.g. {"station": "..."}
-    directory: Directory = field(default_factory=Directory)  # the users file, reloaded while running
     radio: object = None  # the connected meshcore.MeshCore
     commands: dict = field(default_factory=dict)  # every loaded command by name, complete once all are built
     state: State = field(default_factory=State)  # senders seen and saved state, shared by all commands
@@ -129,18 +102,8 @@ class Context:
     # background (so it can't hold up the reply) and logged by the bot.
     send: object = _not_sent
     limits: Limits = field(default_factory=Limits)  # the [limits] settings
-
-    # Read these when they are needed; don't keep a copy. Editing the users
-    # file replaces them while the bot runs.
-    @property
-    def users(self):
-        """{public key: that user's [users.<key>] settings}, as of now."""
-        return self.directory.users
-
-    @property
-    def admins(self):
-        """The public keys in [admin] keys, as of now."""
-        return self.directory.admins
+    users: dict = field(default_factory=dict)  # {public key: settings} of the senders USER commands allow
+    admins: frozenset = frozenset()  # the public keys ADMIN commands allow
 
     def tell_admins(self, text):
         """Send text to every admin, in the background."""
@@ -148,7 +111,7 @@ class Context:
             self.send(key, text)
 
     def name_of(self, sender):
-        """The sender's name from the users file, or the name their node advertises."""
+        """The sender's name from users, or the name their node advertises."""
         return self.users.get(sender.public_key, {}).get("name") or sender.name
 
     def allowed(self, command, sender):
@@ -251,17 +214,6 @@ class Command(ABC):
     summary = ""
     # Set False (e.g. as a property) when required config is missing.
     enabled = True
-    # Set True when what senders write or get back is theirs alone (messages,
-    # passphrases): nothing keeps its text, not even the web console's chat.
-    # (The bot's log never has any command's text or reply, private or not.)
-    private = False
-    # Set True when the command acts on the sender's own records (join asks
-    # to join, ok checks in): the web console, which has none, doesn't offer it.
-    own = False
-    # Set True when the command only leaves something for someone else (msg)
-    # and touches nothing of the sender's: the web console then offers it even
-    # where only users may run it.
-    sends = False
     # Uses allowed per sender, as (count, seconds), or None for no limit; set
     # from the config when the command is loaded.
     rate = None

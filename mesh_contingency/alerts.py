@@ -100,7 +100,7 @@ def format_alerts(place, alerts, limit=MAX_REPLY_LEN):
         messages.append(fit_reply(f"{place} ALERT:", sections, limit))
     if len(messages) > MAX_PARTS:
         more = len(messages) - (MAX_PARTS - 1)
-        messages = messages[:MAX_PARTS - 1] + [f"{place}: {more} more alerts; check wx or weather.gov"]
+        messages = messages[:MAX_PARTS - 1] + [f"{place}: {more} more alerts; see weather.gov"]
     return messages
 
 
@@ -369,8 +369,6 @@ class AlertWatcher:
                       f"{self.settings.channel}:", flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
-                self.state.record("auto", f"posted {len(messages)} new {county} alert message(s) to "
-                                          f"{self.settings.channel}")
         finally:
             for key in [k for k, until in self.posted.items() if k not in active and until < now]:
                 del self.posted[key]
@@ -408,7 +406,6 @@ class AlertWatcher:
                 raise
             except Exception as e:  # e.g. no free channel slot, or the radio refused a message
                 print(f"Auto alerts: {e}; trying again in {self.settings.every_minutes:g} min", flush=True)
-                self.state.error("auto alerts failed")
             await asyncio.sleep(self.settings.every_minutes * 60)
 
 
@@ -536,15 +533,13 @@ class AlertTest:
         return (f"{DAYS[day].capitalize()} {hour:02d}:{minute:02d}{zone} to {self.settings.channel}; "
                 f"next {when_text(self.next_time(), self.settings.zone)}")
 
-    async def send(self, by):
-        """Post the test message now; by is who asked ("auto" for the
-        schedule). Returns (slot, added, the messages posted)."""
+    async def send(self):
+        """Post the test message now. Returns (slot, added, the messages posted)."""
         slot, added = await channel_slot(self.radio, self.settings.channel)
         messages = self.messages()
         await post(self.radio, slot, messages)
         self.store.data["last_test"] = time.time()
         self.store.save()
-        self.state.record(by, f"posted the alert test to {self.settings.channel}")
         return slot, added, messages
 
     async def run(self):
@@ -555,7 +550,7 @@ class AlertTest:
             while (wait := due - time.time()) > 0:
                 await asyncio.sleep(min(wait, MAX_SLEEP))
             try:
-                _, _, messages = await self.send("auto")
+                _, _, messages = await self.send()
                 print(f"Weekly alert test posted to {self.settings.channel}:", flush=True)
                 for message in messages:
                     print(f"  {message}", flush=True)
@@ -563,4 +558,3 @@ class AlertTest:
                 raise
             except Exception as e:  # e.g. no free channel slot, or the radio refused the message
                 print(f"Weekly alert test failed: {e}", flush=True)
-                self.state.error("weekly alert test failed")

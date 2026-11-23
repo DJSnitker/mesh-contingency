@@ -4,9 +4,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/DJSnitker/mesh-contingency/main/install.sh | bash
 #
 # It checks out the latest release into ~/mesh-contingency, installs the bot
-# into a .venv there, copies the example config and users files (never over
-# your own), and sets up the systemd user service. Run it again to update:
-# your config, users and saved data are left alone.
+# into a .venv there, copies the example config (never over your own), and
+# sets up the systemd user service. Run it again to update: your config and
+# saved data are left alone.
 #
 # No sudo: run it as the user the node will run as, never with sudo or as
 # root (it refuses). It never calls sudo itself either. A few one-time steps
@@ -14,7 +14,7 @@
 # dialout group, sometimes lingering), so it prints those commands, with
 # sudo, for you to run.
 #
-# After editing config.toml and users.toml, check the node:
+# After editing config.toml, check the node:
 #
 #   ~/mesh-contingency/install.sh --check
 #
@@ -26,12 +26,11 @@
 #   --ref REF      a tag or branch instead of the latest release (e.g. main)
 #   --no-service   don't install the systemd user service
 #   --alert-channel NAME   the alert channel (weather alerts, alert), e.g. #district7-wx
-#   --comm-channel NAME    the communications channel (comm), e.g. #district7-comm
 #   --check        don't install: start the service and check the node runs
 #
-# A new install asks for the two channels (Enter keeps #contingency-wx and
-# #contingency-comm), unless they're given as options or there's no terminal
-# to ask on. An update never asks: change them in config.toml.
+# A new install asks for the alert channel (Enter keeps #contingency-wx),
+# unless it's given as an option or there's no terminal to ask on. An update
+# never asks: change it in config.toml.
 #
 # MC_REPO overrides the repository to clone (CI uses a local copy), and
 # MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*); MC_UNIT
@@ -44,7 +43,7 @@ main() {
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
     local dir="$HOME/mesh-contingency" ref="" service=1
-    local alert_channel="" comm_channel="" check=0
+    local alert_channel="" check=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -55,8 +54,7 @@ main() {
             --check) check=1; shift ;;
             --alert-channel) alert_channel="$(channel_name "${2:?--alert-channel needs a name}")" \
                                  || die "--alert-channel: $(channel_rule)"; shift 2 ;;
-            --comm-channel) comm_channel="$(channel_name "${2:?--comm-channel needs a name}")" \
-                                || die "--comm-channel: $(channel_rule)"; shift 2 ;;
+            --comm-channel) say "The comm command has been removed; ignoring --comm-channel."; shift 2 ;;
             -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0" 2>/dev/null \
                            || echo "See the comments at the top of install.sh"; return 0 ;;
             *) die "unknown option: $1 (try --help)" ;;
@@ -77,10 +75,9 @@ main() {
         exit 1
     fi
 
-    # A new node's channels, asked now so the install runs on without you.
+    # A new node's alert channel, asked now so the install runs on without you.
     if [ ! -e "$dir/config.toml" ]; then
         alert_channel="${alert_channel:-$(ask_channel "Alert channel, for weather alerts and the alert command" "#contingency-wx")}"
-        comm_channel="${comm_channel:-$(ask_channel "Communications channel, for the comm command" "#contingency-comm")}"
     fi
 
     # Get the code: a fresh checkout, or an update of the one already there.
@@ -124,19 +121,14 @@ main() {
     .venv/bin/python -m pip install -q --upgrade pip
     .venv/bin/python -m pip install -q -e .
 
-    # Your own files, made once from the examples and never overwritten.
+    # Your own config, made once from the example and never overwritten.
     local made=()
-    for f in config users; do
-        if [ ! -e "$f.toml" ]; then
-            cp "$f.example.toml" "$f.toml"
-            made+=("$dir/$f.toml")
-            if [ "$f" = config ]; then
-                set_channel alert "$alert_channel" "#contingency-wx"
-                set_channel comm "$comm_channel" "#contingency-comm"
-            fi
-        fi
-        chmod 600 "$f.toml"
-    done
+    if [ ! -e config.toml ]; then
+        cp config.example.toml config.toml
+        made+=("$dir/config.toml")
+        set_channel alert "$alert_channel" "#contingency-wx"
+    fi
+    chmod 600 config.toml
 
     if [ "$service" = 1 ]; then install_service "$dir" "${#made[@]}"; fi
 
@@ -145,17 +137,13 @@ main() {
     say "Done: mesh-contingency $(git describe --tags --always) in $dir"
     local step=1
     if [ ${#made[@]} -gt 0 ]; then
-        say "$((step++)). Edit $(printf '%s and ' "${made[@]}" | sed 's/ and $//')"
+        say "$((step++)). Edit ${made[0]}: your counties in [alerts], your radio's key in [admins]"
         say "   (see https://github.com/DJSnitker/mesh-contingency#configuration)"
     fi
     local access
     access="$(radio_access)"
     if [ -n "$access" ]; then
         say "$((step++)). $access"
-    fi
-    if ! command -v mail >/dev/null; then
-        say "$((step++)). For the email commands, install mail and set it up to send:"
-        say "     $(package_hint mail)"
     fi
     if [ "$service" = 1 ] && [ "$fresh" = 1 ]; then
         say "$((step++)). Plug in the radio, then start and check the node:"
@@ -282,11 +270,6 @@ check_node() {
     say "Checking the node in $dir"
 
     # What would keep it from working: fix these before starting.
-    if grep -q a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2 users.toml 2>/dev/null; then
-        say "- users.toml still has the example admin key: put your radio's key in [admin] keys"
-        say "  (https://github.com/DJSnitker/mesh-contingency/wiki/Set-Up-a-Node#3-make-yourself-the-first-admin)"
-        blockers=$((blockers + 1))
-    fi
     if [ -z "$(radio_ports)" ]; then
         say "- No radio on USB (/dev/ttyUSB*, /dev/ttyACM*): plug the node's radio in"
         blockers=$((blockers + 1))
@@ -305,6 +288,17 @@ check_node() {
     if [ "$blockers" -gt 0 ]; then
         say "Fix that, then run this again."
         return 1
+    fi
+
+    # What the node runs without, but you probably want.
+    # (an older node's admins may still be in users.toml, which the bot reads)
+    if ! grep -Eqs '"[0-9A-Fa-f]{64}"' config.toml users.toml; then
+        say "- No admin keys in [admins] in config.toml: nobody can send alert or testalert"
+        notes=$((notes + 1))
+    fi
+    if ! grep -Eq '^counties *= *\[ *"' config.toml; then
+        say "- No counties in [alerts] in config.toml: no weather alerts will be posted"
+        notes=$((notes + 1))
     fi
 
     # What only matters at boot: worth knowing, not a reason to stop.
@@ -382,12 +376,9 @@ package_hint() {
         case "$pm:$n" in
             apt:python) names+=(python3 python3-venv) ;;
             apt:venv) names+=(python3-venv) ;;
-            apt:mail) names+=(s-nail) ;;
             pacman:python|pacman:venv) names+=(python) ;;
-            pacman:mail) names+=(s-nail) ;;
             dnf:python) names+=(python3) ;;
             dnf:venv) names+=(python3) ;;
-            dnf:mail) names+=(s-nail) ;;
             *) names+=("$n") ;;
         esac
     done

@@ -1,14 +1,12 @@
-"""Limits on how much one sender (or everyone) can make the bot do.
+"""Limits on how often one sender can use each command.
 
     [limits]
     public_rate = "10/hour"       # default for public commands
     user_rate = "30/hour"         # default for user commands
     admin_rate = "none"           # default for admin commands
-    emails_per_day = 50           # emails sent per sender, per 24 hours
-    emails_per_day_total = 200    # addresses emailed by the whole bot, per 24 hours
 
-    [commands.wx]
-    permission = "public"
+    [commands.alert]
+    permission = "admin"
     rate = "5/hour"               # this command's own limit
 
 Counts are kept in memory, so they start again when the bot restarts.
@@ -24,10 +22,9 @@ RATE_RE = re.compile(r"\s*(\d+)\s*/\s*(minute|hour|day)\s*")
 NO_LIMIT = "none"
 # By permission level (api.PUBLIC, USER and ADMIN; api imports this module).
 DEFAULT_RATES = {"public": "10/hour", "user": "30/hour", "admin": NO_LIMIT}
-DEFAULT_EMAILS_PER_DAY = 50
-DEFAULT_EMAILS_PER_DAY_TOTAL = 200
-EMAIL_WINDOW = 86400
-LIMITS_KEYS = {f"{level}_rate" for level in DEFAULT_RATES} | {"emails_per_day", "emails_per_day_total"}
+LIMITS_KEYS = {f"{level}_rate" for level in DEFAULT_RATES}
+# Settings an older version had here; ignored (the bot warns about them).
+OLD_LIMITS_KEYS = {"emails_per_day", "emails_per_day_total"}
 
 
 def parse_rate(value, where):
@@ -52,27 +49,17 @@ def describe_rate(rate):
 
 @dataclass
 class Limits:
-    """The [limits] settings. A cap of 0 means no cap."""
+    """The [limits] settings: the default rate for each permission level."""
 
     rates: dict = field(default_factory=lambda: {level: parse_rate(rate, "") for level, rate in DEFAULT_RATES.items()})
-    emails_per_day: int = DEFAULT_EMAILS_PER_DAY
-    emails_per_day_total: int = DEFAULT_EMAILS_PER_DAY_TOTAL
 
     @classmethod
     def from_config(cls, config):
         section = config.get("limits", {})
-        if not isinstance(section, dict) or set(section) - LIMITS_KEYS:
+        if not isinstance(section, dict) or set(section) - LIMITS_KEYS - OLD_LIMITS_KEYS:
             raise SystemExit(f"[limits] may only set {', '.join(sorted(LIMITS_KEYS))}.")
-        rates = {level: parse_rate(section.get(f"{level}_rate", default), f"[limits] {level}_rate")
-                 for level, default in DEFAULT_RATES.items()}
-        caps = {}
-        for key, default in [("emails_per_day", DEFAULT_EMAILS_PER_DAY),
-                             ("emails_per_day_total", DEFAULT_EMAILS_PER_DAY_TOTAL)]:
-            value = section.get(key, default)
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise SystemExit(f"[limits] {key} must be a whole number, or 0 for no cap.")
-            caps[key] = value
-        return cls(rates=rates, **caps)
+        return cls({level: parse_rate(section.get(f"{level}_rate", default), f"[limits] {level}_rate")
+                    for level, default in DEFAULT_RATES.items()})
 
 
 class RateLimiter:
@@ -100,37 +87,6 @@ class RateLimiter:
         first = (who, command) not in self._told
         self._told.add((who, command))
         return uses[0] + seconds - now, first
-
-
-class EmailLog:
-    """Emails sent in the last 24 hours, for the email caps."""
-
-    def __init__(self):
-        self._sent = deque()  # (time.time(), sender's key, addresses)
-        self.last_failure = None  # (time.time(), cause), for health
-        # Why the last email failed, if it was the node's fault (not a refused
-        # address) and none has been sent since, for the watch.
-        self.failing = None
-        self.last_sent = None  # time.time() an email last went out
-
-    def _recent(self):
-        cutoff = time.time() - EMAIL_WINDOW
-        while self._sent and self._sent[0][0] < cutoff:
-            self._sent.popleft()
-        return self._sent
-
-    def sends(self, who):
-        """Emails `who` sent in the last 24 hours, however many addresses
-        each went to."""
-        return sum(key == who for _, key, _ in self._recent())
-
-    def addresses(self):
-        """Addresses emailed by everyone in the last 24 hours."""
-        return sum(n for _, _, n in self._recent())
-
-    def record(self, who, addresses):
-        self._sent.append((time.time(), who, addresses))
-        self.last_sent = self._sent[-1][0]
 
 
 def wait_text(seconds):

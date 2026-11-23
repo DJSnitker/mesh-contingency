@@ -20,7 +20,7 @@ class TestAlertCommand(Command):
         if problem := test.problem():
             raise CommandError(f"{self.name}: {problem}")
         try:
-            slot, added, messages = await test.send(self.ctx.name_of(sender))
+            slot, added, messages = await test.send()
         except NoChannelSlot as e:
             raise CommandError(f"{self.name}: {e}") from None
         channel = test.settings.channel

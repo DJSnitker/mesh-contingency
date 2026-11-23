@@ -1,4 +1,3 @@
-import sys
 import tomllib
 import unittest
 from importlib.metadata import EntryPoint
@@ -16,58 +15,14 @@ from mesh_contingency.api import (
     FunctionCommand,
     Sender,
 )
-from mesh_contingency.commands.advert import AdvertCommand
 from mesh_contingency.commands.alert import AlertCommand
-from mesh_contingency.commands.alertmap import AlertMapCommand
-from mesh_contingency.commands.backup import BackupCommand
-from mesh_contingency.commands.comm import CommCommand
-from mesh_contingency.commands.contact import ContactCommand
-from mesh_contingency.commands.contacts import ContactsCommand
-from mesh_contingency.commands.email import EmailCommand
-from mesh_contingency.commands.emailall import EmailAllCommand
-from mesh_contingency.commands.health import HealthCommand
 from mesh_contingency.commands.help import HelpCommand
-from mesh_contingency.commands.history import HistoryCommand
-from mesh_contingency.commands.join import ApproveCommand, DenyCommand, JoinCommand
-from mesh_contingency.commands.mailbox import ClearInboxCommand, InboxCommand, MsgCommand, SetPassCommand
-from mesh_contingency.commands.qm import QmCommand
-from mesh_contingency.commands.radio import RadioCommand
-from mesh_contingency.commands.reload import ReloadCommand
-from mesh_contingency.commands.roster import RosterCommand
-from mesh_contingency.commands.settings import AddGroupCommand, ClearGroupCommand, SetEmailCommand, SetQmCommand
-from mesh_contingency.commands.status import CheckinsCommand, ClearStatusCommand, OkCommand, StatusCommand
 from mesh_contingency.commands.testalert import TestAlertCommand
-from mesh_contingency.commands.users import (
-    LeaveCommand,
-    RemoveCommand,
-    ResetPassCommand,
-    UsersCommand,
-    WhoAmICommand,
-    WhoisCommand,
-)
-from mesh_contingency.commands.verse import VerseCommand
-from mesh_contingency.commands.wx import WxCommand
-from mesh_contingency.directory import Directory
-from mesh_contingency.registry import ENTRY_POINT_GROUP, Registry, discover, resolve
+from mesh_contingency.registry import ENTRY_POINT_GROUP, RETIRED, Registry, discover, resolve
 
-FULL_KEY = "D0D0D0D0D0D0" + "ab" * 26
+ADMIN_KEY = "ad" * 32
 DANA = Sender("Dana", "d0" * 32)
-BUILT_IN = {"help": HelpCommand, "wx": WxCommand, "verse": VerseCommand,
-            "qm": QmCommand, "emailall": EmailAllCommand,
-            "email": EmailCommand, "advert": AdvertCommand, "contacts": ContactsCommand, "contact": ContactCommand,
-            "radio": RadioCommand,
-            "reload": ReloadCommand,
-            "ok": OkCommand, "status": StatusCommand, "clearstatus": ClearStatusCommand, "checkins": CheckinsCommand,
-            "roster": RosterCommand, "health": HealthCommand, "history": HistoryCommand,
-            "msg": MsgCommand, "inbox": InboxCommand,
-            "clearinbox": ClearInboxCommand, "setpass": SetPassCommand, "alert": AlertCommand,
-            "alertmap": AlertMapCommand, "testalert": TestAlertCommand, "comm": CommCommand, "backup": BackupCommand,
-            "join": JoinCommand, "approve": ApproveCommand, "deny": DenyCommand, "setqm": SetQmCommand,
-            "addgroup": AddGroupCommand, "cleargroup": ClearGroupCommand, "setemail": SetEmailCommand,
-            "users": UsersCommand,
-            "whois": WhoisCommand, "remove": RemoveCommand, "resetpass": ResetPassCommand,
-            "whoami": WhoAmICommand, "leave": LeaveCommand}
-EXAMPLE_PLUGIN = Path(__file__).resolve().parent.parent / "examples" / "mesh-dice"
+BUILT_IN = {"help": HelpCommand, "alert": AlertCommand, "testalert": TestAlertCommand}
 
 
 # Handlers used by the tests below, named as "tests.test_registry:<attr>".
@@ -144,31 +99,31 @@ class ResolveTest(unittest.TestCase):
 
 
 class RegistryConfigTest(unittest.TestCase):
-    AVAILABLE = {"wx": "mesh_contingency.commands.wx:WxCommand",
-                 "advert": "mesh_contingency.commands.advert:AdvertCommand"}
+    AVAILABLE = {"alert": "mesh_contingency.commands.alert:AlertCommand",
+                 "testalert": "mesh_contingency.commands.testalert:TestAlertCommand"}
 
     def registry(self, config):
         return Registry(config, available=self.AVAILABLE)
 
     def test_enabled_disabled_and_missing(self):
-        r = self.registry(commands_config(wx={"permission": "public"}, advert={"permission": "disabled"}))
-        self.assertEqual(list(r.specs), ["wx"])
-        self.assertEqual(r.specs["wx"].permission, PUBLIC)
-        self.assertEqual(r.specs["wx"].timeout, DEFAULT_TIMEOUT)
-        self.assertEqual(r.disabled, ["advert"])
+        r = self.registry(commands_config(alert={"permission": "public"}, testalert={"permission": "disabled"}))
+        self.assertEqual(list(r.specs), ["alert"])
+        self.assertEqual(r.specs["alert"].permission, PUBLIC)
+        self.assertEqual(r.specs["alert"].timeout, DEFAULT_TIMEOUT)
+        self.assertEqual(r.disabled, ["testalert"])
         self.assertEqual(r.warnings, [])
-        self.assertIs(r.factories["wx"], WxCommand)
-        self.assertNotIn("advert", r.factories)  # disabled code is never imported
+        self.assertIs(r.factories["alert"], AlertCommand)
+        self.assertNotIn("testalert", r.factories)  # disabled code is never imported
 
     def test_installed_command_without_section_is_disabled_with_warning(self):
-        r = self.registry(commands_config(wx={"permission": "public"}))
-        self.assertEqual(r.disabled, ["advert"])
-        self.assertEqual(r.warnings, ["advert has no [commands.advert] section; disabled."])
+        r = self.registry(commands_config(alert={"permission": "public"}))
+        self.assertEqual(r.disabled, ["testalert"])
+        self.assertEqual(r.warnings, ["testalert has no [commands.testalert] section; disabled."])
 
     def test_no_commands_section(self):
         r = self.registry({})
         self.assertEqual(r.specs, {})
-        self.assertEqual(r.disabled, ["wx", "advert"])
+        self.assertEqual(r.disabled, ["alert", "testalert"])
 
     def test_options_timeout_and_handler(self):
         r = self.registry(commands_config(
@@ -180,28 +135,29 @@ class RegistryConfigTest(unittest.TestCase):
         self.assertIs(r.factories["echo"], EchoCommand)
 
     def test_handler_overrides_installed_command(self):
-        r = self.registry(commands_config(wx={"permission": "public", "handler": "tests.test_registry:shout"}))
-        self.assertIs(r.factories["wx"], shout)
+        r = self.registry(commands_config(alert={"permission": "public", "handler": "tests.test_registry:shout"}))
+        self.assertIs(r.factories["alert"], shout)
 
     def test_old_permissions_table_rejected(self):
         with self.assertRaisesRegex(SystemExit, r"\[permissions\] table is replaced"):
-            self.registry({"permissions": {"wx": "public"}})
+            self.registry({"permissions": {"alert": "public"}})
 
     def test_config_mistakes_stop_startup(self):
         cases = [
-            (commands_config(wxx={"permission": "public"}),
-             r"Unknown command 'wxx' in \[commands\]; installed commands are: wx, advert"),
-            (commands_config(Wx={"permission": "public"}), "Bad command name 'Wx'"),
+            (commands_config(alertx={"permission": "public"}),
+             r"Unknown command 'alertx' in \[commands\]; installed commands are: alert, testalert"),
+            (commands_config(Alert={"permission": "public"}), "Bad command name 'Alert'"),
             (commands_config(**{"my-cmd": {"permission": "public"}}), "Bad command name 'my-cmd'"),
-            (commands_config(wx="public"), r"\[commands.wx\] must be a table"),
-            (commands_config(wx={}), r"\[commands.wx\] needs a permission; use one of: public, user, admin, disabled"),
-            (commands_config(wx={"permission": "everyone"}), "has unknown permission 'everyone'"),
-            (commands_config(wx={"permission": "Public"}), "has unknown permission 'Public'"),
+            (commands_config(alert="public"), r"\[commands.alert\] must be a table"),
+            (commands_config(alert={}),
+             r"\[commands.alert\] needs a permission; use one of: public, user, admin, disabled"),
+            (commands_config(alert={"permission": "everyone"}), "has unknown permission 'everyone'"),
+            (commands_config(alert={"permission": "Public"}), "has unknown permission 'Public'"),
             (commands_config(x={"permission": "public", "handler": "no colon"}), "handler must look like"),
             (commands_config(x={"permission": "public", "handler": 5}), "handler must look like"),
-            (commands_config(wx={"permission": "public", "timeout": 0}), "timeout must be a positive number"),
-            (commands_config(wx={"permission": "public", "timeout": "5"}), "timeout must be a positive number"),
-            (commands_config(wx={"permission": "public", "timeout": True}), "timeout must be a positive number"),
+            (commands_config(alert={"permission": "public", "timeout": 0}), "timeout must be a positive number"),
+            (commands_config(alert={"permission": "public", "timeout": "5"}), "timeout must be a positive number"),
+            (commands_config(alert={"permission": "public", "timeout": True}), "timeout must be a positive number"),
         ]
         for config, message in cases:
             with self.subTest(config=config), self.assertRaisesRegex(SystemExit, message):
@@ -213,17 +169,31 @@ class RegistryConfigTest(unittest.TestCase):
 
     def test_import_failure_skipped_with_warning(self):
         r = self.registry(commands_config(
-            wx={"permission": "public"},
+            alert={"permission": "public"},
             gone={"permission": "public", "handler": "no_such_module_xyz:thing"},
             odd={"permission": "public", "handler": "tests.test_registry:NotACommand"}))
-        self.assertEqual(list(r.specs), ["wx"])
+        self.assertEqual(list(r.specs), ["alert"])
         load_warnings = [w for w in r.warnings if w.startswith("Could not load")]
         self.assertTrue(load_warnings[0].startswith("Could not load gone (no_such_module_xyz:thing): "))
         self.assertIn("not a Command subclass; skipped.", load_warnings[1])
 
     def test_discovers_by_default(self):
-        r = Registry(commands_config(wx={"permission": "public"}))
-        self.assertEqual(set(r.disabled), set(BUILT_IN) - {"wx"})
+        r = Registry(commands_config(alert={"permission": "admin"}))
+        self.assertEqual(set(r.disabled), set(BUILT_IN) - {"alert"})
+
+    def test_removed_commands_are_ignored_with_one_warning(self):
+        r = self.registry(commands_config(alert={"permission": "admin"}, wx={"permission": "public"},
+                                          msg={"permission": "user"}, quickim={"permission": "user"}))
+        self.assertEqual(list(r.specs), ["alert"])
+        self.assertEqual(r.warnings[0], "[commands] lists commands that no longer exist, ignored: wx, msg, quickim. "
+                                        "Remove their entries (see config.example.toml).")
+        self.assertNotIn("wx", r.disabled)
+
+    def test_a_removed_name_with_a_handler_is_your_own_command(self):
+        r = self.registry(commands_config(wx={"permission": "public", "handler": "tests.test_registry:shout"}))
+        self.assertIs(r.factories["wx"], shout)
+        self.assertFalse(any("no longer exist" in w for w in r.warnings))
+        self.assertIn("wx", RETIRED)
 
 
 class ExampleConfigTest(unittest.TestCase):
@@ -238,66 +208,50 @@ class RegistryBuildTest(unittest.TestCase):
     def test_built_in_commands(self):
         radio = object()
         sections = {name: {"permission": level} for name, level in [
-            ("help", "public"), ("wx", "public"), ("verse", "public"), ("qm", "user"),
-            ("emailall", "user"), ("email", "user"), ("advert", "admin"), ("reload", "admin")]}
-        directory = Directory({FULL_KEY.lower(): {"qm": "a@example.com"}})
-        commands = Registry(commands_config(**sections)).build(directory, radio)
+            ("help", "admin"), ("alert", "admin"), ("testalert", "admin")]}
+        commands = Registry(commands_config(**sections)).build({ADMIN_KEY}, radio)
         self.assertEqual(list(commands), list(sections))
         for name, cmd in commands.items():
             self.assertIs(type(cmd), BUILT_IN[name])
             self.assertEqual(cmd.name, name)
             self.assertEqual(cmd.permission, sections[name]["permission"])
-        self.assertIs(commands["advert"].radio, radio)
-        self.assertEqual(commands["qm"].recipients, {FULL_KEY.lower(): ["a@example.com"]})
+        self.assertIs(commands["alert"].radio, radio)
         self.assertIs(commands["help"].ctx.commands, commands)  # help sees every command
+        self.assertEqual(commands["help"].ctx.admins, {ADMIN_KEY})
 
     def test_context_and_settings(self):
         r = Registry(commands_config(
             echo={"permission": "admin", "handler": "tests.test_registry:EchoCommand", "timeout": 5, "prefix": ">"}),
             available={})
-        directory, radio = Directory({"d0" * 32: {}}, {"ad" * 32}), object()
-        cmd = r.build(directory, radio)["echo"]
+        radio = object()
+        cmd = r.build({ADMIN_KEY}, radio)["echo"]
         self.assertEqual((cmd.name, cmd.permission, cmd.timeout, cmd.usage), ("echo", ADMIN, 5, "echo <text>"))
         ctx = cmd.ctx
         self.assertEqual((ctx.name, ctx.options), ("echo", {"prefix": ">"}))
-        self.assertIs(ctx.directory, directory)
-        self.assertEqual((ctx.users, ctx.admins), ({"d0" * 32: {}}, {"ad" * 32}))
+        self.assertEqual((ctx.users, ctx.admins), ({}, {ADMIN_KEY}))
         self.assertIs(ctx.radio, radio)
         self.assertFalse(ctx.allowed(cmd, DANA))
+        self.assertTrue(ctx.allowed(cmd, Sender("Admin", ADMIN_KEY)))
 
     def test_permission_and_timeout_are_per_instance(self):
-        Registry(commands_config(wx={"permission": "public", "timeout": 3})).build(Directory(), None)
-        self.assertEqual(WxCommand.permission, DISABLED)
-        self.assertEqual(WxCommand.timeout, DEFAULT_TIMEOUT)
+        Registry(commands_config(alert={"permission": "admin", "timeout": 3})).build(set(), None)
+        self.assertEqual(AlertCommand.permission, DISABLED)
+        self.assertEqual(AlertCommand.timeout, DEFAULT_TIMEOUT)
 
     def test_same_code_under_two_names(self):
-        # e.g. a second qm command with its own per-user addresses
+        # e.g. a second alert command posting somewhere else
         r = Registry(commands_config(
-            qm={"permission": "user"},
-            qm_mom={"permission": "user", "handler": "mesh_contingency.commands.qm:QmCommand"}))
-        users = {"d0" * 32: {"qm": "a@example.com", "qm_mom": "mom@example.com"}}
-        commands = r.build(Directory(users), None)
-        self.assertEqual(commands["qm_mom"].recipients, {"d0" * 32: ["mom@example.com"]})
-        self.assertEqual(commands["qm_mom"].usage, "qm_mom <message>")
-
-    def test_old_command_names_still_work(self):
-        r = Registry(commands_config(quickim={"permission": "user"}, setquickim={"permission": "public"}))
-        self.assertEqual(r.specs["qm"].permission, "user")
-        self.assertEqual(r.specs["setqm"].permission, "public")
-        self.assertNotIn("quickim", r.specs)
-        self.assertIn("quickim is now called qm; rename [commands.quickim] to [commands.qm] in the config. "
-                      "Using it for qm meanwhile.", r.warnings)
-
-    def test_old_and_new_command_names_together(self):
-        r = Registry(commands_config(quickim={"permission": "public"}, qm={"permission": "user"}))
-        self.assertEqual(r.specs["qm"].permission, "user")
-        self.assertIn("[commands.quickim] is now [commands.qm], which is also there; remove [commands.quickim] "
-                      "from the config.", r.warnings)
+            alert={"permission": "admin"},
+            alert_storm={"permission": "admin", "handler": "mesh_contingency.commands.alert:AlertCommand",
+                         "channel": "#storm-watch"}))
+        commands = r.build(set(), None)
+        self.assertEqual(commands["alert_storm"].channel, "#storm-watch")
+        self.assertEqual(commands["alert_storm"].usage, "alert_storm <message>")
 
     def test_function_command_wrapped(self):
         r = Registry(commands_config(shout={"permission": "public", "handler": "tests.test_registry:shout"}),
                      available={})
-        cmd = r.build(Directory(), None)["shout"]
+        cmd = r.build(set(), None)["shout"]
         self.assertIsInstance(cmd, FunctionCommand)
         self.assertEqual(cmd.summary, "Repeat the text in capitals.")
 
@@ -305,37 +259,8 @@ class RegistryBuildTest(unittest.TestCase):
         r = Registry(commands_config(
             broken={"permission": "public", "handler": "tests.test_registry:Broken"},
             shout={"permission": "public", "handler": "tests.test_registry:shout"}), available={})
-        self.assertEqual(list(r.build(Directory(), None)), ["shout"])
+        self.assertEqual(list(r.build(set(), None)), ["shout"])
         self.assertEqual(r.warnings, ["Could not start broken: no radio; skipped."])
-
-
-class ExamplePluginTest(unittest.IsolatedAsyncioTestCase):
-    """The example in examples/mesh-dice, loaded the way a config would name it."""
-
-    def setUp(self):
-        sys.path.insert(0, str(EXAMPLE_PLUGIN))
-        self.addCleanup(sys.path.remove, str(EXAMPLE_PLUGIN))
-        self.addCleanup(sys.modules.pop, "mesh_dice", None)
-        config = commands_config(roll={"permission": "public", "handler": "mesh_dice:roll", "max_dice": 3},
-                                 flip={"permission": "public", "handler": "mesh_dice:FlipCommand"})
-        self.commands = Registry(config, available={}).build(Directory(), None)
-
-    async def test_roll(self):
-        roll = self.commands["roll"]
-        self.assertEqual(roll.usage, "roll [NdS]")
-        reply = await roll.execute("2d6", DANA)
-        self.assertRegex(reply, r"^Dana rolled 2d6: \d+ \(\d \+ \d\)$")
-        with self.assertRaisesRegex(Exception, "1-3 dice"):
-            await roll.execute("4d6", DANA)  # max_dice from the config
-
-    async def test_flip(self):
-        result = await self.commands["flip"].execute("3", DANA)
-        self.assertRegex(result.reply, r"^[HT]{3} \(\d heads\)$")
-
-    def test_entry_points_declared(self):
-        text = (EXAMPLE_PLUGIN / "pyproject.toml").read_text()
-        self.assertIn(f'[project.entry-points."{ENTRY_POINT_GROUP}"]', text)
-        self.assertIn('roll = "mesh_dice:roll"', text)
 
 
 if __name__ == "__main__":
