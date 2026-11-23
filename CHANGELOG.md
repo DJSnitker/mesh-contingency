@@ -5,7 +5,9 @@ What changed in each release of mesh-contingency. The format follows
 [Semantic Versioning](https://semver.org/) (before 1.0, a minor version could
 change how the bot is configured).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-23
+
+An admin command to advert the node, and an advert when it starts.
 
 ### Added
 - The `advert` admin command: `advert` makes the node send a flood advert
@@ -903,6 +905,7 @@ release.
 6. Optionally, run it as a service: see "Running as a systemd Service on
    Linux" in the wiki.
 
+[1.1.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v1.1.0
 [1.0.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v1.0.0
 [0.12.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.12.0
 [0.11.0]: https://github.com/DJSnitker/mesh-contingency/releases/tag/v0.11.0
