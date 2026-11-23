@@ -5,7 +5,6 @@ import io
 import json
 import os
 import signal
-import socket
 import tempfile
 import time
 import tomllib
@@ -32,7 +31,6 @@ from mesh_contingency.api import (
 from mesh_contingency.commands.mail import NO_INTERNET, SendError
 from mesh_contingency.state import State
 from mesh_contingency.testing import FakeMeshCore, event, full_key, make_contact
-from mesh_contingency.web import aiohttp_missing
 
 
 async def echo(text, sender, ctx):
@@ -68,7 +66,6 @@ every_hours = 0
 [commands]
 help = { permission = "public" }
 wx = { permission = "public" }
-area = { permission = "public" }
 verse = { permission = "public" }
 qm = { permission = "user" }
 emailall = { permission = "user" }
@@ -295,31 +292,10 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
 
     # --- startup and shutdown
 
-    async def test_channel_messages_only_with_the_web_console(self):
+    async def test_channel_messages_are_ignored(self):
         await self.start()
         self.assertNotIn(EventType.CHANNEL_MSG_RECV, self.radio.handlers)
         await self.stop()
-
-    @unittest.skipIf(aiohttp_missing(), "the web console needs aiohttp")
-    async def test_channel_messages_kept_for_the_web_console(self):
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            port = s.getsockname()[1]
-        state = {}
-        real_state = bot.State
-
-        def keep(*args, **kwargs):
-            state["it"] = real_state(*args, **kwargs)
-            return state["it"]
-
-        self.enterContext(mock.patch("mesh_contingency.bot.State", keep))
-        await self.start(CONFIG + f"\n[console]\nenabled = true\nport = {port}\n")
-        self.assertIn("Channel messages for the web console: the newest 200 of each channel, in memory only.",
-                      self.out.getvalue())
-        await self.radio.deliver(EventType.CHANNEL_MSG_RECV, {"channel_idx": 0, "text": "Alice: hello", "path_len": 1})
-        self.assertEqual([(m["sender"], m["text"]) for m in state["it"].channel_log.messages(0)], [("Alice", "hello")])
-        # Not taken as a command, nor answered.
-        self.assertEqual(self.replies(), [])
 
     async def test_a_right_clock_is_left_alone(self):
         await self.start()
@@ -340,21 +316,9 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         radio.clock = 1000.0
         radio.settings_result = event(EventType.ERROR, {})
         await self.start(radio=radio)
-        self.assertIn("Warning: couldn't set the radio's clock; set it from the web console (radio clock).\n",
+        self.assertIn("Warning: couldn't set the radio's clock.\n",
                       self.out.getvalue())
         self.assertFalse(self.task.done())  # it runs on
-
-    async def test_area_is_on_with_counties_to_report(self):
-        self.enterContext(mock.patch("mesh_contingency.bot.AlertWatcher.run", mock.AsyncMock()))
-        self.enterContext(mock.patch("mesh_contingency.bot.AreaWeather.run", mock.AsyncMock()))
-        await self.start(CONFIG + '\n[alerts]\ncounties = ["Taylor, TX"]\n')
-        out = self.out.getvalue()
-        self.assertIn("Area weather: 1 county every 15 min.", out)
-        self.assertNotIn("area has no counties", out)
-
-    async def test_area_says_why_it_is_off_without_counties(self):
-        await self.start()
-        self.assertIn("Warning: area has no counties to report on: it needs [alerts] counties.", self.out.getvalue())
 
     async def test_startup(self):
         await self.start()
@@ -362,7 +326,7 @@ class MainTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.radio.handlers), {EventType.CONTACT_MSG_RECV, EventType.DISCONNECTED})
         self.assertTrue(self.radio.auto_update_contacts)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, area, verse, ok, status, join\n", out)
+        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join\n", out)
         self.assertIn("user commands (1 user(s)): qm, emailall, email, roster, msg, inbox, clearinbox, "
                       "setpass, setqm, addgroup, cleargroup, whoami, leave\n", out)
         self.assertIn("admin commands (1 admin(s)): advert, contacts, contact, radio, reload, clearstatus, checkins, "
@@ -967,7 +931,7 @@ permission = "public"
     async def test_plugin_from_config(self):
         await self.start(CONFIG + self.PLUGINS)
         out = self.out.getvalue()
-        self.assertIn("public commands (anyone): help, wx, area, verse, ok, status, join, echo, slow", out)
+        self.assertIn("public commands (anyone): help, wx, verse, ok, status, join, echo, slow", out)
         self.assertIn("Warning: Could not load missing (no_such_module_xyz:thing)", out)
         await self.radio.dm(STRANGER, "echo hi there")
         self.assertEqual(self.replies(), ["> hi there"])
@@ -1001,10 +965,10 @@ permission = "public"
         await self.radio.dm(STRANGER, "help wx")
         await self.radio.dm(STRANGER, "help secret")
         replies = self.replies()
-        self.assertEqual(replies[0], "commands: help, wx, area, verse, ok, status, join, echo, slow. "
+        self.assertEqual(replies[0], "commands: help, wx, verse, ok, status, join, echo, slow. "
                                      "Send help <command> for usage")
         # Too long for one message, so it comes in parts.
-        parts = split_reply("commands: help, wx, area, verse, advert, contacts, contact, radio, reload, ok, status, "
+        parts = split_reply("commands: help, wx, verse, advert, contacts, contact, radio, reload, ok, status, "
                             "clearstatus, checkins, health, history, alert, alertmap, testalert, comm, backup, join, "
                             "approve, deny, setemail, users, whois, remove, resetpass, echo, slow, secret. "
                             "Send help <command> for usage")

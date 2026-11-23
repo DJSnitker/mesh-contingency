@@ -13,7 +13,7 @@ may change how the bot is configured).
   checks out the latest release into `~/mesh-contingency`, installs the bot,
   makes the config and users files from the examples, and sets up the
   systemd user service; run again, it updates without touching your files.
-  `--console` also builds the web console. CI lints it with shellcheck and
+  CI lints it with shellcheck and
   runs a fresh install and an update.
 - The installer checks the radio's USB port: with a radio plugged in, it
   tries to open the port and says what's in the way (the group to join, a
@@ -28,6 +28,21 @@ may change how the bot is configured).
   install's to-do list now ends with it.
 - The installer's instructions say plainly that it runs without sudo (and
   refuses root), and which one-time commands need an admin's sudo.
+
+### Removed
+The first step of cutting the system down to weather alerts
+([plan](docs/plans/simplify.md)); everything removed is kept on the tag
+`archive/full-system`.
+- The web console and the remote console: `mesh-contingency-console`, the
+  `[console]` section (now ignored) and the `console` extra (aiohttp,
+  cryptography). The node watch's failed-logins check went with it, so
+  `[watch] failed_logins` no longer does anything.
+- The phone app and the desktop app (`app/`). Their APK and installers stay
+  on the v0.12.0 and earlier GitHub releases.
+- The `area` command, which reported the weather the console kept for each
+  watched county. The automatic alerts are unchanged.
+- `install.sh --console`, which now just says the console is gone.
+- CI's web console, phone app, Android and desktop builds.
 
 ## [0.12.0] - 2026-11-11
 

@@ -20,22 +20,17 @@ dependencies = ["meshcore>=2.3.17,<2.4", "pycryptodome>=3.21"]
 # Development tools; CI's lint job installs these. Pinned so a new lint rule
 # can't fail CI unannounced (Dependabot proposes upgrades).
 dev = ["ruff==0.17.5"]
-# The web console ([console] in config.toml), served by the bot on 127.0.0.1;
-# cryptography makes the remote console's HTTPS certificate (remote = true).
-console = ["aiohttp>=3.10,<4", "cryptography>=42"]
 
 [project.urls]
 Repository = "https://github.com/DJSnitker/mesh-contingency"
 
 [project.scripts]
 mesh-contingency = "mesh_contingency.bot:run"
-mesh-contingency-console = "mesh_contingency.web.launch:run"
 
 # Built-in commands, registered the same way a third-party package would.
 [project.entry-points."mesh_contingency.commands"]
 help = "mesh_contingency.commands.help:HelpCommand"
 wx = "mesh_contingency.commands.wx:WxCommand"
-area = "mesh_contingency.commands.area:AreaCommand"
 verse = "mesh_contingency.commands.verse:VerseCommand"
 qm = "mesh_contingency.commands.qm:QmCommand"
 emailall = "mesh_contingency.commands.emailall:EmailAllCommand"
@@ -80,8 +75,6 @@ include = ["mesh_contingency*"]
 
 [tool.setuptools.package-data]
 "mesh_contingency.bible" = ["bsb.json.gz"]
-# The web console's app, built from console/ with npm run build before packaging.
-"mesh_contingency.web" = ["static/*", "static/media/*"]
 
 [tool.ruff]
 line-length = 120
