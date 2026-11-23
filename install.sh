@@ -25,7 +25,13 @@
 #   --dir DIR      install here instead of ~/mesh-contingency
 #   --ref REF      a tag or branch instead of the latest release (e.g. main)
 #   --no-service   don't install the systemd user service
+#   --counties "Taylor, TX; Jones, TX"   a new node's counties for weather alerts
+#   --admin-key KEY                      a new node's first admin (64 hex digits)
 #   --check        don't install: start the service and check the node runs
+#
+# A new install asks for its counties and its first admin's key, unless
+# they're given as options or there's no terminal to ask on (then they're
+# left for you to fill in). An update never asks: change config.toml.
 #
 # MC_REPO overrides the repository to clone (CI uses a local copy), and
 # MC_PORTS the radio ports checked (default /dev/ttyUSB* /dev/ttyACM*); MC_UNIT
@@ -38,17 +44,18 @@ main() {
 
     local repo="${MC_REPO:-https://github.com/DJSnitker/mesh-contingency.git}"
     local dir="$HOME/mesh-contingency" ref="" service=1
-    local check=0
+    local check=0 counties="" admin_key=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --dir) dir="${2:?--dir needs a folder}"; shift 2 ;;
             --ref) ref="${2:?--ref needs a tag or branch}"; shift 2 ;;
-            --console) say "The web console has been removed; ignoring --console."; shift ;;
             --no-service) service=0; shift ;;
             --check) check=1; shift ;;
-            --alert-channel) say "The alerts now go to the Public channel; ignoring --alert-channel."; shift 2 ;;
-            --comm-channel) say "The comm command has been removed; ignoring --comm-channel."; shift 2 ;;
+            --counties) counties="$(county_list "${2?--counties needs a list}")" \
+                            || die "--counties: $(county_rule)"; shift 2 ;;
+            --admin-key) admin_key="$(admin_key "${2?--admin-key needs a key}")" \
+                             || die "--admin-key: $(key_rule)"; shift 2 ;;
             -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0" 2>/dev/null \
                            || echo "See the comments at the top of install.sh"; return 0 ;;
             *) die "unknown option: $1 (try --help)" ;;
@@ -67,6 +74,15 @@ main() {
         say "Missing: ${missing[*]}. Install it, then run this again:"
         say "  $(package_hint "${missing[@]}")"
         exit 1
+    fi
+
+    # A new node's counties and first admin, asked now so the install runs on
+    # without you.
+    if [ ! -e "$dir/config.toml" ]; then
+        [ -n "$counties" ] || counties="$(ask "Counties for weather alerts, e.g. Taylor, TX; Jones, TX" \
+                                             county_list county_rule)"
+        [ -n "$admin_key" ] || admin_key="$(ask "Your radio's public key, to be its admin (Enter to skip)" \
+                                               admin_key key_rule)"
     fi
 
     # Get the code: a fresh checkout, or an update of the one already there.
@@ -116,6 +132,7 @@ main() {
     if [ ! -e config.toml ]; then
         cp config.example.toml config.toml
         made+=("$dir/config.toml")
+        fill_config "$counties" "$admin_key"
     fi
     chmod 600 config.toml
 
@@ -123,11 +140,16 @@ main() {
 
     # What's left for you to do.
     say ""
-    say "Done: mesh-contingency $(git describe --tags --always) in $dir"
+    say "Done: mesh-contingency $(git describe --tags --always --match 'v*') in $dir"
     local step=1
     if [ ${#made[@]} -gt 0 ]; then
-        say "$((step++)). Edit ${made[0]}: your counties in [alerts], your radio's key in [admins]"
-        say "   (see https://github.com/DJSnitker/mesh-contingency#configuration)"
+        local todo=()
+        [ -n "$counties" ] || todo+=("your counties in [alerts]")
+        [ -n "$admin_key" ] || todo+=("your radio's public key in [admins]")
+        if [ ${#todo[@]} -gt 0 ]; then
+            say "$((step++)). Edit ${made[0]}: $(IFS=,; printf '%s' "${todo[*]}" | sed 's/,/ and /')"
+            say "   (see https://github.com/DJSnitker/mesh-contingency#configuration)"
+        fi
     fi
     local access
     access="$(radio_access)"
@@ -157,6 +179,64 @@ find_python() {
         fi
     done
     return 1
+}
+
+# Asks on the terminal (stdin is the script itself under curl | bash) until
+# check (a function) takes the answer, printing what it makes of it; with no
+# terminal, or Enter, the answer is empty. rule prints what check wants.
+ask() {
+    local prompt="$1" check="$2" rule="$3" answer value
+    if ! { exec 3</dev/tty; } 2>/dev/null; then
+        return 0
+    fi
+    while true; do
+        printf '%s: ' "$prompt" >/dev/tty
+        IFS= read -r answer <&3 || answer=""
+        if [ -z "${answer// }" ]; then value=""; break; fi
+        if value="$("$check" "$answer")"; then break; fi
+        printf '  %s\n' "$("$rule")" >/dev/tty
+    done
+    exec 3<&-
+    printf '%s\n' "$value"
+}
+
+# Counties as the bot takes them: "Name, ST" pieces, split by ";". Prints
+# them one per line as "Name, ST" (or nothing for an empty list); fails on
+# a piece that isn't a name and a state's two letters.
+county_list() {
+    local piece name state
+    local IFS=';'
+    for piece in $1; do
+        piece="$(printf '%s' "$piece" | tr -s ' ,' ' ,' | sed 's/^ *//; s/ *$//')"
+        [ -n "$piece" ] || continue
+        [[ "$piece" =~ ^([A-Za-z][A-Za-z.\'\ -]*[A-Za-z.])[\ ,]+([A-Za-z]{2})$ ]] || return 1
+        name="${BASH_REMATCH[1]%,}" state="${BASH_REMATCH[2]^^}"
+        printf '%s, %s\n' "${name%% }" "$state"
+    done
+}
+county_rule() { printf '%s\n' 'counties are a name and a state, split by ";", e.g. Taylor, TX; Jones, TX'; }
+
+# A full public key, 64 hex digits, in lowercase; fails on anything else.
+admin_key() {
+    local key="${1// }"
+    [[ "$key" =~ ^[0-9A-Fa-f]{64}$ ]] || return 1
+    printf '%s\n' "${key,,}"
+}
+key_rule() { printf '%s\n' "a public key is 64 hex digits (in the MeshCore app, share your contact to see it)"; }
+
+# Writes the counties (one per line) and the admin key into the new
+# config.toml, in place of the example's empty lists.
+fill_config() {
+    local counties="$1" key="$2" list="" county
+    if [ -n "$counties" ]; then
+        while IFS= read -r county; do list+="${list:+, }\"$county\""; done <<< "$counties"
+        sed -i "s|^counties = \[\] .*|counties = [$list]|" config.toml
+        say "Counties: $(printf '%s\n' "$counties" | paste -sd';' - | sed 's/;/; /g')"
+    fi
+    if [ -n "$key" ]; then
+        sed -i "s|^keys = \[\] .*|keys = [\"$key\"]|" config.toml
+        say "Admin: ${key:0:12}..."
+    fi
 }
 
 # Whether this account can open the radio's USB port: nothing when it can,
@@ -227,6 +307,26 @@ check_node() {
         access="$(radio_access 2>/dev/null)"
         if [ -n "$access" ]; then say "- $access"; blockers=$((blockers + 1)); fi
     fi
+    # The config, read as the bot reads it: its mistakes, and what it's missing.
+    local found counties="" admins=0
+    if ! found="$(.venv/bin/python - 2>&1 <<'PY'
+from pathlib import Path
+from mesh_contingency.alerts import load_alerts
+from mesh_contingency.config import load_admins, load_config
+config = load_config(Path("config.toml"))
+print(len(load_alerts(config).counties), len(load_admins(config, Path("config.toml"))[0]))
+PY
+)"; then
+        say "- config.toml has a mistake: $(tail -n 1 <<< "$found")"
+        blockers=$((blockers + 1))
+    else
+        read -r counties admins <<< "$found"
+    fi
+    if [ "$counties" = 0 ]; then
+        say "- No counties in [alerts] in config.toml, so it would post no weather alerts:"
+        say "  add yours, e.g. counties = [\"Taylor, TX\", \"Jones, TX\"]"
+        blockers=$((blockers + 1))
+    fi
     if ! systemctl --user show-environment >/dev/null 2>&1; then
         say "- No systemd user session here (su or a container?): log in as this user directly"
         return 1
@@ -241,13 +341,8 @@ check_node() {
     fi
 
     # What the node runs without, but you probably want.
-    # (an older node's admins may still be in users.toml, which the bot reads)
-    if ! grep -Eqs '"[0-9A-Fa-f]{64}"' config.toml users.toml; then
-        say "- No admin keys in [admins] in config.toml: nobody can send alert or testalert"
-        notes=$((notes + 1))
-    fi
-    if ! grep -Eq '^counties *= *\[ *"' config.toml; then
-        say "- No counties in [alerts] in config.toml: no weather alerts will be posted"
+    if [ "$admins" = 0 ]; then
+        say "- No admin keys in [admins] in config.toml: alert and testalert answer no one"
         notes=$((notes + 1))
     fi
 
@@ -298,6 +393,11 @@ check_node() {
     if grep -q "No Public channel on the radio" <<< "$log"; then
         say "- The radio has no Public channel, so no alerts can be posted: add MeshCore's Public channel"
         say "  back in the radio's app, then run this again."
+        return 1
+    fi
+    if ! grep -q "^Watching NWS alerts for " <<< "$log"; then
+        say "- The bot is listening but didn't start watching for alerts. What it printed:"
+        grep -vE "^(Starting|Started|Stopping|Stopped) |\.service: " <<< "$log" | tail -n 15 | sed 's/^/  /' || true
         return 1
     fi
     warnings="$(grep "^Warning:" <<< "$log" || true)"

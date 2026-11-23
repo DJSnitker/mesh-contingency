@@ -172,15 +172,24 @@ jobs:
           grep -q "and no group can" out
           MC_PORTS="$PWD/ok" ./install.sh --dir ~/node --ref ci-install --no-service 2>&1 | tee out
           grep -q "you can use it" out
-      # The alerts go to Public: an old --alert-channel is ignored, and a new
-      # config sets no channel.
-      - name: Channels
+      # A new node's counties and admin, from the options (CI has no terminal
+      # to ask on); a bad one stops before anything is installed.
+      - name: Counties and admin
         run: |
           export MC_REPO="file://$PWD"
-          ./install.sh --dir ~/node2 --ref ci-install --no-service --alert-channel district7-wx | tee out
-          grep -q "ignoring --alert-channel" out
-          ! grep -q 'channel = ' ~/node2/config.toml
+          key=$(printf 'AB%.0s' {1..32})
+          ./install.sh --dir ~/node2 --ref ci-install --no-service \
+              --counties "Taylor, TX; jones county tx" --admin-key "$key" | tee out
+          grep -qx 'counties = \["Taylor, TX", "jones county, TX"\]' ~/node2/config.toml
+          grep -qx "keys = \[\"$(printf 'ab%.0s' {1..32})\"\]" ~/node2/config.toml
+          ! grep -q "Edit .*config.toml" out
           test ! -e ~/node2/users.toml
+          ~/node2/.venv/bin/python -c "import tomllib; tomllib.load(open('$HOME/node2/config.toml', 'rb'))"
+          ! ./install.sh --dir ~/node3 --counties 'Taylor'
+          ! ./install.sh --dir ~/node3 --admin-key abc
+          test ! -e ~/node3
+          ./install.sh --dir ~/node4 --ref ci-install --no-service | tee out
+          grep -q "your counties in \[alerts\] and your radio's public key in \[admins\]" out
       # --check stops before starting anything with no radio plugged in (CI
       # has no radio, nor a user systemd to start the service with).
       - name: Check mode
